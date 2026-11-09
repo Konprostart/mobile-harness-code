@@ -258,7 +258,7 @@ import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.semantics.LiveRegionMode
-import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.AnnotatedString
@@ -6307,7 +6307,9 @@ private fun RecoveryBanner(
         recovery = recovery,
         reconnectingText = stringResource(R.string.vm_recovery_reconnecting),
         attemptTemplate = stringResource(R.string.vm_recovery_attempt),
+        bannerTemplate = stringResource(R.string.vm_recovery_banner_attempt),
         exhaustedText = stringResource(R.string.vm_recovery_exhausted),
+        failedText = stringResource(R.string.vm_recovery_failed),
     )
     val warningText = recoveryWarningText(
         recovery = recovery,
@@ -6323,10 +6325,9 @@ private fun RecoveryBanner(
         Surface(
             modifier = Modifier
                 .fillMaxWidth()
-                .semantics {
-                    contentDescription = label
-                    liveRegion = LiveRegionMode.Polite
-                },
+                // The visible Text is the announced source; a container description
+                // would make TalkBack read the sentence twice.
+                .semantics { liveRegion = LiveRegionMode.Polite },
             color = when (mode) {
                 RecoveryBannerMode.RECONNECTING -> MaterialTheme.colorScheme.tertiaryContainer
                 RecoveryBannerMode.EXHAUSTED -> MaterialTheme.colorScheme.errorContainer
@@ -6339,7 +6340,13 @@ private fun RecoveryBanner(
                         .padding(start = 16.dp, end = 8.dp, top = 6.dp, bottom = 6.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp)
+                    // Decorative: the visible label already announces the reconnect state.
+                    CircularProgressIndicator(
+                        Modifier
+                            .size(18.dp)
+                            .clearAndSetSemantics {},
+                        strokeWidth = 2.dp,
+                    )
                     Spacer(Modifier.width(12.dp))
                     Text(
                         text = label,
