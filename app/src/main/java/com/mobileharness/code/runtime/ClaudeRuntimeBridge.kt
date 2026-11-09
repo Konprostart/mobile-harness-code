@@ -14,6 +14,8 @@ import com.mobileharness.code.model.ProjectKind
 import com.mobileharness.code.model.ProviderProfile
 import com.mobileharness.code.model.RiskLevel
 import com.mobileharness.code.model.RuntimeEvent
+import com.mobileharness.code.model.RuntimeRecoveryContext
+import com.mobileharness.code.model.RuntimeRecoveryProfile
 import com.mobileharness.code.model.ToolRequest
 import java.io.File
 import java.io.RandomAccessFile
@@ -127,6 +129,20 @@ class ClaudeRuntimeBridge(
     private var lastReasoningUpdateAt = 0L
     private var lastThinkingUpdateAt = 0L
     private var currentThinkingBlockId = 0L
+
+    override val recoveryProfile: RuntimeRecoveryProfile = CLAUDE_RECOVERY_PROFILE
+
+    override fun recoveryContext(sessionId: String, projectId: String): RuntimeRecoveryContext? =
+        if (activeSessionId != sessionId) null else RuntimeRecoveryContext(
+            sessionId = sessionId,
+            inPlaceContinuationAvailable = false, // Task 2/5 refine this
+            persistedHandle = null,
+            toolsExecuted = false,
+            mutatingToolsExecuted = false,
+            interruptedToolOutcomeKnown = false,
+            checkpointAvailable = false,
+            userStopped = userStopRequested,
+        )
 
     override suspend fun startSession(projectId: String, projectSlug: String, projectKind: ProjectKind, prompt: String, conversationHistory: List<ChatMessage>, provider: ProviderProfile): String = withContext(Dispatchers.IO + NonCancellable) {
         val sessionId = UUID.randomUUID().toString()

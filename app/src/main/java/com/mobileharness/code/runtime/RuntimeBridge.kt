@@ -4,7 +4,10 @@ import com.mobileharness.code.model.ChatMessage
 import com.mobileharness.code.model.ChangeItem
 import com.mobileharness.code.model.ProviderProfile
 import com.mobileharness.code.model.ProjectKind
+import com.mobileharness.code.model.RecoveryDecision
 import com.mobileharness.code.model.RuntimeEvent
+import com.mobileharness.code.model.RuntimeRecoveryContext
+import com.mobileharness.code.model.RuntimeRecoveryProfile
 import com.mobileharness.code.model.ToolRequest
 import kotlinx.coroutines.flow.Flow
 
@@ -16,7 +19,11 @@ data class RuntimeLaunchConfig(
 
 interface RuntimeBridge {
     val events: Flow<RuntimeEvent>
-    suspend fun startSession(projectId: String, projectSlug: String, projectKind: ProjectKind, prompt: String, conversationHistory: List<ChatMessage>, provider: ProviderProfile): String    suspend fun respondToApproval(request: ToolRequest, approved: Boolean)
+    val recoveryProfile: RuntimeRecoveryProfile
+    suspend fun startSession(projectId: String, projectSlug: String, projectKind: ProjectKind, prompt: String, conversationHistory: List<ChatMessage>, provider: ProviderProfile): String
+    fun recoveryContext(sessionId: String, projectId: String): RuntimeRecoveryContext?
+    suspend fun recover(action: RecoveryAction, decision: RecoveryDecision): Boolean = false
+    suspend fun respondToApproval(request: ToolRequest, approved: Boolean)
     suspend fun stopSession(sessionId: String)
     suspend fun stopActiveSession()
     suspend fun undoLastChanges(projectId: String): Boolean
