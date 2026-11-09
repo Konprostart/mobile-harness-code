@@ -259,7 +259,7 @@ internal fun transportRetryDelayMillis(attempt: Int): Long? = when (attempt) {
  * `startPrompt` and the first `SessionStarted`) must still delegate to `stopActiveSession`,
  * because the bridge sets its own session id synchronously and the real agent is still running.
  */
-internal fun shouldFinalizeStopLocally(activeSessionId: String?, retryGapActive: Boolean): Boolean =
+internal fun shouldFinalizeStopLocally(retryGapActive: Boolean): Boolean =
     retryGapActive
 
 private val ANTIGRAVITY_MODEL_EFFORT = Regex("^(.*)-(low|medium|high)$")
@@ -4874,7 +4874,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         pendingFollowUps.clear()
         transportRetryAttempts = 0
         val retryGapActive = transportRetryWaiting
-        val finalizeLocally = shouldFinalizeStopLocally(_state.value.activeSessionId, retryGapActive)
+        val finalizeLocally = shouldFinalizeStopLocally(retryGapActive)
         cancelTransportRetry()
         _state.update { it.copy(queuedFollowUps = emptyList()) }
         if (finalizeLocally) {
@@ -5380,11 +5380,15 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         val generation = ++transportRetryGeneration
         transportRetryWaiting = true
         transportRetryingFromSessionId = event.sessionId
-        _state.update {
-            it.copy(
+        val abortedAt = System.currentTimeMillis()
+        _state.update { current ->
+            // Commit the aborted attempt's incomplete Think/Running items into their
+            // own block so they cannot merge into the retry's final answer block.
+            val committed = finishWorkSegment(current, abortedAt)
+            committed.copy(
                 activeSessionId = null,
                 pendingApproval = null,
-                activity = listOf(ActivityItem(str(R.string.vm_transport_reconnecting), "", isComplete = false)) + it.activity,
+                activity = listOf(ActivityItem(str(R.string.vm_transport_reconnecting), "", isComplete = false)) + committed.activity,
             )
         }
         transportRetryJob = viewModelScope.launch {
@@ -5393,6 +5397,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             if (!_state.value.isRunning) return@launch
             if (activeRuntimeRequest !== request) return@launch
             transportRetryWaiting = false
+            transportRetryingFromSessionId = null
             request.runtime.startSession(
                 request.project.id,
                 request.project.slug,
