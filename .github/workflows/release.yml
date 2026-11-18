@@ -79,7 +79,7 @@ jobs:
           {
             "versionCode": ${VERSION_CODE},
             "versionName": "${VERSION_NAME}",
-            "notes": "Mobile Harness Code — independent fork of Mobile Harness. Session auto-recovery, Gradle memory tuning, release & signing pipeline, optional SSH/dukoi.com server sync, reproducible build + SBOM.",
+            "notes": "Mobile Harness Code — independent fork of Mobile Harness. Telegram bot remote control (pairing, status, projects, encrypted backup, APK link), in-app Sidekick assistant, session auto-recovery, Gradle memory tuning, release & signing pipeline, optional SSH/dukoi.com server sync, reproducible build + SBOM. This APK is SIGNED (V1+V2+V3); install mobile-harness-online.apk.",
             "artifacts": {
               "online": {
                 "url": "${URL}",

@@ -28,6 +28,12 @@ sealed interface ConnectionValidation {
     ) : ConnectionValidation
 }
 
+/** One-shot chat completion result used by the in-app Sidekick assistant. */
+sealed interface ChatCompletion {
+    data class Success(val text: String) : ChatCompletion
+    data class Failure(val message: String) : ChatCompletion
+}
+
 /**
  * [context] is optional so existing call sites keep compiling; pass the application
  * context to return user-facing messages in the language picked inside the app.
@@ -165,6 +171,94 @@ class ProviderApiClient(private val context: Context? = null) {
                 text(R.string.rt_api_label_network_error, "Network error"),
             )
         }
+    }
+
+    /**
+     * One-shot chat completion for the Sidekick assistant. Reuses the same wire formats as the
+     * coding agents: Anthropic Messages for ANTHROPIC/ANTHROPIC_GATEWAY/OPENROUTER, chat
+     * completions for OPENAI_CHAT, and the Responses API for OPENAI_RESPONSES.
+     */
+    suspend fun complete(
+        baseUrl: String,
+        model: String,
+        apiKey: String,
+        protocol: ProviderProtocol,
+        systemPrompt: String,
+        userMessage: String,
+    ): ChatCompletion = withContext(Dispatchers.IO) {
+        if (baseUrl.isBlank() || model.isBlank()) {
+            return@withContext ChatCompletion.Failure(
+                text(R.string.rt_api_required_fields, "Base URL, model, and API key are required."),
+            )
+        }
+        val endpoint = messagesEndpoint(baseUrl, protocol)
+        val body = completionBody(model, protocol, systemPrompt, userMessage)
+        val response = request(endpoint, "POST", apiKey, body, protocol, connectTimeoutMs = 12_000, readTimeoutMs = 60_000)
+        when {
+            response.code in 200..299 -> ChatCompletion.Success(extractCompletionText(response.body, protocol))
+            response.code == 401 || response.code == 403 -> ChatCompletion.Failure(
+                text(R.string.rt_api_check_key, "Check this API key or select another saved key."),
+            )
+            response.code == 429 -> ChatCompletion.Failure(
+                text(R.string.rt_api_rate_limited_retry, "Wait a moment, then retry or use another API key."),
+            )
+            response.code in 500..599 -> ChatCompletion.Failure(
+                text(R.string.rt_api_provider_unavailable, "The provider is temporarily unavailable. Try again shortly."),
+            )
+            response.code > 0 -> ChatCompletion.Failure(
+                text(R.string.rt_api_http_error, "The provider returned HTTP ${response.code}. Check the URL and account access.", response.code),
+            )
+            else -> ChatCompletion.Failure(
+                response.error ?: text(R.string.rt_api_check_internet, "Check your internet connection and provider settings."),
+            )
+        }
+    }
+
+    private fun completionBody(
+        model: String,
+        protocol: ProviderProtocol,
+        systemPrompt: String,
+        userMessage: String,
+    ): String = when (protocol) {
+        ProviderProtocol.OPENAI_CHAT -> JSONObject()
+            .put("model", model)
+            .put("max_tokens", COMPLETION_MAX_TOKENS)
+            .put(
+                "messages",
+                JSONArray()
+                    .put(JSONObject().put("role", "system").put("content", systemPrompt))
+                    .put(JSONObject().put("role", "user").put("content", userMessage)),
+            )
+            .toString()
+        ProviderProtocol.OPENAI_RESPONSES -> JSONObject()
+            .put("model", model)
+            .put("instructions", systemPrompt)
+            .put("input", userMessage)
+            .toString()
+        else -> JSONObject()
+            .put("model", model)
+            .put("max_tokens", COMPLETION_MAX_TOKENS)
+            .put("system", systemPrompt)
+            .put("messages", JSONArray().put(JSONObject().put("role", "user").put("content", userMessage)))
+            .toString()
+    }
+
+    private fun extractCompletionText(body: String, protocol: ProviderProtocol): String {
+        val root = runCatching { JSONObject(body) }.getOrNull() ?: return body.take(2000)
+        return when (protocol) {
+            ProviderProtocol.OPENAI_CHAT -> root.optJSONArray("choices")
+                ?.optJSONObject(0)
+                ?.optJSONObject("message")
+                ?.optString("content")
+            ProviderProtocol.OPENAI_RESPONSES -> root.optJSONArray("output")
+                ?.optJSONObject(0)
+                ?.optJSONArray("content")
+                ?.optJSONObject(0)
+                ?.optString("text")
+            else -> root.optJSONArray("content")
+                ?.optJSONObject(0)
+                ?.optString("text")
+        }.orEmpty().ifBlank { body.take(2000) }
     }
 
     private fun request(
@@ -326,6 +420,7 @@ class ProviderApiClient(private val context: Context? = null) {
         // Some OpenAI-compatible providers reject values below three. Eight remains
         // small while working across OpenAI chat, Anthropic-compatible and router APIs.
         const val VALIDATION_MAX_TOKENS = 8
+        const val COMPLETION_MAX_TOKENS = 2048
         const val MAX_PROVIDER_RESPONSE_CHARS = 2 * 1024 * 1024
         val NON_CHAT_NVIDIA_MODEL_MARKERS = listOf(
             "embed", "rerank", "retriever", "flux", "sdxl", "stable-diffusion",

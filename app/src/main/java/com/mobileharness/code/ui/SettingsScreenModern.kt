@@ -30,6 +30,8 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.OpenInNew
 import androidx.compose.material.icons.filled.Backup
+import androidx.compose.material.icons.automirrored.filled.Chat
+import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Build
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Code
@@ -51,6 +53,8 @@ import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.AlertDialog
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -114,7 +118,7 @@ import com.mobileharness.code.ui.theme.AppThemeMode
 import com.mobileharness.code.ui.theme.PocketOrange
 import kotlinx.coroutines.launch
 
-private enum class SettingsSection { APPEARANCE, LANGUAGE, TOOLS, RUNTIME, DIAGNOSTICS, BACKUP, UPDATE_CHANNEL, GRADLE_MEMORY, RELEASE_SIGNING, SERVER_SYNC }
+private enum class SettingsSection { APPEARANCE, LANGUAGE, TOOLS, RUNTIME, DIAGNOSTICS, BACKUP, UPDATE_CHANNEL, GRADLE_MEMORY, RELEASE_SIGNING, SERVER_SYNC, TELEGRAM, SIDEKICK }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -174,6 +178,18 @@ fun SettingsScreen(
     var terminalCleared by remember { mutableStateOf(false) }
     var showReliabilityHelp by rememberSaveable { mutableStateOf(false) }
     var stackPendingRemoval by remember { mutableStateOf<DevStack?>(null) }
+    var showSidekick by rememberSaveable { mutableStateOf(false) }
+
+    if (showSidekick) {
+        Dialog(
+            onDismissRequest = { showSidekick = false },
+            properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false),
+        ) {
+            Surface(Modifier.fillMaxSize()) {
+                SidekickScreen(onClose = { showSidekick = false })
+            }
+        }
+    }
 
     stackPendingRemoval?.let { stack ->
         AlertDialog(
@@ -352,6 +368,41 @@ fun SettingsScreen(
                         onSave = onSaveServerSyncConfig,
                         onClearToken = onClearServerSyncToken,
                     )
+                }
+            }
+
+            item {
+                SettingsAccordion(
+                    title = stringResource(R.string.telegram_title),
+                    subtitle = stringResource(R.string.telegram_subtitle),
+                    icon = Icons.AutoMirrored.Filled.Chat,
+                    expanded = expanded == SettingsSection.TELEGRAM,
+                    onClick = { toggle(SettingsSection.TELEGRAM) },
+                ) {
+                    TelegramSettingsSection()
+                }
+            }
+
+            item {
+                SettingsAccordion(
+                    title = stringResource(R.string.sidekick_title),
+                    subtitle = stringResource(R.string.sidekick_subtitle),
+                    icon = Icons.Default.AutoAwesome,
+                    expanded = expanded == SettingsSection.SIDEKICK,
+                    onClick = { toggle(SettingsSection.SIDEKICK) },
+                ) {
+                    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                        Text(
+                            stringResource(R.string.sidekick_note),
+                            fontSize = 11.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        Button(onClick = { showSidekick = true }, modifier = Modifier.fillMaxWidth()) {
+                            Icon(Icons.Default.AutoAwesome, null)
+                            Spacer(Modifier.width(7.dp))
+                            Text(stringResource(R.string.sidekick_launch))
+                        }
+                    }
                 }
             }
 
