@@ -1,12 +1,12 @@
 {
   "versionCode": 1,
   "versionName": "1.0.0",
-  "notes": "Mobile Harness Code — independent fork of Mobile Harness. First release: rebranded application id (com.mobileharness.code), updated distribution URLs, and preserved MIT attribution.",
+  "notes": "Mobile Harness Code — independent fork of Mobile Harness. Rebranded application id (com.mobileharness.code), updated distribution URLs, MIT attribution preserved.",
   "artifacts": {
     "online": {
       "url": "https://github.com/Konprostart/mobile-harness-code/releases/download/v1.0.0/mobile-harness-online.apk",
-      "sha256": "PLACEHOLDER_FILL_AFTER_BUILD",
-      "sizeBytes": 0
+      "sha256": "c2e13d75f103aaa47034e5424e4c80723557351d3a9491f0eff7611639f835e6",
+      "sizeBytes": 89491680
     }
   }
 }
