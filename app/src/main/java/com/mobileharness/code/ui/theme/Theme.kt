@@ -1,5 +1,6 @@
 package com.mobileharness.code.ui.theme
 
+import android.annotation.SuppressLint
 import android.app.Activity
 import android.os.Build
 import androidx.compose.foundation.isSystemInDarkTheme
@@ -77,6 +78,7 @@ enum class AppThemeMode { SYSTEM, DARK, LIGHT }
 internal fun shouldUseDynamicColor(sdkInt: Int, dynamicColorEnabled: Boolean): Boolean =
     dynamicColorEnabled && sdkInt >= Build.VERSION_CODES.S
 
+@SuppressLint("NewApi") // dynamic*ColorScheme is runtime-guarded by shouldUseDynamicColor(sdkInt >= 31)
 @Composable
 fun PocketTheme(
     themeMode: AppThemeMode = AppThemeMode.SYSTEM,
