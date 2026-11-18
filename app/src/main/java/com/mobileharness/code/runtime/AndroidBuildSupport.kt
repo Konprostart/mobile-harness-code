@@ -81,9 +81,13 @@ data class AndroidBuildRecord(
     val recentDurationsMillis: List<Long> = emptyList(),
 )
 
-internal fun androidGradleCommand(root: File, task: String): String {
+internal fun androidGradleCommand(root: File, task: String, jvmArgs: String? = null): String {
     val launcher = File(root, "gradlew").takeIf(File::isFile)?.let { "bash ./gradlew" } ?: "gradle"
-    return "$launcher -Dorg.gradle.jvmargs= --no-daemon --max-workers=2 " +
+    // Inject an explicit, RAM-aware heap/metaspace profile. Single-quoting the value
+    // keeps it one shell token while still passing the inner space-separated flags, and
+    // a command-line `-D` wins over any stale `org.gradle.jvmargs` in the project.
+    val memoryFlag = if (jvmArgs.isNullOrBlank()) "" else " -Dorg.gradle.jvmargs='$jvmArgs'"
+    return "$launcher$memoryFlag --no-daemon --max-workers=2 " +
         "--init-script /root/.gradle/init.d/pocketdev-android.gradle " +
         "-Pandroid.aapt2FromMavenOverride=/root/android-sdk/build-tools/35.0.0/aapt2 " +
         // Gradle daemons can remain attached to deleted PRoot paths after an
@@ -122,6 +126,16 @@ internal fun findDebugApk(projectRoot: File): File? {
         .filter { it.isFile && it.extension.equals("apk", true) && "/outputs/apk/debug/" in it.invariantSeparatorsPath }
         .maxByOrNull(File::lastModified)
 }
+
+/** Returns the newest release APK under `outputs/apk/release`, preferring the unsigned one. */
+internal fun findReleaseApk(projectRoot: File): File? =
+    projectRoot.walkTopDown().maxDepth(10)
+        .filter { it.isFile && it.extension.equals("apk", true) && "/outputs/apk/release/" in it.invariantSeparatorsPath }
+        .sortedWith(
+            compareByDescending<File> { it.name.contains("unsigned", ignoreCase = true) }
+                .thenByDescending { it.lastModified() },
+        )
+        .firstOrNull()
 
 /** Returns the last debug APK only when every build input is older than it. */
 internal fun findReusableDebugApk(projectRoot: File): File? {

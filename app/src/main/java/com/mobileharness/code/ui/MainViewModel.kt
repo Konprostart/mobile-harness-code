@@ -53,6 +53,8 @@ import com.mobileharness.code.network.ConnectionValidation
 import com.mobileharness.code.network.ModelDiscoveryResult
 import com.mobileharness.code.network.ProviderApiClient
 import com.mobileharness.code.network.GitHubRepository
+import com.mobileharness.code.network.ServerSyncConfig
+import com.mobileharness.code.network.ServerSyncMode
 import com.mobileharness.code.runtime.ClaudeRuntimeBridge
 import com.mobileharness.code.runtime.DshRuntimeBridge
 import com.mobileharness.code.runtime.DSH_CONTINUATION_INSTRUCTION
@@ -89,6 +91,8 @@ import com.mobileharness.code.runtime.AndroidLogLevel
 import com.mobileharness.code.runtime.AndroidLogLine
 import com.mobileharness.code.runtime.AndroidLogcatState
 import com.mobileharness.code.runtime.AndroidProjectTemplateGenerator
+import com.mobileharness.code.runtime.GradleMemory
+import com.mobileharness.code.runtime.GradleMemoryProfile
 import com.mobileharness.code.runtime.RuntimeExecutionService
 import com.mobileharness.code.runtime.RuntimeTaskController
 import com.mobileharness.code.runtime.androidGradleCommand
@@ -602,6 +606,12 @@ data class AppUiState(
     val appUpdateError: String? = null,
     val showWhatsNew: Boolean = false,
     val backupFeatureSeen: Boolean = true,
+    val gradleMemoryAuto: Boolean = true,
+    val gradleMaxHeapMb: Int = 0,
+    val gradleMaxMetaspaceMb: Int = 0,
+    val gradleDeviceRamMb: Long = 0,
+    val gradleEffectiveHeapMb: Int = 1536,
+    val gradleEffectiveMetaspaceMb: Int = 768,
 )
 
 class MainViewModel(application: Application) : AndroidViewModel(application) {
@@ -712,6 +722,12 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             // Only people updating from an earlier version get the dialog; a new install has nothing "new".
             showWhatsNew = preferences.onboardingComplete && preferences.whatsNewSeenVersionCode < BuildConfig.VERSION_CODE,
             backupFeatureSeen = preferences.backupFeatureSeen,
+            gradleMemoryAuto = preferences.gradleMemoryAuto,
+            gradleMaxHeapMb = preferences.gradleMaxHeapMb,
+            gradleMaxMetaspaceMb = preferences.gradleMaxMetaspaceMb,
+            gradleDeviceRamMb = GradleMemory.deviceRamMb(application),
+            gradleEffectiveHeapMb = GradleMemory.resolve(application, preferences).maxHeapMb,
+            gradleEffectiveMetaspaceMb = GradleMemory.resolve(application, preferences).maxMetaspaceMb,
         ),
     ).also {
         if (!preferences.onboardingComplete) preferences.whatsNewSeenVersionCode = BuildConfig.VERSION_CODE
@@ -726,6 +742,62 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         if (_state.value.backupFeatureSeen) return
         preferences.backupFeatureSeen = true
         _state.update { it.copy(backupFeatureSeen = true) }
+    }
+
+    private fun resolveGradleMemoryProfile(): GradleMemoryProfile =
+        GradleMemory.resolve(getApplication(), preferences)
+
+    /** Switches the on-device Gradle heap between RAM-derived and a manual override. */
+    fun setGradleMemoryAuto(auto: Boolean) {
+        preferences.gradleMemoryAuto = auto
+        refreshGradleMemoryState()
+    }
+
+    /** Applies a manual on-device Gradle heap/metaspace override (MiB). */
+    fun setGradleMemoryOverride(heapMb: Int, metaspaceMb: Int) {
+        preferences.gradleMemoryAuto = false
+        preferences.gradleMaxHeapMb = heapMb.coerceIn(256, 8192)
+        preferences.gradleMaxMetaspaceMb = metaspaceMb.coerceIn(64, 2048)
+        refreshGradleMemoryState()
+    }
+
+    private fun refreshGradleMemoryState() {
+        val profile = resolveGradleMemoryProfile()
+        _state.update {
+            it.copy(
+                gradleMemoryAuto = preferences.gradleMemoryAuto,
+                gradleMaxHeapMb = preferences.gradleMaxHeapMb,
+                gradleMaxMetaspaceMb = preferences.gradleMaxMetaspaceMb,
+                gradleEffectiveHeapMb = profile.maxHeapMb,
+                gradleEffectiveMetaspaceMb = profile.maxMetaspaceMb,
+            )
+        }
+    }
+
+    /** Loads the opt-in server sync destination. The dukoi token lives in the encrypted vault. */
+    fun loadServerSyncConfig(): ServerSyncConfig = ServerSyncConfig(
+        enabled = preferences.serverSyncEnabled,
+        mode = runCatching { ServerSyncMode.valueOf(preferences.serverSyncMode) }.getOrDefault(ServerSyncMode.SSH),
+        sshHost = preferences.serverSyncSshHost,
+        sshPort = preferences.serverSyncSshPort,
+        sshUser = preferences.serverSyncSshUser,
+        sshKeyPath = preferences.serverSyncSshKeyPath,
+        sshRemoteDir = preferences.serverSyncSshRemoteDir,
+        dukoiBaseUrl = preferences.serverSyncDukoiBaseUrl,
+        dukoiToken = vault.get(SYNC_DUKOI_TOKEN_ID) ?: "",
+    )
+
+    /** Persists the opt-in server sync destination; an empty dukoi token clears the stored one. */
+    fun saveServerSyncConfig(config: ServerSyncConfig) {
+        preferences.serverSyncEnabled = config.enabled
+        preferences.serverSyncMode = config.mode.name
+        preferences.serverSyncSshHost = config.sshHost
+        preferences.serverSyncSshPort = config.sshPort
+        preferences.serverSyncSshUser = config.sshUser
+        preferences.serverSyncSshKeyPath = config.sshKeyPath
+        preferences.serverSyncSshRemoteDir = config.sshRemoteDir
+        preferences.serverSyncDukoiBaseUrl = config.dukoiBaseUrl
+        if (config.dukoiToken.isBlank()) vault.remove(SYNC_DUKOI_TOKEN_ID) else vault.put(SYNC_DUKOI_TOKEN_ID, config.dukoiToken)
     }
 
     init {
@@ -1630,7 +1702,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 val workspace = findAndroidProjectRoot(projectWorkspaceRoot(project))
                     ?: error(str(R.string.vm_no_android_project))
                 buildWorkspace = workspace
-                val command = androidGradleCommand(workspace, task)
+                val command = androidGradleCommand(workspace, task, resolveGradleMemoryProfile().jvmArgs)
                 _state.update {
                     it.copy(
                         androidBuildPhase = AndroidBuildPhase.BUILDING,
@@ -3442,7 +3514,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             androidTemplate = template,
         )
         val workspace = File(getApplication<Application>().filesDir, "workspaces/${project.id}")
-        runCatching { AndroidProjectTemplateGenerator.generate(workspace, cleanName, template) }
+        runCatching { AndroidProjectTemplateGenerator.generate(workspace, cleanName, template, resolveGradleMemoryProfile()) }
             .onFailure { error ->
                 _state.update { it.copy(toastMessage = str(R.string.an_could_not_create_android_project)) }
                 return
@@ -5892,6 +5964,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         private const val GITHUB_DEVICE_URL = "https://github.com/login/device"
         private val GITHUB_DEVICE_CODE = Regex("\\b[A-Z0-9]{4}-[A-Z0-9]{4}\\b")
         private const val TEST_PROVIDER_DEFAULTS_VERSION = 1
+        private const val SYNC_DUKOI_TOKEN_ID = "dukoi_sync_token"
         private const val TEST_OPENROUTER_BASE_URL = "https://openrouter.ai/api"
         private const val TEST_OPENROUTER_MODEL = "stealth/ox-alpha"
     }

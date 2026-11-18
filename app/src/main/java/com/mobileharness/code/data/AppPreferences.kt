@@ -114,6 +114,54 @@ class AppPreferences(private val context: Context) {
         get() = preferences.getString("theme_mode", "dark") ?: "dark"
         set(value) { preferences.edit().putString("theme_mode", value).apply() }
 
+    /** Whether the on-device Gradle heap follows the RAM-derived recommendation (true) or a manual override. */
+    var gradleMemoryAuto: Boolean
+        get() = preferences.getBoolean("gradle_memory_auto", true)
+        set(value) { preferences.edit().putBoolean("gradle_memory_auto", value).apply() }
+
+    /** Manual max heap in MiB; 0 means "use the RAM-derived recommendation". */
+    var gradleMaxHeapMb: Int
+        get() = preferences.getInt("gradle_max_heap_mb", 0)
+        set(value) { preferences.edit().putInt("gradle_max_heap_mb", value).apply() }
+
+    /** Manual max metaspace in MiB; 0 means "use the RAM-derived recommendation". */
+    var gradleMaxMetaspaceMb: Int
+        get() = preferences.getInt("gradle_max_metaspace_mb", 0)
+        set(value) { preferences.edit().putInt("gradle_max_metaspace_mb", value).apply() }
+
+    // --- Optional server sync (opt-in, off by default) ---------------------------------------
+    var serverSyncEnabled: Boolean
+        get() = preferences.getBoolean("server_sync_enabled", false)
+        set(value) { preferences.edit().putBoolean("server_sync_enabled", value).apply() }
+
+    var serverSyncMode: String
+        get() = preferences.getString("server_sync_mode", "SSH") ?: "SSH"
+        set(value) { preferences.edit().putString("server_sync_mode", value).apply() }
+
+    var serverSyncSshHost: String
+        get() = preferences.getString("server_sync_ssh_host", "") ?: ""
+        set(value) { preferences.edit().putString("server_sync_ssh_host", value).apply() }
+
+    var serverSyncSshPort: Int
+        get() = preferences.getInt("server_sync_ssh_port", 22)
+        set(value) { preferences.edit().putInt("server_sync_ssh_port", value).apply() }
+
+    var serverSyncSshUser: String
+        get() = preferences.getString("server_sync_ssh_user", "root") ?: "root"
+        set(value) { preferences.edit().putString("server_sync_ssh_user", value).apply() }
+
+    var serverSyncSshKeyPath: String
+        get() = preferences.getString("server_sync_ssh_key_path", "") ?: ""
+        set(value) { preferences.edit().putString("server_sync_ssh_key_path", value).apply() }
+
+    var serverSyncSshRemoteDir: String
+        get() = preferences.getString("server_sync_ssh_remote_dir", "") ?: ""
+        set(value) { preferences.edit().putString("server_sync_ssh_remote_dir", value).apply() }
+
+    var serverSyncDukoiBaseUrl: String
+        get() = preferences.getString("server_sync_dukoi_base_url", "") ?: ""
+        set(value) { preferences.edit().putString("server_sync_dukoi_base_url", value).apply() }
+
     var languageCode: String
         get() = preferences.getString("language_code", "system") ?: "system"
         set(value) { preferences.edit().putString("language_code", value).apply() }

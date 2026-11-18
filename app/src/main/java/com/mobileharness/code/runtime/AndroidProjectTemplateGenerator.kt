@@ -11,13 +11,18 @@ object AndroidProjectTemplateGenerator {
         return "com.pocketdev.$suffix"
     }
 
-    fun generate(destination: File, appName: String, template: AndroidTemplate) {
+    fun generate(
+        destination: File,
+        appName: String,
+        template: AndroidTemplate,
+        gradleMemoryProfile: GradleMemoryProfile = GradleMemoryProfile.DEFAULT,
+    ) {
         val parent = requireNotNull(destination.parentFile)
         val staging = File(parent, ".${destination.name}.android-template")
         staging.deleteRecursively()
         check(staging.mkdirs()) { "Could not prepare the Android project" }
         try {
-            writeCommon(staging, appName, packageName(appName), template)
+            writeCommon(staging, appName, packageName(appName), template, gradleMemoryProfile)
             when (template) {
                 AndroidTemplate.COMPOSE -> writeCompose(staging, packageName(appName))
                 AndroidTemplate.XML -> writeXml(staging, packageName(appName))
@@ -33,7 +38,13 @@ object AndroidProjectTemplateGenerator {
         }
     }
 
-    private fun writeCommon(root: File, appName: String, namespace: String, template: AndroidTemplate) {
+    private fun writeCommon(
+        root: File,
+        appName: String,
+        namespace: String,
+        template: AndroidTemplate,
+        gradleMemoryProfile: GradleMemoryProfile,
+    ) {
         val compose = template == AndroidTemplate.COMPOSE
         write(root, "settings.gradle.kts", """
             pluginManagement { repositories { google(); mavenCentral(); gradlePluginPortal() } }
@@ -48,6 +59,7 @@ object AndroidProjectTemplateGenerator {
             }
         """)
         write(root, "gradle.properties", """
+            ${GradleMemory.JVMARGS_KEY}=${gradleMemoryProfile.jvmArgs}
             android.useAndroidX=true
             kotlin.code.style=official
             android.nonTransitiveRClass=true

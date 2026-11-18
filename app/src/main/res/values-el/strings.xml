@@ -479,4 +479,5 @@
     <string name="diagnostics_inactive_stopped">Οι ανενεργές διεργασίες διακόπηκαν</string>
     <string name="diagnostics_cache_busy">Περιμένετε να ολοκληρωθούν οι ενεργές εργασίες πριν από την εκκαθάριση της εξόδου</string>
     <string name="diagnostics_cache_cleared">Η προσωρινή έξοδος περιβάλλοντος εκκαθαρίστηκε</string>
+<string name="gradle_memory_title">Μνήμη build Android</string><string name="gradle_memory_subtitle">Σωρός και μεταχώρος για builds σε αυτό το τηλέφωνο</string><string name="gradle_memory_auto_label">Αυτόματο (συνιστάται)</string><string name="gradle_memory_auto_desc">Προέρχεται από %1$d MiB μνήμης RAM συσκευής</string><string name="gradle_memory_manual_label">Χειροκίνητη παράκαμψη</string><string name="gradle_memory_heap_label">Μέγιστος σωρός (MiB)</string><string name="gradle_memory_metaspace_label">Μέγιστος μεταχώρος (MiB)</string><string name="gradle_memory_effective">Ενεργό: %1$s</string><string name="gradle_memory_save_override">Αποθήκευση παράκαμψης</string>
 </resources>

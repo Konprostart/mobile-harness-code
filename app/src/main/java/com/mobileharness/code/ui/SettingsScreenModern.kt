@@ -111,7 +111,7 @@ import com.mobileharness.code.ui.theme.AppThemeMode
 import com.mobileharness.code.ui.theme.PocketOrange
 import kotlinx.coroutines.launch
 
-private enum class SettingsSection { APPEARANCE, LANGUAGE, TOOLS, RUNTIME, DIAGNOSTICS, BACKUP, UPDATE_CHANNEL }
+private enum class SettingsSection { APPEARANCE, LANGUAGE, TOOLS, RUNTIME, DIAGNOSTICS, BACKUP, UPDATE_CHANNEL, GRADLE_MEMORY }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -149,6 +149,8 @@ fun SettingsScreen(
     showBackupDot: Boolean = false,
     onBackupOpened: () -> Unit = {},
     openBackup: Boolean = false,
+    onSetGradleMemoryAuto: (Boolean) -> Unit = {},
+    onSetGradleMemoryOverride: (Int, Int) -> Unit = { _, _ -> },
 ) {
     val context = LocalContext.current
     var expanded by rememberSaveable { mutableStateOf<SettingsSection?>(null) }
@@ -285,6 +287,22 @@ fun SettingsScreen(
                         onRefresh = onRefreshDiagnostics,
                         onStopInactiveProcesses = onStopInactiveProcesses,
                         onClearRuntimeCache = onClearRuntimeCache,
+                    )
+                }
+            }
+
+            item {
+                SettingsAccordion(
+                    title = stringResource(R.string.gradle_memory_title),
+                    subtitle = stringResource(R.string.gradle_memory_subtitle),
+                    icon = Icons.Default.Memory,
+                    expanded = expanded == SettingsSection.GRADLE_MEMORY,
+                    onClick = { toggle(SettingsSection.GRADLE_MEMORY) },
+                ) {
+                    GradleMemorySettings(
+                        state = state,
+                        onSetAuto = onSetGradleMemoryAuto,
+                        onSaveOverride = onSetGradleMemoryOverride,
                     )
                 }
             }
@@ -715,6 +733,81 @@ private fun SettingsAccordion(
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun GradleMemorySettings(
+    state: AppUiState,
+    onSetAuto: (Boolean) -> Unit,
+    onSaveOverride: (Int, Int) -> Unit,
+) {
+    var heapText by rememberSaveable { mutableStateOf("") }
+    var metaspaceText by rememberSaveable { mutableStateOf("") }
+    val effective = "-Xmx${state.gradleEffectiveHeapMb}m -XX:MaxMetaspaceSize=${state.gradleEffectiveMetaspaceMb}m"
+
+    fun seedManualFields() {
+        val heap = state.gradleMaxHeapMb.takeIf { it > 0 } ?: state.gradleEffectiveHeapMb
+        val meta = state.gradleMaxMetaspaceMb.takeIf { it > 0 } ?: state.gradleEffectiveMetaspaceMb
+        if (heapText.isBlank()) heapText = heap.toString()
+        if (metaspaceText.isBlank()) metaspaceText = meta.toString()
+    }
+
+    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+            OutlinedButton(
+                onClick = { onSetAuto(true) },
+                modifier = Modifier.weight(1f),
+                border = if (state.gradleMemoryAuto) BorderStroke(1.dp, MaterialTheme.colorScheme.primary) else null,
+            ) { Text(stringResource(R.string.gradle_memory_auto_label), maxLines = 1) }
+            OutlinedButton(
+                onClick = {
+                    seedManualFields()
+                    onSetAuto(false)
+                },
+                modifier = Modifier.weight(1f),
+                border = if (!state.gradleMemoryAuto) BorderStroke(1.dp, MaterialTheme.colorScheme.primary) else null,
+            ) { Text(stringResource(R.string.gradle_memory_manual_label), maxLines = 1) }
+        }
+
+        if (state.gradleMemoryAuto) {
+            Text(
+                stringResource(R.string.gradle_memory_auto_desc, state.gradleDeviceRamMb),
+                fontSize = 12.sp,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        } else {
+            OutlinedTextField(
+                value = heapText,
+                onValueChange = { heapText = it.filter(Char::isDigit).take(4) },
+                label = { Text(stringResource(R.string.gradle_memory_heap_label)) },
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth(),
+            )
+            OutlinedTextField(
+                value = metaspaceText,
+                onValueChange = { metaspaceText = it.filter(Char::isDigit).take(4) },
+                label = { Text(stringResource(R.string.gradle_memory_metaspace_label)) },
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth(),
+            )
+            Button(
+                onClick = {
+                    val heap = heapText.toIntOrNull()
+                    val metaspace = metaspaceText.toIntOrNull()
+                    if (heap != null && metaspace != null) onSaveOverride(heap, metaspace)
+                },
+                modifier = Modifier.fillMaxWidth(),
+            ) { Text(stringResource(R.string.gradle_memory_save_override)) }
+        }
+
+        Text(
+            stringResource(R.string.gradle_memory_effective, effective),
+            fontSize = 12.sp,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
     }
 }
 

@@ -5,6 +5,7 @@ import android.net.ConnectivityManager
 import android.system.Os
 import com.mobileharness.code.BuildConfig
 import com.mobileharness.code.R
+import com.mobileharness.code.data.AppPreferences
 import com.mobileharness.code.ui.AppStrings
 import com.mobileharness.code.ui.localizedLabel
 import com.mobileharness.code.ui.localizedTitle
@@ -1140,9 +1141,13 @@ class RuntimeInstaller(private val context: Context) {
         val gradleDir = File(runtimeRootfs, "root/.gradle").apply { mkdirs() }
         val properties = File(gradleDir, "gradle.properties")
         val existingLines = properties.readTextOrNull()?.lineSequence()?.toList().orEmpty()
+        // Derive the heap from the phone's RAM (with a manual Settings override) so a
+        // 3 GiB heap never exhausts a small device, and an explicit metaspace cap stops
+        // `OutOfMemoryError: Metaspace` during on-device Compose builds.
+        val jvmArgs = GradleMemory.resolve(context, AppPreferences(context)).jvmArgs
         val managedLines = listOf(
             "$ANDROID_AAPT2_PROPERTY=$ANDROID_AAPT2_GUEST_PATH",
-            "$GRADLE_JVMARGS_PROPERTY=-Xmx512m -XX:MaxMetaspaceSize=256m -Dfile.encoding=UTF-8",
+            "$GRADLE_JVMARGS_PROPERTY=$jvmArgs",
             "$GRADLE_WORKERS_PROPERTY=2",
             "$GRADLE_PARALLEL_PROPERTY=false",
             "$KOTLIN_EXECUTION_PROPERTY=in-process",

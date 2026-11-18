@@ -2618,6 +2618,8 @@ private fun RootScreenHost(
                     onRefreshDiagnostics = viewModel::refreshDeveloperDiagnostics,
                     onStopInactiveProcesses = viewModel::stopInactiveDeveloperProcesses,
                     onClearRuntimeCache = viewModel::clearDeveloperRuntimeCache,
+                    onSetGradleMemoryAuto = viewModel::setGradleMemoryAuto,
+                    onSetGradleMemoryOverride = viewModel::setGradleMemoryOverride,
                 )
             }
         }
