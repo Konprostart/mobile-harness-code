@@ -57,6 +57,8 @@
     <string name="ws_collapse">收起</string>
     <string name="ws_expand">展开</string>
     <string name="ws_update_ready">新版本已就绪</string>
+    <string name="ws_check_for_updates">Check for updates</string>
+    <string name="ws_up_to_date">You're on the latest version</string>
     <string name="ws_update">更新</string>
     <string name="ws_create_starter_project">创建入门项目</string>
     <string name="ws_project_name">项目名称</string>

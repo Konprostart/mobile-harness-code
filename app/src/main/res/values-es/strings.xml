@@ -37,6 +37,8 @@
     <string name="settings_language">Idioma</string>
     <string name="settings_tools">Herramientas de desarrollo</string>
     <string name="settings_runtime">Entorno Linux</string>
+    <string name="settings_updates">Updates</string>
+    <string name="settings_updates_subtitle">Check and install app updates</string>
     <string name="settings_privacy">Política de privacidad</string>
     <string name="settings_privacy_desc">Cómo se gestionan los datos locales y solicitudes de IA</string>
     <string name="settings_app_desc">Espacio de programación con IA local</string>

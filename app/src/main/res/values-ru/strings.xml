@@ -37,6 +37,8 @@
     <string name="settings_language">Язык</string>
     <string name="settings_tools">Инструменты разработки</string>
     <string name="settings_runtime">Среда Linux</string>
+    <string name="settings_updates">Updates</string>
+    <string name="settings_updates_subtitle">Check and install app updates</string>
     <string name="settings_privacy">Политика конфиденциальности</string>
     <string name="settings_privacy_desc">Как обрабатываются локальные данные и запросы к ИИ</string>
     <string name="settings_app_desc">Локальная среда разработки с ИИ</string>

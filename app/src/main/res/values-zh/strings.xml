@@ -37,6 +37,8 @@
     <string name="settings_language">语言</string>
     <string name="settings_tools">开发工具</string>
     <string name="settings_runtime">Linux 运行时</string>
+    <string name="settings_updates">Updates</string>
+    <string name="settings_updates_subtitle">Check and install app updates</string>
     <string name="settings_privacy">隐私政策</string>
     <string name="settings_privacy_desc">本地数据与 AI 服务请求的处理方式</string>
     <string name="settings_app_desc">本地 AI 编程工作空间</string>

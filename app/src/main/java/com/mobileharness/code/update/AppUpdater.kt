@@ -10,8 +10,6 @@ import com.mobileharness.code.ui.AppStrings
 import java.io.File
 import java.net.HttpURLConnection
 import java.net.URL
-import java.security.MessageDigest
-import org.json.JSONObject
 
 data class AppUpdateInfo(
     val versionCode: Long,
@@ -48,22 +46,7 @@ class AppUpdater(
             val code = connection.responseCode
             if (code !in 200..299) return null
             val body = connection.inputStream.bufferedReader().use { it.readText() }
-            val root = JSONObject(body)
-            val versionCode = root.optLong("versionCode")
-            if (versionCode <= BuildConfig.VERSION_CODE) return null
-            val artifact = root.optJSONObject("artifacts")?.optJSONObject(BuildConfig.APP_VARIANT)
-                ?: root.optJSONObject(BuildConfig.APP_VARIANT)
-                ?: root
-            val url = artifact.optString("url").ifBlank { artifact.optString("apkUrl") }
-            if (!url.startsWith("https://")) return null
-            AppUpdateInfo(
-                versionCode = versionCode,
-                versionName = root.optString("versionName", versionCode.toString()),
-                apkUrl = url,
-                sha256 = artifact.optString("sha256").lowercase(),
-                sizeBytes = artifact.optLong("sizeBytes", -1L),
-                notes = root.optString("notes"),
-            )
+            parseAppUpdateManifest(body, BuildConfig.VERSION_CODE.toLong(), BuildConfig.APP_VARIANT)
         } finally {
             connection.disconnect()
         }
@@ -73,38 +56,47 @@ class AppUpdater(
         val directory = File(context.filesDir, "updates").also { it.mkdirs() }
         val partial = File(directory, "mobile-harness-${BuildConfig.APP_VARIANT}.apk.part")
         val target = File(directory, "mobile-harness-${BuildConfig.APP_VARIANT}.apk")
-        val connection = URL(info.apkUrl).openConnection() as HttpURLConnection
-        try {
-            connection.connectTimeout = 15_000
-            connection.readTimeout = 30_000
-            connection.instanceFollowRedirects = true
-            val code = connection.responseCode
-            check(code in 200..299) { str(R.string.rt_update_download_failed, code) }
-            val total = connection.contentLengthLong.takeIf { it > 0 } ?: info.sizeBytes
-            connection.inputStream.use { input ->
-                partial.outputStream().use { output ->
-                    val buffer = ByteArray(128 * 1024)
-                    var downloaded = 0L
-                    while (true) {
-                        val count = input.read(buffer)
-                        if (count < 0) break
-                        output.write(buffer, 0, count)
-                        downloaded += count
-                        progress(downloaded, total)
+        partial.delete()
+        return try {
+            val connection = URL(info.apkUrl).openConnection() as HttpURLConnection
+            try {
+                connection.connectTimeout = 15_000
+                connection.readTimeout = 30_000
+                connection.instanceFollowRedirects = true
+                val code = connection.responseCode
+                check(code in 200..299) { str(R.string.rt_update_download_failed, code) }
+                val total = connection.contentLengthLong.takeIf { it > 0 } ?: info.sizeBytes
+                connection.inputStream.use { input ->
+                    partial.outputStream().use { output ->
+                        val buffer = ByteArray(128 * 1024)
+                        var downloaded = 0L
+                        while (true) {
+                            val count = input.read(buffer)
+                            if (count < 0) break
+                            output.write(buffer, 0, count)
+                            downloaded += count
+                            progress(downloaded, total)
+                        }
                     }
                 }
+            } finally {
+                connection.disconnect()
             }
-        } finally {
-            connection.disconnect()
+            if (info.sha256.isNotBlank()) {
+                val actual = UpdateChecksum.of(partial)
+                check(actual.equals(info.sha256, ignoreCase = true)) { str(R.string.rt_update_checksum_failed) }
+            }
+            verifyApk(partial, info.versionCode)
+            if (target.exists()) target.delete()
+            check(partial.renameTo(target)) { str(R.string.rt_update_prepare_failed) }
+            target
+        } catch (error: Throwable) {
+            // Fail-closed: never leave a partial download behind; the file is
+            // deleted on any interruption or failed verification so a later
+            // retry always starts from a clean slate.
+            partial.delete()
+            throw error
         }
-        if (info.sha256.isNotBlank()) {
-            val actual = sha256(partial)
-            check(actual.equals(info.sha256, ignoreCase = true)) { str(R.string.rt_update_checksum_failed) }
-        }
-        verifyApk(partial, info.versionCode)
-        if (target.exists()) target.delete()
-        check(partial.renameTo(target)) { str(R.string.rt_update_prepare_failed) }
-        return target
     }
 
     @Suppress("DEPRECATION")
@@ -134,20 +126,6 @@ class AppUpdater(
         } else {
             info.signatures
         }
-        return signers.orEmpty().map { sha256(it.toByteArray()) }.toSet()
+        return signers.orEmpty().map { UpdateChecksum.of(it.toByteArray()) }.toSet()
     }
-
-    private fun sha256(file: File): String = file.inputStream().use { input ->
-        val digest = MessageDigest.getInstance("SHA-256")
-        val buffer = ByteArray(128 * 1024)
-        while (true) {
-            val count = input.read(buffer)
-            if (count < 0) break
-            digest.update(buffer, 0, count)
-        }
-        digest.digest().joinToString("") { "%02x".format(it) }
-    }
-
-    private fun sha256(bytes: ByteArray): String = MessageDigest.getInstance("SHA-256")
-        .digest(bytes).joinToString("") { "%02x".format(it) }
 }

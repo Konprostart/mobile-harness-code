@@ -37,6 +37,8 @@
     <string name="settings_language">اللغة</string>
     <string name="settings_tools">أدوات المطور</string>
     <string name="settings_runtime">بيئة تشغيل لينكس</string>
+    <string name="settings_updates">Updates</string>
+    <string name="settings_updates_subtitle">Check and install app updates</string>
     <string name="settings_privacy">سياسة الخصوصية</string>
     <string name="settings_privacy_desc">كيفية التعامل مع البيانات المحلية وطلبات الذكاء الاصطناعي</string>
     <string name="settings_app_desc">مساحة عمل برمجة ذكية محلية</string>

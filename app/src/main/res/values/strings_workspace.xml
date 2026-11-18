@@ -57,6 +57,8 @@
     <string name="ws_collapse">Collapse</string>
     <string name="ws_expand">Expand</string>
     <string name="ws_update_ready">A new update is ready</string>
+    <string name="ws_check_for_updates">Check for updates</string>
+    <string name="ws_up_to_date">You're on the latest version</string>
     <string name="ws_update">Update</string>
     <string name="ws_create_starter_project">Create a starter project</string>
     <string name="ws_project_name">Project name</string>

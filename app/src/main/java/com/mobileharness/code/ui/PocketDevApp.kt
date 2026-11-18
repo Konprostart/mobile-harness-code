@@ -2638,6 +2638,8 @@ private fun RootScreenHost(
                     onSetSidekickBackgroundResearch = viewModel::setSidekickBackgroundResearch,
                     onSetSidekickResearchSources = viewModel::setSidekickResearchSources,
                     onSaveSidekickProvider = viewModel::saveSidekickProvider,
+                    onCheckForAppUpdate = { viewModel.checkForAppUpdate(force = true) },
+                    onInstallAppUpdate = viewModel::installAppUpdate,
                 )
             }
         }

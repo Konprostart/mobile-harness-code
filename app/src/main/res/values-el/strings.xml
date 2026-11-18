@@ -37,6 +37,8 @@
     <string name="settings_language">Γλώσσα</string>
     <string name="settings_tools">Εργαλεία προγραμματιστή</string>
     <string name="settings_runtime">Περιβάλλον Linux</string>
+    <string name="settings_updates">Updates</string>
+    <string name="settings_updates_subtitle">Check and install app updates</string>
     <string name="settings_privacy">Πολιτική απορρήτου</string>
     <string name="settings_privacy_desc">Πώς διαχειρίζονται τα τοπικά δεδομένα και τα αιτήματα προς παρόχους AI</string>
     <string name="settings_app_desc">Τοπικός χώρος εργασίας προγραμματισμού με AI</string>

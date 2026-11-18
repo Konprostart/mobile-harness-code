@@ -57,6 +57,8 @@
     <string name="ws_collapse">طي</string>
     <string name="ws_expand">توسيع</string>
     <string name="ws_update_ready">يتوفر تحديث جديد</string>
+    <string name="ws_check_for_updates">Check for updates</string>
+    <string name="ws_up_to_date">You're on the latest version</string>
     <string name="ws_update">تحديث</string>
     <string name="ws_create_starter_project">إنشاء مشروع مبدئي</string>
     <string name="ws_project_name">اسم المشروع</string>

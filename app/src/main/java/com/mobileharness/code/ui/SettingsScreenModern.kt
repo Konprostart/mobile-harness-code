@@ -2,7 +2,10 @@ package com.mobileharness.code.ui
 
 import android.content.Intent
 import android.net.Uri
+import android.os.Build
 import android.provider.Settings
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
@@ -38,6 +41,7 @@ import androidx.compose.material.icons.filled.Code
 import androidx.compose.material.icons.filled.DarkMode
 import androidx.compose.material.icons.filled.DeleteSweep
 import androidx.compose.material.icons.filled.Dns
+import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.LightMode
@@ -118,7 +122,7 @@ import com.mobileharness.code.ui.theme.AppThemeMode
 import com.mobileharness.code.ui.theme.PocketOrange
 import kotlinx.coroutines.launch
 
-private enum class SettingsSection { APPEARANCE, LANGUAGE, TOOLS, RUNTIME, DIAGNOSTICS, BACKUP, UPDATE_CHANNEL, GRADLE_MEMORY, RELEASE_SIGNING, SERVER_SYNC, TELEGRAM, SIDEKICK }
+private enum class SettingsSection { APPEARANCE, LANGUAGE, TOOLS, RUNTIME, DIAGNOSTICS, BACKUP, UPDATE_CHANNEL, UPDATES, GRADLE_MEMORY, RELEASE_SIGNING, SERVER_SYNC, TELEGRAM, SIDEKICK }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -171,8 +175,13 @@ fun SettingsScreen(
     onSetSidekickBackgroundResearch: (Boolean) -> Unit = {},
     onSetSidekickResearchSources: (String) -> Unit = {},
     onSaveSidekickProvider: (ProviderProfile) -> Unit = {},
+    onCheckForAppUpdate: () -> Unit = {},
+    onInstallAppUpdate: () -> Unit = {},
 ) {
     val context = LocalContext.current
+    val installPermissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) {
+        onInstallAppUpdate()
+    }
     var expanded by rememberSaveable { mutableStateOf<SettingsSection?>(null) }
     LaunchedEffect(openBackup) {
         if (openBackup) {
@@ -279,6 +288,107 @@ fun SettingsScreen(
                         ModernThemeChoice(stringResource(R.string.theme_dark), Icons.Default.DarkMode, state.themeMode == AppThemeMode.DARK, { onSetThemeMode(AppThemeMode.DARK) }, Modifier.weight(1f))
                         ModernThemeChoice(stringResource(R.string.theme_light), Icons.Default.LightMode, state.themeMode == AppThemeMode.LIGHT, { onSetThemeMode(AppThemeMode.LIGHT) }, Modifier.weight(1f))
                         ModernThemeChoice(stringResource(R.string.theme_system), Icons.Default.PhoneAndroid, state.themeMode == AppThemeMode.SYSTEM, { onSetThemeMode(AppThemeMode.SYSTEM) }, Modifier.weight(1f))
+                    }
+                }
+            }
+
+            item {
+                val update = state.appUpdate
+                val status = state.appUpdateStatus
+                SettingsAccordion(
+                    title = stringResource(R.string.settings_updates),
+                    subtitle = stringResource(R.string.settings_updates_subtitle),
+                    icon = Icons.Default.Download,
+                    expanded = expanded == SettingsSection.UPDATES,
+                    onClick = { toggle(SettingsSection.UPDATES) },
+                ) {
+                    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                        Text(
+                            stringResource(R.string.whats_new_version, BuildConfig.VERSION_NAME),
+                            fontSize = 13.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        OutlinedButton(
+                            onClick = onCheckForAppUpdate,
+                            enabled = status != AppUpdateStatus.DOWNLOADING,
+                            modifier = Modifier.fillMaxWidth(),
+                        ) {
+                            Icon(Icons.Default.Refresh, null, Modifier.size(17.dp))
+                            Spacer(Modifier.width(6.dp))
+                            Text(stringResource(R.string.ws_check_for_updates))
+                        }
+                        when {
+                            update == null -> Text(
+                                stringResource(R.string.ws_up_to_date),
+                                fontSize = 13.sp,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                            status == AppUpdateStatus.DOWNLOADING -> {
+                                val total = state.appUpdateTotalBytes
+                                val downloaded = state.appUpdateDownloadedBytes
+                                val progress = if (total > 0) (downloaded.toFloat() / total).coerceIn(0f, 1f) else 0f
+                                if (total > 0) {
+                                    LinearProgressIndicator(progress = { progress }, modifier = Modifier.fillMaxWidth())
+                                } else {
+                                    LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+                                }
+                                Text(
+                                    if (total > 0) {
+                                        stringResource(
+                                            R.string.ws_update_downloading_progress,
+                                            formatTransferMb(downloaded),
+                                            formatTransferMb(total),
+                                            (progress * 100).toInt(),
+                                        )
+                                    } else {
+                                        stringResource(R.string.ws_update_downloading, formatTransferMb(downloaded))
+                                    },
+                                    fontSize = 12.sp,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
+                            status == AppUpdateStatus.INSTALLING -> Text(
+                                stringResource(R.string.ws_update_verified_installing),
+                                fontSize = 13.sp,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                            else -> {
+                                Text(stringResource(R.string.ws_update_ready), fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
+                                Text(
+                                    stringResource(R.string.ws_update_to, update.versionName),
+                                    fontSize = 13.sp,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                                if (update.sizeBytes > 0) {
+                                    Text(
+                                        stringResource(R.string.ws_update_download_size, formatTransferMb(update.sizeBytes)),
+                                        fontSize = 12.sp,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    )
+                                }
+                                update.notes.takeIf { it.isNotBlank() }?.let {
+                                    Text(it, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                }
+                                val canInstall = Build.VERSION.SDK_INT < Build.VERSION_CODES.O || context.packageManager.canRequestPackageInstalls()
+                                Button(
+                                    onClick = {
+                                        if (!canInstall) {
+                                            installPermissionLauncher.launch(
+                                                Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES, Uri.parse("package:${context.packageName}")),
+                                            )
+                                        } else {
+                                            onInstallAppUpdate()
+                                        }
+                                    },
+                                    modifier = Modifier.fillMaxWidth(),
+                                ) {
+                                    Text(if (!canInstall) stringResource(R.string.ws_grant_permission) else stringResource(R.string.ws_download_and_install))
+                                }
+                            }
+                        }
+                        state.appUpdateError?.let {
+                            Text(it, fontSize = 12.sp, color = MaterialTheme.colorScheme.error)
+                        }
                     }
                 }
             }

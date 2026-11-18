@@ -37,6 +37,8 @@
     <string name="settings_language">भाषा</string>
     <string name="settings_tools">डेवलपर टूल्स</string>
     <string name="settings_runtime">लिनक्स रनटाइम</string>
+    <string name="settings_updates">Updates</string>
+    <string name="settings_updates_subtitle">Check and install app updates</string>
     <string name="settings_privacy">गोपनीयता नीति</string>
     <string name="settings_privacy_desc">स्थानीय डेटा और एआई प्रदाता अनुरोधों को कैसे संभाला जाता है</string>
     <string name="settings_app_desc">लोकल एआई कोडिंग वर्कस्पेस</string>

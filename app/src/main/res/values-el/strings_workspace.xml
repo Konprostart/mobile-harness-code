@@ -57,6 +57,8 @@
     <string name="ws_collapse">Σύμπτυξη</string>
     <string name="ws_expand">Ανάπτυξη</string>
     <string name="ws_update_ready">Μια νέα ενημέρωση είναι έτοιμη</string>
+    <string name="ws_check_for_updates">Check for updates</string>
+    <string name="ws_up_to_date">You're on the latest version</string>
     <string name="ws_update">Ενημέρωση</string>
     <string name="ws_create_starter_project">Δημιουργία έργου εκκίνησης</string>
     <string name="ws_project_name">Όνομα έργου</string>
