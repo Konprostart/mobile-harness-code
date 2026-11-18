@@ -12,8 +12,12 @@ import com.mobileharness.code.model.DiffLineType
 import com.mobileharness.code.model.ProviderKind
 import com.mobileharness.code.model.ProjectKind
 import com.mobileharness.code.model.ProviderProfile
+import com.mobileharness.code.model.RecoveryDecision
+import com.mobileharness.code.model.RecoveryFailureInfo
 import com.mobileharness.code.model.RiskLevel
 import com.mobileharness.code.model.RuntimeEvent
+import com.mobileharness.code.model.RuntimeRecoveryContext
+import com.mobileharness.code.model.RuntimeRecoveryProfile
 import com.mobileharness.code.model.ToolRequest
 import java.io.File
 import java.io.RandomAccessFile
@@ -36,21 +40,57 @@ import org.json.JSONObject
 import org.json.JSONArray
 
 internal object ProviderRuntimeErrorDetector {
+    private const val REJECTED_KEY = "The provider rejected the saved API key."
+    private const val USER_NOT_FOUND = "User not found. Check the API key and provider account."
+    private val fatalStatuses = setOf(401, 403, 429)
+
+    /**
+     * Returns a user-facing reason when [line] reports a fatal provider error, or null otherwise.
+     *
+     * In stream-json mode, only events that describe an API failure are inspected. Tool results
+     * (`"type":"user"`), regular assistant output and stream deltas carry arbitrary file contents
+     * or command output, so matching keywords there would kill healthy sessions (issue #110).
+     */
     fun detect(line: String): String? {
-        val json = runCatching { JSONObject(line) }.getOrNull()
-        val combined = buildString {
-            append(line)
-            json?.let {
-                append(' ')
-                append(it.optString("error"))
-                append(' ')
-                append(it.optString("message"))
-                append(' ')
-                append(it.optString("result"))
+        val json = runCatching { JSONObject(line) }.getOrNull() ?: return classify(line)
+        return when (json.optString("type")) {
+            "system" -> {
+                if (json.optString("subtype") != "api_retry") return null
+                val reason = classify(json.optString("error"))
+                when {
+                    reason != null -> reason
+                    json.optInt("error_status") in fatalStatuses -> REJECTED_KEY
+                    else -> null
+                }
             }
-        }.lowercase()
+            "result" -> {
+                if (!json.optBoolean("is_error")) return null
+                classify(listOf(json.optString("error"), json.optString("result")).joinToString(" "))
+            }
+            "assistant" -> {
+                // Claude Code marks synthetic API-error messages with a top-level "error" field.
+                val error = json.optString("error")
+                if (error.isBlank()) return null
+                classify("$error ${assistantText(json)}")
+            }
+            else -> null
+        }
+    }
+
+    private fun assistantText(json: JSONObject): String {
+        val content = json.optJSONObject("message")?.optJSONArray("content") ?: return ""
+        return buildString {
+            for (index in 0 until content.length()) {
+                val block = content.optJSONObject(index) ?: continue
+                if (block.optString("type") == "text") append(block.optString("text")).append(' ')
+            }
+        }
+    }
+
+    private fun classify(text: String): String? {
+        val combined = text.lowercase()
         return when {
-            "user not found" in combined -> "User not found. Check the API key and provider account."
+            "user not found" in combined -> USER_NOT_FOUND
             "authentication_failed" in combined ||
                 "authentication failed" in combined ||
                 "invalid api key" in combined ||
@@ -60,8 +100,7 @@ internal object ProviderRuntimeErrorDetector {
                 "expired" in combined ||
                 "quota" in combined ||
                 "rate limit" in combined ||
-                (json?.optString("subtype") == "api_retry" && json.optInt("error_status") in listOf(401, 403, 429)) ->
-                "The provider rejected the saved API key."
+                "rate_limit" in combined -> REJECTED_KEY
             else -> null
         }
     }
@@ -82,6 +121,9 @@ class ClaudeRuntimeBridge(
     @Volatile private var activeProcess: Process? = null
     @Volatile private var activeSessionId: String? = null
     @Volatile private var userStopRequested: Boolean = false
+    @Volatile private var sawToolCall: Boolean = false
+    @Volatile private var sawMutatingTool: Boolean = false
+    @Volatile private var lastSessionId: String? = null
     @Volatile private var activeProjectSlug: String? = null
     @Volatile private var taskStartedAtElapsedRealtime: Long = 0L
     @Volatile private var lastForegroundProgressAt: Long = 0L
@@ -93,9 +135,54 @@ class ClaudeRuntimeBridge(
     private var lastThinkingUpdateAt = 0L
     private var currentThinkingBlockId = 0L
 
+    override val recoveryProfile: RuntimeRecoveryProfile = CLAUDE_RECOVERY_PROFILE
+
+    override fun recoveryContext(sessionId: String, projectId: String): RuntimeRecoveryContext? {
+        // Report the real tracked flags even after the process died and
+        // `activeSessionId` was nulled: `lastSessionId` still names the failed
+        // session until the next `startSession` begins.
+        if (activeSessionId != sessionId && lastSessionId != sessionId) return null
+        return RuntimeRecoveryContext(
+            sessionId = sessionId,
+            // Claude Code runs one-shot `-p` turns: there is no live session to
+            // steer and no persisted handle to resume after the process is gone.
+            inPlaceContinuationAvailable = false,
+            persistedHandle = null,
+            toolsExecuted = sawToolCall,
+            mutatingToolsExecuted = sawMutatingTool,
+            interruptedToolOutcomeKnown = false,
+            checkpointAvailable = false,
+            userStopped = userStopRequested,
+        )
+    }
+
+    override suspend fun recover(action: RecoveryAction, decision: RecoveryDecision): Boolean {
+        return when (decision) {
+            RecoveryDecision.RETRY_NEW_SESSION_SAFE -> {
+                // Defense in depth on top of the policy: never auto-restart a turn
+                // that already ran tools, even if the caller chose the "safe" path.
+                // A missing context means the bridge cannot prove no tools ran, so it declines.
+                if (!canAutoRestartWithoutTools(recoveryContext(action.sessionId, action.projectId))) return false
+                startSession(
+                    action.projectId,
+                    action.projectSlug,
+                    action.projectKind,
+                    action.originalPrompt,
+                    action.history,
+                    action.provider,
+                )
+                true
+            }
+            else -> false
+        }
+    }
+
     override suspend fun startSession(projectId: String, projectSlug: String, projectKind: ProjectKind, prompt: String, conversationHistory: List<ChatMessage>, provider: ProviderProfile): String = withContext(Dispatchers.IO + NonCancellable) {
         val sessionId = UUID.randomUUID().toString()
         finishedSessions.remove(sessionId)
+        lastSessionId = sessionId
+        sawToolCall = false
+        sawMutatingTool = false
         activeSessionId = sessionId
         userStopRequested = false
         activeProjectSlug = projectSlug
@@ -118,7 +205,17 @@ class ClaudeRuntimeBridge(
             } else {
                 "No API key is saved for ${provider.kind.title}."
             }
-            eventBus.emit(RuntimeEvent.SessionFailed(sessionId, message))
+            eventBus.emit(
+                RuntimeEvent.SessionFailed(
+                    sessionId,
+                    message,
+                    RecoveryFailureInfo(
+                        retryAvailable = !userStopRequested,
+                        sideEffectsPossible = sawMutatingTool,
+                        toolsExecuted = sawToolCall,
+                    ),
+                ),
+            )
             return@withContext sessionId
         }
 
@@ -456,6 +553,7 @@ class ClaudeRuntimeBridge(
                     val response = File(file.parentFile, "$approvalId.response")
                     response.writeText("allow")
 
+                    recordToolActivity(toolName)
                     eventBus.emit(RuntimeEvent.ToolCompleted(sessionId, toolName, explanation))
                 }.onFailure {
                     File(file.parentFile, "$approvalId.response").writeText("allow")
@@ -562,6 +660,7 @@ class ClaudeRuntimeBridge(
                     if (block.optString("type") == "tool_result") {
                         val toolId = block.optString("tool_use_id")
                         val toolName = toolNames.remove(toolId) ?: "Tool"
+                        recordToolActivity(toolName)
                         val result = block.optString("content")
                             .ifBlank { if (block.optBoolean("is_error")) "Tool failed" else "Completed successfully" }
                         eventBus.emit(RuntimeEvent.ToolCompleted(sessionId, toolName, sanitizeForDisplay(result)))
@@ -622,6 +721,7 @@ class ClaudeRuntimeBridge(
         val id = block.optString("id")
         if (id.isNotBlank() && !seenToolCalls.add(id)) return
         val name = block.optString("name", "Tool")
+        recordToolActivity(name)
         if (id.isNotBlank()) toolNames[id] = name
         val input = block.optJSONObject("input") ?: JSONObject()
         val detail = when (name) {
@@ -637,10 +737,19 @@ class ClaudeRuntimeBridge(
         pushForegroundProgress(R.string.rt_bridge_running_tool, name, detail.replace(Regex("\\s+"), " ").trim().take(80).ifBlank { name })
     }
 
+    /** Session-scoped tool facts for the recovery policy; unknown names count as mutating. */
+    private fun recordToolActivity(name: String) {
+        sawToolCall = true
+        if (isClaudeMutatingTool(name)) sawMutatingTool = true
+    }
+
     private fun terminalStatus(line: String): Pair<String, String>? = null
 
     private suspend fun emitCompletedOnce(sessionId: String) {
         if (finishedSessions.add(sessionId)) {
+            // A completed session leaves no recovery facts behind: drop the handle so a
+            // later query cannot read stale tool flags for it.
+            if (lastSessionId == sessionId) lastSessionId = null
             eventBus.emit(RuntimeEvent.SessionCompleted(sessionId))
             // Post the completion notification immediately. Waiting for process
             // teardown is unsafe: the PRoot/Node wrapper can hang after the answer
@@ -655,7 +764,19 @@ class ClaudeRuntimeBridge(
 
     private suspend fun emitFailureOnce(sessionId: String, reason: String) {
         if (finishedSessions.add(sessionId)) {
-            eventBus.emit(RuntimeEvent.SessionFailed(sessionId, reason))
+            // Every terminal failure carries the side-effect facts so the manual
+            // retry card can warn; a user stop reports retryAvailable = false.
+            eventBus.emit(
+                RuntimeEvent.SessionFailed(
+                    sessionId,
+                    reason,
+                    RecoveryFailureInfo(
+                        retryAvailable = !userStopRequested,
+                        sideEffectsPossible = sawMutatingTool,
+                        toolsExecuted = sawToolCall,
+                    ),
+                ),
+            )
             if (userStopRequested) {
                 cancelForegroundRuntime()
             } else {
@@ -1128,3 +1249,9 @@ class ClaudeRuntimeBridge(
         )
     }
 }
+
+private val CLAUDE_READ_ONLY_TOOLS = setOf("read", "glob", "grep", "websearch", "webfetch")
+
+/** True for Claude tools that can mutate the workspace; unknown names default to mutating. */
+internal fun isClaudeMutatingTool(name: String): Boolean =
+    name.lowercase() !in CLAUDE_READ_ONLY_TOOLS
