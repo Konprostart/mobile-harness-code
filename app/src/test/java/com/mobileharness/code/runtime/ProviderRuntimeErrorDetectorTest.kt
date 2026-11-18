@@ -107,14 +107,55 @@ class ProviderRuntimeErrorDetectorTest {
     }
 
     @Test
-    fun rateLimitedRetryIsFatal() {
+    fun rateLimitedRetryIsNotFatal() {
         val event = """{"type":"system","subtype":"api_retry","attempt":1,"error_status":429,"error":"rate_limit"}"""
-        assertEquals("The provider rejected the saved API key.", ProviderRuntimeErrorDetector.detect(event))
+        assertNull(ProviderRuntimeErrorDetector.detect(event))
+    }
+
+    @Test
+    fun rateLimitedRetryWithoutErrorStringIsNotFatal() {
+        val event = """{"type":"system","subtype":"api_retry","attempt":2,"error_status":429}"""
+        assertNull(ProviderRuntimeErrorDetector.detect(event))
+    }
+
+    @Test
+    fun quotaExhaustionIsNotFatal() {
+        val event = """{"type":"system","subtype":"api_retry","attempt":1,"error_status":429,"error":"quota_exceeded"}"""
+        assertNull(ProviderRuntimeErrorDetector.detect(event))
+    }
+
+    @Test
+    fun expiredWindowIsNotFatal() {
+        val event = """{"type":"system","subtype":"api_retry","attempt":1,"error_status":529,"error":"expired"}"""
+        assertNull(ProviderRuntimeErrorDetector.detect(event))
+    }
+
+    @Test
+    fun errorResultMentioningRateLimitIsNotFatal() {
+        val event = """{"type":"result","subtype":"error_during_execution","is_error":true,"result":"Request failed: 429 rate limit exceeded. Retrying."}"""
+        assertNull(ProviderRuntimeErrorDetector.detect(event))
     }
 
     @Test
     fun transientServerRetryIsNotFatal() {
         val event = """{"type":"system","subtype":"api_retry","attempt":1,"error_status":529,"error":"overloaded"}"""
         assertNull(ProviderRuntimeErrorDetector.detect(event))
+    }
+
+    @Test
+    fun longSessionTransientRetriesNeverRejectTheKey() {
+        // Simulate a multi-minute session where the provider intermittently rate-limits
+        // or overloads: every transient retry event must be ignored so the session and the
+        // saved key stay valid. Only a genuine auth failure (below) may reject the key.
+        val transient = listOf(
+            """{"type":"system","subtype":"api_retry","attempt":1,"error_status":429,"error":"rate_limit"}""",
+            """{"type":"system","subtype":"api_retry","attempt":2,"error_status":429}""",
+            """{"type":"system","subtype":"api_retry","attempt":3,"error_status":529,"error":"overloaded"}""",
+            """{"type":"system","subtype":"api_retry","attempt":4,"error_status":429,"error":"quota_exceeded"}""",
+            """{"type":"system","subtype":"api_retry","attempt":5,"error_status":529,"error":"expired"}""",
+        )
+        transient.forEach { line ->
+            assertNull("Transient event must not reject the key: $line", ProviderRuntimeErrorDetector.detect(line))
+        }
     }
 }

@@ -258,6 +258,18 @@ internal fun isTransportFailure(reason: String): Boolean {
 }
 
 /**
+ * True only for genuine authentication failures that justify rotating to another saved key.
+ * Transient conditions — rate limit (429), quota exhaustion and "expired" windows — are
+ * deliberately excluded: rotating a key there would burn through every saved key while the
+ * real cause (usage limits) persists, which is the "every key gets rejected" symptom.
+ */
+internal fun isApiKeyFailureReason(reason: String): Boolean {
+    val value = reason.lowercase()
+    return "api key" in value || "authentication" in value || "user not found" in value ||
+        "http 401" in value || "http 403" in value
+}
+
+/**
  * Backoff budget for automatic transport retries. Attempt 0 waits 5 s, attempt 1 waits 15 s;
  * attempt 2 and beyond return null to signal the budget is exhausted.
  */
@@ -6040,12 +6052,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    private fun isApiKeyFailure(reason: String): Boolean {
-        val value = reason.lowercase()
-        return "api key" in value || "authentication" in value || "user not found" in value ||
-            "http 401" in value || "http 403" in value || "http 429" in value ||
-            "expired" in value || "quota" in value || "rate limit" in value
-    }
+    private fun isApiKeyFailure(reason: String): Boolean = isApiKeyFailureReason(reason)
 
     private fun touchProject(projectId: String) {
         val now = System.currentTimeMillis()

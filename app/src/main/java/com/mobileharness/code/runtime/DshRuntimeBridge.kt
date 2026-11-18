@@ -930,10 +930,7 @@ class DshRuntimeBridge(
             message.contains("authentication", true) ||
                 message.contains("invalid api key", true) ||
                 message.contains("autherror", true) ||
-                message.contains("expired", true) ||
-                message.contains("quota", true) ||
-                message.contains("rate limit", true) ||
-                listOf("401", "403", "429").any { code ->
+                listOf("401", "403").any { code ->
                     message.contains(code) && (message.contains("auth", true) || message.contains("HTTP", true))
                 } ->
                 "The provider rejected the saved API key."

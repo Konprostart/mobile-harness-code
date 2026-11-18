@@ -41,6 +41,25 @@ class TransportRetryTest {
     }
 
     @Test
+    fun apiKeyFailureRequiresGenuineAuthNotTransientLimits() {
+        assertTrue(isApiKeyFailureReason("The provider rejected the saved API key."))
+        assertTrue(isApiKeyFailureReason("Invalid API key"))
+        assertTrue(isApiKeyFailureReason("authentication failed"))
+        assertTrue(isApiKeyFailureReason("User not found. Check the API key and provider account."))
+        assertTrue(isApiKeyFailureReason("HTTP 401 Unauthorized"))
+        assertTrue(isApiKeyFailureReason("HTTP 403 Forbidden"))
+    }
+
+    @Test
+    fun transientRateLimitQuotaAndExpiryAreNotApiKeyFailures() {
+        assertFalse(isApiKeyFailureReason("HTTP 429 rate limit exceeded"))
+        assertFalse(isApiKeyFailureReason("quota exceeded"))
+        assertFalse(isApiKeyFailureReason("rate limit reached"))
+        assertFalse(isApiKeyFailureReason("token expired"))
+        assertFalse(isApiKeyFailureReason("The provider rate limit was reached. Wait a moment and try again."))
+    }
+
+    @Test
     fun retryBudgetBacksOffFiveThenFifteenSecondsThenExhausts() {
         assertEquals(5000L, transportRetryDelayMillis(0)!!)
         assertEquals(15000L, transportRetryDelayMillis(1)!!)

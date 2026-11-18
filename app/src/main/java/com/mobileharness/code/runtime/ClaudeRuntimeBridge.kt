@@ -42,7 +42,16 @@ import org.json.JSONArray
 internal object ProviderRuntimeErrorDetector {
     private const val REJECTED_KEY = "The provider rejected the saved API key."
     private const val USER_NOT_FOUND = "User not found. Check the API key and provider account."
-    private val fatalStatuses = setOf(401, 403, 429)
+
+    /**
+     * Only genuine authentication failures are fatal. A rate limit (429), quota exhaustion or an
+     * "expired" window is a transient condition that Claude Code already retries on its own; it
+     * must never be reported as a rejected key. Treating it as fatal was the bug behind "the key
+     * stopped working after a few minutes of use": heavy usage trips 429, the detector killed the
+     * session with "key rejected", and the caller then rotated to another key which hit the same
+     * limit in turn.
+     */
+    private val authStatuses = setOf(401, 403)
 
     /**
      * Returns a user-facing reason when [line] reports a fatal provider error, or null otherwise.
@@ -59,7 +68,7 @@ internal object ProviderRuntimeErrorDetector {
                 val reason = classify(json.optString("error"))
                 when {
                     reason != null -> reason
-                    json.optInt("error_status") in fatalStatuses -> REJECTED_KEY
+                    json.optInt("error_status") in authStatuses -> REJECTED_KEY
                     else -> null
                 }
             }
@@ -95,12 +104,10 @@ internal object ProviderRuntimeErrorDetector {
                 "authentication failed" in combined ||
                 "invalid api key" in combined ||
                 "http 401" in combined ||
-                "http 403" in combined ||
-                "http 429" in combined ||
-                "expired" in combined ||
-                "quota" in combined ||
-                "rate limit" in combined ||
-                "rate_limit" in combined -> REJECTED_KEY
+                "http 403" in combined -> REJECTED_KEY
+            // Deliberately NOT fatal: 429 rate limit, "quota exceeded" and "expired"
+            // windows are transient. They must not invalidate a healthy key or kill
+            // the session mid-task.
             else -> null
         }
     }
