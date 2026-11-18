@@ -4,9 +4,9 @@
   "notes": "Mobile Harness Code — independent fork of Mobile Harness. Session auto-recovery, Gradle memory tuning, release & signing pipeline, optional SSH/dukoi.com server sync, reproducible build + SBOM.",
   "artifacts": {
     "online": {
-      "url": "https://github.com/Konprostart/mobile-harness-code/releases/download/v1.1.0/mobile-harness-online.apk",
-      "sha256": "6e84838bbaaa538ac169779dc27b450a2f4a99936106d714cad41d4b1eac2528",
-      "sizeBytes": 89853848
+      "url": "https://github.com/Konprostart/mobile-harness-code/releases/download/v1.1.0/mobile-harness-online-signed.apk",
+      "sha256": "93024f404f76ce952ea9b66bc4247113a37a523a575358212865d08c1c7f4e24",
+      "sizeBytes": 89881587
     }
   }
 }
