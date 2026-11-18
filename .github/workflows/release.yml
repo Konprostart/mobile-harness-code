@@ -70,12 +70,16 @@ jobs:
           SHA=$(sha256sum mobile-harness-online.apk | cut -d' ' -f1)
           SIZE=$(stat -c%s mobile-harness-online.apk)
           echo "$SHA  mobile-harness-online.apk" > mobile-harness-online.apk.sha256
+          VERSION_CODE=$(grep -m1 'versionCode = ' app/build.gradle.kts | grep -oE '[0-9]+')
+          VERSION_NAME=$(grep -m1 'versionName = "' app/build.gradle.kts | sed -E 's/.*versionName = "([^"]+)".*/\1/')
+          { [ -n "$VERSION_CODE" ] && [ -n "$VERSION_NAME" ]; } || { echo "Could not derive version from app/build.gradle.kts"; exit 1; }
+          echo "Version: ${VERSION_NAME} (${VERSION_CODE})"
           URL="https://github.com/Konprostart/mobile-harness-code/releases/download/${GITHUB_REF_NAME}/mobile-harness-online.apk"
           cat > mobile-harness-update.json <<EOF
           {
-            "versionCode": 1,
-            "versionName": "1.0.0",
-            "notes": "Mobile Harness Code — independent fork of Mobile Harness. Rebranded application id (com.mobileharness.code), updated distribution URLs, MIT attribution preserved.",
+            "versionCode": ${VERSION_CODE},
+            "versionName": "${VERSION_NAME}",
+            "notes": "Mobile Harness Code — independent fork of Mobile Harness. Session auto-recovery, Gradle memory tuning, release & signing pipeline, optional SSH/dukoi.com server sync, reproducible build + SBOM.",
             "artifacts": {
               "online": {
                 "url": "${URL}",
