@@ -69,9 +69,12 @@ android {
                 keyPassword = checkNotNull(uploadKeyPassword)
                 // AGP drops the legacy JAR signature for minSdk >= 24, but some
                 // OEM installers (vivo) reject APKs without it as "missing the
-                // developer certificate". Keep both; the key is unchanged.
+                // developer certificate". Keep all three: V1 for legacy OEMs,
+                // V2 for the 7.0+ scheme, and V3 for Android 16 key-rotation /
+                // current-installer compatibility. The key is unchanged.
                 enableV1Signing = true
                 enableV2Signing = true
+                enableV3Signing = true
             }
         }
     }
