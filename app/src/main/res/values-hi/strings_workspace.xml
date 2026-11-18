@@ -58,7 +58,7 @@
     <string name="ws_expand">बड़ा करें</string>
     <string name="ws_update_ready">एक नया अपडेट तैयार है</string>
     <string name="ws_check_for_updates">Check for updates</string>
-    <string name="ws_up_to_date">You're on the latest version</string>
+    <string name="ws_up_to_date">You\'re on the latest version</string>
     <string name="ws_update">अपडेट करें</string>
     <string name="ws_create_starter_project">एक स्टार्टर प्रोजेक्ट बनाएं</string>
     <string name="ws_project_name">प्रोजेक्ट का नाम</string>
