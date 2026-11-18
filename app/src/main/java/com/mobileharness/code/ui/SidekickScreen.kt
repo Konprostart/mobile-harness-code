@@ -4,6 +4,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.imePadding
@@ -24,6 +25,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
@@ -50,9 +52,12 @@ import kotlinx.coroutines.launch
 
 private data class SidekickMessage(val fromUser: Boolean, val text: String)
 
+private enum class SidekickMode { ASK, PROMPT, RESEARCH }
+
 /**
- * In-app "Sidekick" assistant: a lightweight chat that answers questions about the app and
- * on-device development using the provider the user already configured for their coding agent.
+ * In-app "Sidekick" assistant: a lightweight chat that answers questions about the app, helps
+ * improve prompts, or researches the user's allowed sources. It uses the provider the user
+ * configured for their coding agent — or an independent, more powerful model when opted in.
  * No message history is persisted and no key is stored by the assistant itself.
  */
 @OptIn(ExperimentalMaterial3Api::class)
@@ -64,11 +69,23 @@ fun SidekickScreen(onClose: () -> Unit) {
     val messages = remember { mutableStateListOf<SidekickMessage>() }
     var input by remember { mutableStateOf("") }
     var loading by remember { mutableStateOf(false) }
+    var mode by remember { mutableStateOf(SidekickMode.ASK) }
     val listState = rememberLazyListState()
 
     val greeting = stringResource(R.string.sidekick_greeting)
     LaunchedEffect(Unit) {
         if (messages.isEmpty()) messages.add(SidekickMessage(fromUser = false, text = greeting))
+    }
+
+    val placeholder = when (mode) {
+        SidekickMode.ASK -> stringResource(R.string.sidekick_placeholder)
+        SidekickMode.PROMPT -> stringResource(R.string.sidekick_prompt_placeholder)
+        SidekickMode.RESEARCH -> stringResource(R.string.sidekick_research_placeholder)
+    }
+    val modeNote = when (mode) {
+        SidekickMode.ASK -> stringResource(R.string.sidekick_note)
+        SidekickMode.PROMPT -> stringResource(R.string.sidekick_prompt_note)
+        SidekickMode.RESEARCH -> stringResource(R.string.sidekick_research_note)
     }
 
     fun send() {
@@ -78,7 +95,11 @@ fun SidekickScreen(onClose: () -> Unit) {
         input = ""
         loading = true
         scope.launch {
-            val answer = engine.ask(question)
+            val answer = when (mode) {
+                SidekickMode.ASK -> engine.ask(question)
+                SidekickMode.PROMPT -> engine.optimizePrompt(question)
+                SidekickMode.RESEARCH -> engine.research(question)
+            }
             messages.add(SidekickMessage(fromUser = false, text = answer))
             loading = false
         }
@@ -100,6 +121,20 @@ fun SidekickScreen(onClose: () -> Unit) {
         Column(
             Modifier.fillMaxSize().padding(padding).imePadding(),
         ) {
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                SidekickModeButton(SidekickMode.ASK, mode, stringResource(R.string.sidekick_mode_ask)) { mode = SidekickMode.ASK }
+                SidekickModeButton(SidekickMode.PROMPT, mode, stringResource(R.string.sidekick_mode_prompt)) { mode = SidekickMode.PROMPT }
+                SidekickModeButton(SidekickMode.RESEARCH, mode, stringResource(R.string.sidekick_mode_research)) { mode = SidekickMode.RESEARCH }
+            }
+            Text(
+                modeNote,
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp),
+                fontSize = 11.sp,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
             LazyColumn(
                 state = listState,
                 modifier = Modifier.weight(1f).fillMaxWidth(),
@@ -153,7 +188,7 @@ fun SidekickScreen(onClose: () -> Unit) {
                         value = input,
                         onValueChange = { input = it },
                         modifier = Modifier.weight(1f),
-                        placeholder = { Text(stringResource(R.string.sidekick_placeholder), fontSize = 13.sp) },
+                        placeholder = { Text(placeholder, fontSize = 13.sp) },
                         singleLine = true,
                         maxLines = 4,
                     )
@@ -169,5 +204,27 @@ fun SidekickScreen(onClose: () -> Unit) {
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun RowScope.SidekickModeButton(
+    value: SidekickMode,
+    selected: SidekickMode,
+    label: String,
+    onClick: () -> Unit,
+) {
+    OutlinedButton(
+        onClick = onClick,
+        modifier = Modifier.weight(1f),
+        shape = RoundedCornerShape(10.dp),
+    ) {
+        Text(
+            label,
+            maxLines = 1,
+            color = if (selected == value) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+            fontWeight = if (selected == value) androidx.compose.ui.text.font.FontWeight.SemiBold
+            else androidx.compose.ui.text.font.FontWeight.Normal,
+        )
     }
 }

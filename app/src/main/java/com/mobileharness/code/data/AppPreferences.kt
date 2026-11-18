@@ -162,6 +162,47 @@ class AppPreferences(private val context: Context) {
         get() = preferences.getString("server_sync_dukoi_base_url", "") ?: ""
         set(value) { preferences.edit().putString("server_sync_dukoi_base_url", value).apply() }
 
+    // --- Sidekick assistant ---------------------------------------------------------------
+    var sidekickFloatingButton: Boolean
+        get() = preferences.getBoolean("sidekick_floating_button", false)
+        set(value) { preferences.edit().putBoolean("sidekick_floating_button", value).apply() }
+
+    /** When true the assistant uses its own provider instead of the coding agent's. */
+    var sidekickUseCustomProvider: Boolean
+        get() = preferences.getBoolean("sidekick_custom_provider", false)
+        set(value) { preferences.edit().putBoolean("sidekick_custom_provider", value).apply() }
+
+    var sidekickBackgroundResearch: Boolean
+        get() = preferences.getBoolean("sidekick_bg_research", false)
+        set(value) { preferences.edit().putBoolean("sidekick_bg_research", value).apply() }
+
+    /** Newline/line-separated list of directories and https:// URLs the assistant may search. */
+    var sidekickResearchSources: String
+        get() = preferences.getString("sidekick_research_sources", "") ?: ""
+        set(value) { preferences.edit().putString("sidekick_research_sources", value).apply() }
+
+    /** Persists the assistant's independent provider profile (the API key is reused from the vault). */
+    fun saveSidekickProvider(profile: ProviderProfile) {
+        preferences.edit()
+            .putString("sidekick_kind", profile.kind.name)
+            .putString("sidekick_base_url", profile.baseUrl)
+            .putString("sidekick_model", profile.model)
+            .apply()
+    }
+
+    /** Loads the assistant's independent provider, falling back to the coding agent's provider. */
+    fun loadSidekickProvider(vault: ApiKeyVault, fallback: ProviderProfile): ProviderProfile {
+        val kind = runCatching {
+            preferences.getString("sidekick_kind", null)?.let(ProviderKind::valueOf)
+        }.getOrNull() ?: return fallback
+        return ProviderProfile(
+            kind = kind,
+            baseUrl = preferences.getString("sidekick_base_url", kind.defaultBaseUrl) ?: kind.defaultBaseUrl,
+            model = preferences.getString("sidekick_model", kind.defaultModel) ?: kind.defaultModel,
+            hasSecret = vault.contains(kind.name),
+        )
+    }
+
     var languageCode: String
         get() = preferences.getString("language_code", "system") ?: "system"
         set(value) { preferences.edit().putString("language_code", value).apply() }

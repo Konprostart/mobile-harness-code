@@ -586,4 +586,27 @@
     <string name="sidekick_send">Send</string>
     <string name="sidekick_loading">Thinking…</string>
     <string name="sidekick_requires_key">The assistant needs an API-key provider (Anthropic, OpenRouter, DeepSeek, or custom). Add one under Settings → Provider, or switch from Claude subscription.</string>
+    <string name="sidekick_mode_ask">Ask</string>
+    <string name="sidekick_mode_prompt">Prompt</string>
+    <string name="sidekick_mode_research">Research</string>
+    <string name="sidekick_prompt_placeholder">Paste a prompt to improve…</string>
+    <string name="sidekick_research_placeholder">What should I research…</string>
+    <string name="sidekick_prompt_note">I\'ll rewrite your prompt to be clearer and more effective.</string>
+    <string name="sidekick_research_note">I only read the directories and https:// URLs you allowed in Settings → Assistant.</string>
+    <string name="sidekick_research_disabled">Background research is off. Enable it in Settings → Assistant first.</string>
+    <string name="sidekick_research_no_sources">No research sources are configured. Add directories or https:// URLs in Settings → Assistant.</string>
+    <string name="sidekick_fab_label">Open assistant</string>
+    <string name="sidekick_floating_button">Floating button</string>
+    <string name="sidekick_floating_button_subtitle">Show a quick AI button on every screen</string>
+    <string name="sidekick_use_custom_provider">Separate model for assistant</string>
+    <string name="sidekick_use_custom_provider_subtitle">Use a different, more powerful model than the coding agent</string>
+    <string name="sidekick_background_research">Background research</string>
+    <string name="sidekick_background_research_subtitle">Let the assistant read your allowed sources while the agent works</string>
+    <string name="sidekick_research_sources">Research sources (one per line)</string>
+    <string name="sidekick_research_sources_hint">Directories or https:// URLs, e.g. /workspace or https://developer.android.com</string>
+    <string name="sidekick_provider_label">Assistant provider</string>
+    <string name="sidekick_model_label">Model</string>
+    <string name="sidekick_base_url_label">Base URL</string>
+    <string name="sidekick_save">Save assistant settings</string>
+    <string name="sidekick_saved">Saved</string>
 </resources>

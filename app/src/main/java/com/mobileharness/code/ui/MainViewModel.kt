@@ -646,6 +646,11 @@ data class AppUiState(
     val releaseUi: ReleaseUiState = ReleaseUiState(),
     val serverSyncConfig: ServerSyncConfig = ServerSyncConfig(),
     val serverSyncDukoiTokenConfigured: Boolean = false,
+    val sidekickFloatingButton: Boolean = false,
+    val sidekickUseCustomProvider: Boolean = false,
+    val sidekickBackgroundResearch: Boolean = false,
+    val sidekickResearchSources: String = "",
+    val sidekickProvider: ProviderProfile = ProviderProfile(ProviderKind.ANTHROPIC),
 )
 
 class MainViewModel(application: Application) : AndroidViewModel(application) {
@@ -764,6 +769,11 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             gradleEffectiveMetaspaceMb = GradleMemory.resolve(application, preferences).maxMetaspaceMb,
             serverSyncConfig = loadServerSyncConfig().copy(dukoiToken = ""),
             serverSyncDukoiTokenConfigured = loadServerSyncConfig().dukoiToken.isNotBlank(),
+            sidekickFloatingButton = preferences.sidekickFloatingButton,
+            sidekickUseCustomProvider = preferences.sidekickUseCustomProvider,
+            sidekickBackgroundResearch = preferences.sidekickBackgroundResearch,
+            sidekickResearchSources = preferences.sidekickResearchSources,
+            sidekickProvider = loadSidekickProvider(),
         ),
     ).also {
         if (!preferences.onboardingComplete) preferences.whatsNewSeenVersionCode = BuildConfig.VERSION_CODE
@@ -855,6 +865,49 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 serverSyncDukoiTokenConfigured = full.dukoiToken.isNotBlank(),
             )
         }
+    }
+
+    // --- Sidekick assistant ---------------------------------------------------------------
+
+    /** Resolves the provider the Sidekick assistant should use (custom override or the agent's). */
+    fun loadSidekickProvider(): ProviderProfile {
+        val fallback = preferences.loadProvider(vault, initialAgentKind)
+        return if (preferences.sidekickUseCustomProvider) {
+            preferences.loadSidekickProvider(vault, fallback)
+        } else {
+            fallback
+        }
+    }
+
+    fun setSidekickFloatingButton(enabled: Boolean) {
+        preferences.sidekickFloatingButton = enabled
+        _state.update { it.copy(sidekickFloatingButton = enabled) }
+    }
+
+    fun setSidekickUseCustomProvider(enabled: Boolean) {
+        preferences.sidekickUseCustomProvider = enabled
+        _state.update {
+            it.copy(
+                sidekickUseCustomProvider = enabled,
+                sidekickProvider = loadSidekickProvider(),
+            )
+        }
+    }
+
+    fun setSidekickBackgroundResearch(enabled: Boolean) {
+        preferences.sidekickBackgroundResearch = enabled
+        _state.update { it.copy(sidekickBackgroundResearch = enabled) }
+    }
+
+    fun setSidekickResearchSources(sources: String) {
+        preferences.sidekickResearchSources = sources
+        _state.update { it.copy(sidekickResearchSources = sources) }
+    }
+
+    /** Persists the assistant's independent provider; the API key is reused from the vault. */
+    fun saveSidekickProvider(profile: ProviderProfile) {
+        preferences.saveSidekickProvider(profile)
+        _state.update { it.copy(sidekickProvider = profile) }
     }
 
     // --- Release pipeline (Build → Sign → Verify → Checksum) -------------------------------

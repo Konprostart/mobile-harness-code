@@ -313,7 +313,9 @@ fun PocketDevApp(viewModel: MainViewModel = viewModel()) {
         }
     }
     BackupRestartEffect()
-    when {
+    val showSidekickFab = state.startupStage == StartupStage.READY && state.sidekickFloatingButton
+    Box(Modifier.fillMaxSize()) {
+        when {
         state.startupStage == StartupStage.CHECKING -> StartupLoadingScreen(
             state = state,
             themeMode = state.themeMode,
@@ -475,6 +477,8 @@ fun PocketDevApp(viewModel: MainViewModel = viewModel()) {
             onInstallAndroidTools = { viewModel.installDevStack(DevStack.ANDROID) },
         )
         else -> RootScreenHost(state, viewModel, projectsListState)
+        }
+        SidekickFloatingOverlay(visible = showSidekickFab)
     }
 }
 
@@ -2629,6 +2633,11 @@ private fun RootScreenHost(
                     onExportReleaseArtifact = viewModel::exportReleaseArtifactToUri,
                     onSaveServerSyncConfig = viewModel::saveServerSyncConfig,
                     onClearServerSyncToken = viewModel::clearServerSyncToken,
+                    onSetSidekickFloatingButton = viewModel::setSidekickFloatingButton,
+                    onSetSidekickUseCustomProvider = viewModel::setSidekickUseCustomProvider,
+                    onSetSidekickBackgroundResearch = viewModel::setSidekickBackgroundResearch,
+                    onSetSidekickResearchSources = viewModel::setSidekickResearchSources,
+                    onSaveSidekickProvider = viewModel::saveSidekickProvider,
                 )
             }
         }

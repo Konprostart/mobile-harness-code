@@ -5,6 +5,7 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -21,6 +22,8 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -48,6 +51,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.mobileharness.code.R
+import com.mobileharness.code.model.ProviderKind
+import com.mobileharness.code.model.ProviderProfile
 import com.mobileharness.code.network.ServerSyncConfig
 import com.mobileharness.code.network.ServerSyncMode
 import com.mobileharness.code.runtime.ReleasePipelineStage
@@ -337,5 +342,133 @@ fun ServerSyncSettings(
             fontSize = 11.sp,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
+    }
+}
+
+/**
+ * Sidekick assistant settings: the global floating button, an optional independent (more
+ * powerful) provider/model, and bounded background research over the user's allowed sources.
+ * Everything is opt-in and off by default; the provider's API key is reused from the vault.
+ */
+@Composable
+fun SidekickSettings(
+    floatingButton: Boolean,
+    useCustomProvider: Boolean,
+    backgroundResearch: Boolean,
+    researchSources: String,
+    provider: ProviderProfile,
+    onSetFloatingButton: (Boolean) -> Unit,
+    onSetUseCustomProvider: (Boolean) -> Unit,
+    onSetBackgroundResearch: (Boolean) -> Unit,
+    onSetResearchSources: (String) -> Unit,
+    onSaveProvider: (ProviderProfile) -> Unit,
+    onLaunch: () -> Unit,
+) {
+    var selectedKind by rememberSaveable { mutableStateOf(provider.kind.name) }
+    var model by rememberSaveable { mutableStateOf(provider.model) }
+    var baseUrl by rememberSaveable { mutableStateOf(provider.baseUrl) }
+    var kindMenuOpen by rememberSaveable { mutableStateOf(false) }
+    var saved by rememberSaveable { mutableStateOf(false) }
+
+    val providerChoices = ProviderKind.entries.filterNot { it == ProviderKind.CLAUDE }
+
+    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        Button(onClick = onLaunch, modifier = Modifier.fillMaxWidth()) {
+            Icon(Icons.Default.Build, null)
+            Spacer(Modifier.width(7.dp))
+            Text(stringResource(R.string.sidekick_launch))
+        }
+
+        Text(
+            stringResource(R.string.sidekick_note),
+            fontSize = 11.sp,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+
+        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+            Column(Modifier.weight(1f)) {
+                Text(stringResource(R.string.sidekick_floating_button), fontWeight = FontWeight.SemiBold)
+                Text(stringResource(R.string.sidekick_floating_button_subtitle), fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+            Switch(checked = floatingButton, onCheckedChange = onSetFloatingButton)
+        }
+
+        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+            Column(Modifier.weight(1f)) {
+                Text(stringResource(R.string.sidekick_use_custom_provider), fontWeight = FontWeight.SemiBold)
+                Text(stringResource(R.string.sidekick_use_custom_provider_subtitle), fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+            Switch(checked = useCustomProvider, onCheckedChange = onSetUseCustomProvider)
+        }
+
+        if (useCustomProvider) {
+            Text(stringResource(R.string.sidekick_provider_label), fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+            Box {
+                OutlinedButton(onClick = { kindMenuOpen = true }, modifier = Modifier.fillMaxWidth()) {
+                    Text(
+                        providerChoices.firstOrNull { it.name == selectedKind }?.title ?: selectedKind,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
+                DropdownMenu(expanded = kindMenuOpen, onDismissRequest = { kindMenuOpen = false }) {
+                    providerChoices.forEach { kind ->
+                        DropdownMenuItem(
+                            text = { Text(kind.title) },
+                            onClick = {
+                                selectedKind = kind.name
+                                model = kind.defaultModel
+                                baseUrl = kind.defaultBaseUrl
+                                kindMenuOpen = false
+                            },
+                        )
+                    }
+                }
+            }
+            OutlinedTextField(model, { model = it }, label = { Text(stringResource(R.string.sidekick_model_label)) }, singleLine = true, modifier = Modifier.fillMaxWidth())
+            OutlinedTextField(baseUrl, { baseUrl = it }, label = { Text(stringResource(R.string.sidekick_base_url_label)) }, singleLine = true, modifier = Modifier.fillMaxWidth())
+            Button(
+                onClick = {
+                    val kind = runCatching { ProviderKind.valueOf(selectedKind) }.getOrNull() ?: ProviderKind.ANTHROPIC
+                    onSaveProvider(
+                        ProviderProfile(
+                            kind = kind,
+                            baseUrl = baseUrl.trim(),
+                            model = model.trim().ifBlank { kind.defaultModel },
+                        ),
+                    )
+                    saved = true
+                },
+                modifier = Modifier.fillMaxWidth(),
+            ) { Text(stringResource(R.string.sidekick_save)) }
+            if (saved) {
+                Text(stringResource(R.string.sidekick_saved), fontSize = 12.sp, color = MaterialTheme.colorScheme.primary)
+            }
+        }
+
+        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+            Column(Modifier.weight(1f)) {
+                Text(stringResource(R.string.sidekick_background_research), fontWeight = FontWeight.SemiBold)
+                Text(stringResource(R.string.sidekick_background_research_subtitle), fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+            Switch(checked = backgroundResearch, onCheckedChange = onSetBackgroundResearch)
+        }
+
+        if (backgroundResearch) {
+            OutlinedTextField(
+                value = researchSources,
+                onValueChange = onSetResearchSources,
+                label = { Text(stringResource(R.string.sidekick_research_sources)) },
+                placeholder = { Text(stringResource(R.string.sidekick_research_sources_hint), fontSize = 12.sp) },
+                minLines = 3,
+                maxLines = 6,
+                modifier = Modifier.fillMaxWidth(),
+            )
+            Text(
+                stringResource(R.string.sidekick_research_note),
+                fontSize = 11.sp,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
     }
 }

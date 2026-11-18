@@ -166,6 +166,11 @@ fun SettingsScreen(
     onExportReleaseArtifact: (Uri) -> Unit = {},
     onSaveServerSyncConfig: (ServerSyncConfig) -> Unit = {},
     onClearServerSyncToken: () -> Unit = {},
+    onSetSidekickFloatingButton: (Boolean) -> Unit = {},
+    onSetSidekickUseCustomProvider: (Boolean) -> Unit = {},
+    onSetSidekickBackgroundResearch: (Boolean) -> Unit = {},
+    onSetSidekickResearchSources: (String) -> Unit = {},
+    onSaveSidekickProvider: (ProviderProfile) -> Unit = {},
 ) {
     val context = LocalContext.current
     var expanded by rememberSaveable { mutableStateOf<SettingsSection?>(null) }
@@ -391,18 +396,19 @@ fun SettingsScreen(
                     expanded = expanded == SettingsSection.SIDEKICK,
                     onClick = { toggle(SettingsSection.SIDEKICK) },
                 ) {
-                    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                        Text(
-                            stringResource(R.string.sidekick_note),
-                            fontSize = 11.sp,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                        Button(onClick = { showSidekick = true }, modifier = Modifier.fillMaxWidth()) {
-                            Icon(Icons.Default.AutoAwesome, null)
-                            Spacer(Modifier.width(7.dp))
-                            Text(stringResource(R.string.sidekick_launch))
-                        }
-                    }
+                    SidekickSettings(
+                        floatingButton = state.sidekickFloatingButton,
+                        useCustomProvider = state.sidekickUseCustomProvider,
+                        backgroundResearch = state.sidekickBackgroundResearch,
+                        researchSources = state.sidekickResearchSources,
+                        provider = state.sidekickProvider,
+                        onSetFloatingButton = onSetSidekickFloatingButton,
+                        onSetUseCustomProvider = onSetSidekickUseCustomProvider,
+                        onSetBackgroundResearch = onSetSidekickBackgroundResearch,
+                        onSetResearchSources = onSetSidekickResearchSources,
+                        onSaveProvider = onSaveSidekickProvider,
+                        onLaunch = { showSidekick = true },
+                    )
                 }
             }
 
