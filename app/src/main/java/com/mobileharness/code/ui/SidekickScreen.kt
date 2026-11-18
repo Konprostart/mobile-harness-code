@@ -1,10 +1,18 @@
 package com.mobileharness.code.ui
 
+import android.Manifest
+import android.content.pm.PackageManager
+import android.graphics.Bitmap
+import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.PickVisualMediaRequest
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.RowScope
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.imePadding
@@ -13,6 +21,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -20,10 +29,20 @@ import androidx.compose.foundation.clickable
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.Send
+import androidx.compose.material.icons.filled.AddAPhoto
+import androidx.compose.material.icons.filled.AttachFile
 import androidx.compose.material.icons.filled.AutoAwesome
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Description
+import androidx.compose.material.icons.filled.Image
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
+import androidx.compose.material.icons.filled.Language
+import androidx.compose.material.icons.filled.Mic
+import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -50,10 +69,18 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.core.content.ContextCompat
 import com.mobileharness.code.R
+import com.mobileharness.code.sidekick.SidekickAttachmentIO
 import com.mobileharness.code.sidekick.SidekickEngine
+import com.mobileharness.code.sidekick.SidekickFile
+import com.mobileharness.code.sidekick.SidekickImage
+import com.mobileharness.code.sidekick.SidekickInput
 import com.mobileharness.code.sidekick.SidekickResult
+import com.mobileharness.code.sidekick.SpeechLanguage
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 private data class SidekickMessage(
     val fromUser: Boolean,
@@ -64,23 +91,47 @@ private data class SidekickMessage(
 
 private enum class SidekickMode { ASK, PROMPT, RESEARCH }
 
+private sealed interface PendingAttachment {
+    data class Image(val data: SidekickImage) : PendingAttachment
+    data class File(val data: SidekickFile) : PendingAttachment
+}
+
 /**
  * In-app "Sidekick" assistant: a lightweight chat that answers questions about the app, helps
  * improve prompts, or researches the user's allowed sources. It uses the provider the user
  * configured for their coding agent — or an independent, more powerful model when opted in.
- * No message history is persisted and no key is stored by the assistant itself.
+ * The input bar also supports voice typing and, in Ask mode, image/file attachments.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SidekickScreen(onClose: () -> Unit) {
     val context = LocalContext.current
+    val resolver = remember { context.contentResolver }
     val engine = remember { SidekickEngine(context) }
     val scope = rememberCoroutineScope()
     val messages = remember { mutableStateListOf<SidekickMessage>() }
+    val attachments = remember { mutableStateListOf<PendingAttachment>() }
     var input by remember { mutableStateOf("") }
     var loading by remember { mutableStateOf(false) }
     var mode by remember { mutableStateOf(SidekickMode.ASK) }
+    var errorMessage by remember { mutableStateOf<String?>(null) }
     val listState = rememberLazyListState()
+
+    // Voice input.
+    val speech = rememberSpeechRecognizerState(context)
+    var languageChoice by remember { mutableStateOf(SpeechLanguage.AUTO) }
+    val systemLocales = remember {
+        val config = context.resources.configuration
+        val locales = config.locales
+        (0 until locales.size()).map { locales[it].toLanguageTag() }
+    }
+    val resolvedLanguage = remember(languageChoice) { SpeechLanguage.resolve(languageChoice, systemLocales) }
+
+    LaunchedEffect(speech) {
+        speech.onPartialResult = { partial -> input = partial }
+        speech.onFinalResult = { final -> input = final }
+        speech.onError = { msg -> errorMessage = msg }
+    }
 
     val greeting = stringResource(R.string.sidekick_greeting)
     LaunchedEffect(Unit) {
@@ -98,22 +149,117 @@ fun SidekickScreen(onClose: () -> Unit) {
         SidekickMode.RESEARCH -> stringResource(R.string.sidekick_research_note)
     }
 
+    fun addCapturedImage(bitmap: Bitmap, name: String) {
+        scope.launch {
+            val image = withContext(Dispatchers.IO) {
+                runCatching {
+                    val base64 = SidekickAttachmentIO.bitmapToBase64(bitmap)
+                    if (base64.length > SidekickInput.MAX_IMAGE_BASE64_CHARS) error("too large")
+                    SidekickImage(name, "image/jpeg", base64)
+                }.onFailure { bitmap.recycle() }.getOrNull()
+            }
+            if (image != null) {
+                attachments.add(PendingAttachment.Image(image))
+                errorMessage = null
+            } else {
+                errorMessage = context.getString(R.string.sidekick_attachment_too_large)
+            }
+        }
+    }
+
+    fun addImageUri(uri: Uri) {
+        scope.launch {
+            val image = withContext(Dispatchers.IO) {
+                runCatching {
+                    val (name, _) = SidekickAttachmentIO.metadata(resolver, uri)
+                    val bitmap = SidekickAttachmentIO.decodeImage(resolver, uri)
+                        ?: error("decode failed")
+                    try {
+                        val base64 = SidekickAttachmentIO.bitmapToBase64(bitmap)
+                        if (base64.length > SidekickInput.MAX_IMAGE_BASE64_CHARS) error("too large")
+                        SidekickImage(name, "image/jpeg", base64)
+                    } finally {
+                        bitmap.recycle()
+                    }
+                }.getOrNull()
+            }
+            if (image != null) {
+                attachments.add(PendingAttachment.Image(image))
+                errorMessage = null
+            } else {
+                errorMessage = context.getString(R.string.sidekick_attachment_too_large)
+            }
+        }
+    }
+
+    fun addFileUri(uri: Uri) {
+        scope.launch {
+            val outcome = withContext(Dispatchers.IO) {
+                val (name, mime) = SidekickAttachmentIO.metadata(resolver, uri)
+                if (!SidekickInput.isTextFile(name, mime)) {
+                    return@withContext AddFileOutcome.Unsupported
+                }
+                val text = SidekickAttachmentIO.readTextFile(
+                    resolver, uri, SidekickInput.MAX_FILE_TEXT_CHARS + 64 * 1024,
+                )
+                if (text.isBlank()) AddFileOutcome.Failed else AddFileOutcome.Success(SidekickFile(name, mime, text))
+            }
+            when (outcome) {
+                is AddFileOutcome.Success -> {
+                    attachments.add(PendingAttachment.File(outcome.file))
+                    errorMessage = null
+                }
+                AddFileOutcome.Unsupported -> errorMessage = context.getString(R.string.sidekick_attachment_unsupported)
+                AddFileOutcome.Failed -> errorMessage = context.getString(R.string.sidekick_attachment_failed)
+            }
+        }
+    }
+
     fun send() {
         val question = input.trim()
-        if (question.isEmpty() || loading) return
-        messages.add(SidekickMessage(fromUser = true, text = question))
+        if (loading) return
+        if (question.isEmpty() && attachments.isEmpty()) return
+        val images = attachments.filterIsInstance<PendingAttachment.Image>().map { it.data }
+        val files = attachments.filterIsInstance<PendingAttachment.File>().map { it.data }
+        messages.add(SidekickMessage(fromUser = true, text = displayText(question, attachments)))
+        attachments.clear()
         input = ""
+        errorMessage = null
         loading = true
         scope.launch {
             val answer: SidekickResult = when (mode) {
-                SidekickMode.ASK -> engine.ask(question)
-                SidekickMode.PROMPT -> engine.optimizePrompt(question)
+                SidekickMode.ASK -> engine.ask(question, images, files)
+                SidekickMode.PROMPT -> engine.optimizePrompt(question.ifBlank { "Improve this prompt." })
                 SidekickMode.RESEARCH -> engine.research(question)
             }
             messages.add(SidekickMessage(fromUser = false, text = answer.text, reasoning = answer.reasoning))
             loading = false
         }
     }
+
+    fun switchMode(next: SidekickMode) {
+        if (mode != next && next != SidekickMode.ASK) attachments.clear()
+        mode = next
+    }
+
+    val micPermissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission(),
+    ) { granted ->
+        if (granted) {
+            speech.start(SpeechLanguage.resolve(languageChoice, systemLocales))
+        } else {
+            errorMessage = context.getString(R.string.sidekick_mic_permission)
+        }
+    }
+    val takePhotoLauncher = rememberLauncherForActivityResult(ActivityResultContracts.TakePicturePreview()) { bitmap ->
+        if (bitmap != null) addCapturedImage(bitmap, "photo.jpg")
+    }
+    val pickImageLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.PickVisualMedia(),
+    ) { uri -> if (uri != null) addImageUri(uri) }
+    val pickFileLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.OpenDocument(),
+    ) { uri -> if (uri != null) addFileUri(uri) }
 
     Scaffold(
         topBar = {
@@ -135,9 +281,9 @@ fun SidekickScreen(onClose: () -> Unit) {
                 modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                SidekickModeButton(SidekickMode.ASK, mode, stringResource(R.string.sidekick_mode_ask)) { mode = SidekickMode.ASK }
-                SidekickModeButton(SidekickMode.PROMPT, mode, stringResource(R.string.sidekick_mode_prompt)) { mode = SidekickMode.PROMPT }
-                SidekickModeButton(SidekickMode.RESEARCH, mode, stringResource(R.string.sidekick_mode_research)) { mode = SidekickMode.RESEARCH }
+                SidekickModeButton(SidekickMode.ASK, mode, stringResource(R.string.sidekick_mode_ask)) { switchMode(SidekickMode.ASK) }
+                SidekickModeButton(SidekickMode.PROMPT, mode, stringResource(R.string.sidekick_mode_prompt)) { switchMode(SidekickMode.PROMPT) }
+                SidekickModeButton(SidekickMode.RESEARCH, mode, stringResource(R.string.sidekick_mode_research)) { switchMode(SidekickMode.RESEARCH) }
             }
             Text(
                 modeNote,
@@ -145,6 +291,14 @@ fun SidekickScreen(onClose: () -> Unit) {
                 fontSize = 11.sp,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
+            if (errorMessage != null) {
+                Text(
+                    errorMessage.orEmpty(),
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 2.dp),
+                    fontSize = 12.sp,
+                    color = MaterialTheme.colorScheme.error,
+                )
+            }
             LazyColumn(
                 state = listState,
                 modifier = Modifier.weight(1f).fillMaxWidth(),
@@ -195,13 +349,17 @@ fun SidekickScreen(onClose: () -> Unit) {
                 }
             }
 
+            if (attachments.isNotEmpty()) {
+                AttachmentChipsRow(attachments, onRemove = { attachments.remove(it) })
+            }
+
             Surface(color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)) {
                 Row(
-                    Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 10.dp),
+                    Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 8.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Icon(Icons.Default.AutoAwesome, null, Modifier.size(18.dp), tint = MaterialTheme.colorScheme.primary)
-                    Spacer(Modifier.width(8.dp))
+                    Spacer(Modifier.width(6.dp))
                     OutlinedTextField(
                         value = input,
                         onValueChange = { input = it },
@@ -210,15 +368,160 @@ fun SidekickScreen(onClose: () -> Unit) {
                         singleLine = true,
                         maxLines = 4,
                     )
-                    Spacer(Modifier.width(8.dp))
-                    IconButton(onClick = ::send, enabled = input.isNotBlank() && !loading) {
+                    Spacer(Modifier.width(2.dp))
+                    if (mode == SidekickMode.ASK) {
+                        AttachmentMenu(
+                            onPhoto = { takePhotoLauncher.launch(null) },
+                            onImage = {
+                                pickImageLauncher.launch(
+                                    PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly),
+                                )
+                            },
+                            onFile = { pickFileLauncher.launch(arrayOf("*/*")) },
+                        )
+                    }
+                    MicButton(
+                        isListening = speech.isListening,
+                        resolvedLanguage = resolvedLanguage,
+                        languageChoice = languageChoice,
+                        onLanguageChoice = { languageChoice = it },
+                        onToggle = {
+                            if (speech.isListening) {
+                                speech.stop()
+                            } else if (ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) {
+                                speech.start(resolvedLanguage)
+                            } else {
+                                micPermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
+                            }
+                        },
+                    )
+                    IconButton(onClick = ::send, enabled = (input.isNotBlank() || attachments.isNotEmpty()) && !loading) {
                         Icon(
                             Icons.AutoMirrored.Filled.Send,
                             stringResource(R.string.sidekick_send),
-                            tint = if (input.isNotBlank() && !loading) MaterialTheme.colorScheme.primary
+                            tint = if ((input.isNotBlank() || attachments.isNotEmpty()) && !loading) MaterialTheme.colorScheme.primary
                             else MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     }
+                }
+            }
+        }
+    }
+}
+
+private sealed interface AddFileOutcome {
+    data class Success(val file: SidekickFile) : AddFileOutcome
+    object Unsupported : AddFileOutcome
+    object Failed : AddFileOutcome
+}
+
+private fun displayText(question: String, attachments: List<PendingAttachment>): String {
+    val parts = buildList {
+        if (question.isNotBlank()) add(question)
+        attachments.forEach { attachment ->
+            when (attachment) {
+                is PendingAttachment.Image -> add("\uD83D\uDDBC ${attachment.data.displayName}")
+                is PendingAttachment.File -> add("\uD83D\uDCC4 ${attachment.data.displayName}")
+            }
+        }
+    }
+    return parts.joinToString("\n").ifBlank { "…" }
+}
+
+@Composable
+private fun AttachmentChipsRow(
+    attachments: List<PendingAttachment>,
+    onRemove: (PendingAttachment) -> Unit,
+) {
+    LazyRow(
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        items(attachments) { attachment ->
+            val icon = when (attachment) {
+                is PendingAttachment.Image -> Icons.Default.Image
+                is PendingAttachment.File -> Icons.Default.Description
+            }
+            val name = when (attachment) {
+                is PendingAttachment.Image -> attachment.data.displayName
+                is PendingAttachment.File -> attachment.data.displayName
+            }
+            Surface(shape = RoundedCornerShape(10.dp), color = MaterialTheme.colorScheme.surfaceVariant) {
+                Row(Modifier.padding(start = 10.dp, end = 2.dp, top = 4.dp, bottom = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Icon(icon, null, Modifier.size(14.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Spacer(Modifier.width(6.dp))
+                    Text(name, fontSize = 12.sp, maxLines = 1, color = MaterialTheme.colorScheme.onSurface)
+                    IconButton(onClick = { onRemove(attachment) }, modifier = Modifier.size(28.dp)) {
+                        Icon(Icons.Default.Close, stringResource(R.string.sidekick_remove_attachment), Modifier.size(16.dp))
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun AttachmentMenu(onPhoto: () -> Unit, onImage: () -> Unit, onFile: () -> Unit) {
+    var open by remember { mutableStateOf(false) }
+    Box {
+        IconButton(onClick = { open = true }) {
+            Icon(Icons.Default.AttachFile, stringResource(R.string.sidekick_attach), tint = MaterialTheme.colorScheme.primary)
+        }
+        DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
+            DropdownMenuItem(
+                text = { Text(stringResource(R.string.sidekick_attach_photo)) },
+                leadingIcon = { Icon(Icons.Default.AddAPhoto, null) },
+                onClick = { open = false; onPhoto() },
+            )
+            DropdownMenuItem(
+                text = { Text(stringResource(R.string.sidekick_attach_image)) },
+                leadingIcon = { Icon(Icons.Default.Image, null) },
+                onClick = { open = false; onImage() },
+            )
+            DropdownMenuItem(
+                text = { Text(stringResource(R.string.sidekick_attach_file)) },
+                leadingIcon = { Icon(Icons.Default.Description, null) },
+                onClick = { open = false; onFile() },
+            )
+        }
+    }
+}
+
+@Composable
+private fun MicButton(
+    isListening: Boolean,
+    resolvedLanguage: String,
+    languageChoice: String,
+    onLanguageChoice: (String) -> Unit,
+    onToggle: () -> Unit,
+) {
+    val languages = listOf(
+        SpeechLanguage.AUTO to stringResource(R.string.sidekick_speech_auto),
+        "sr-RS" to "Srpski",
+        "en-US" to "English (US)",
+        "en-GB" to "English (UK)",
+        "sv-SE" to "Svenska",
+    )
+    var open by remember { mutableStateOf(false) }
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        IconButton(onClick = onToggle) {
+            Icon(
+                if (isListening) Icons.Default.Stop else Icons.Default.Mic,
+                stringResource(if (isListening) R.string.sidekick_mic_stop else R.string.sidekick_mic),
+                tint = if (isListening) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary,
+            )
+        }
+        Box {
+            IconButton(onClick = { open = true }, modifier = Modifier.size(30.dp)) {
+                Icon(Icons.Default.Language, stringResource(R.string.sidekick_speech_language), Modifier.size(16.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+            DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
+                languages.forEach { (tag, label) ->
+                    DropdownMenuItem(
+                        text = { Text(label) },
+                        onClick = { onLanguageChoice(tag); open = false },
+                        trailingIcon = { if (tag == languageChoice) Icon(Icons.Default.AutoAwesome, null, Modifier.size(14.dp)) },
+                    )
                 }
             }
         }

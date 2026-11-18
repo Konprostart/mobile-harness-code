@@ -7,6 +7,7 @@ import com.mobileharness.code.data.AppPreferences
 import com.mobileharness.code.model.ProviderKind
 import com.mobileharness.code.model.ProviderProfile
 import com.mobileharness.code.network.ChatCompletion
+import com.mobileharness.code.network.CompletionImage
 import com.mobileharness.code.network.ProviderApiClient
 import com.mobileharness.code.runtime.EcoMode
 import com.mobileharness.code.ui.AppStrings
@@ -39,8 +40,18 @@ class SidekickEngine(context: Context) {
         }
     }
 
-    suspend fun ask(question: String): SidekickResult =
-        complete(systemPrompt = SYSTEM_PROMPT, userMessage = question.trim())
+    suspend fun ask(
+        question: String,
+        images: List<SidekickImage> = emptyList(),
+        files: List<SidekickFile> = emptyList(),
+    ): SidekickResult {
+        val userMessage = SidekickInput.buildUserMessage(question, files)
+        return complete(
+            systemPrompt = SYSTEM_PROMPT,
+            userMessage = userMessage,
+            images = images,
+        )
+    }
 
     suspend fun optimizePrompt(draft: String): SidekickResult =
         complete(systemPrompt = PROMPT_ADVISOR_PROMPT, userMessage = draft.trim())
@@ -70,7 +81,11 @@ class SidekickEngine(context: Context) {
         return complete(systemPrompt = RESEARCH_PROMPT, userMessage = userMessage)
     }
 
-    private suspend fun complete(systemPrompt: String, userMessage: String): SidekickResult {
+    private suspend fun complete(
+        systemPrompt: String,
+        userMessage: String,
+        images: List<SidekickImage> = emptyList(),
+    ): SidekickResult {
         val profile = resolveProfile()
         if (profile.kind == ProviderKind.CLAUDE) {
             return SidekickResult(AppStrings.get(appContext, R.string.sidekick_requires_key))
@@ -87,6 +102,7 @@ class SidekickEngine(context: Context) {
             systemPrompt = systemPrompt,
             userMessage = userMessage,
             maxTokens = EcoMode.recommendedMaxTokens(preferences.ecoModeEnabled),
+            images = images.map { CompletionImage(it.mimeType, it.base64) },
         )) {
             is ChatCompletion.Success -> SidekickResult(result.text, result.reasoning)
             is ChatCompletion.Failure -> SidekickResult(result.message)

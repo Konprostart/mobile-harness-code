@@ -143,4 +143,73 @@ class ProviderApiClientTest {
         assertTrue(router.contains("Authorization" to "Bearer key"))
         assertFalse(router.any { it.first == "x-api-key" })
     }
+
+    @Test
+    fun anthropicMultimodalBodyPlacesImagesBeforeTextBlock() {
+        val body = JSONObject(
+            ProviderApiClient().completionBody(
+                model = "claude-sonnet-4-6",
+                protocol = ProviderProtocol.ANTHROPIC,
+                systemPrompt = "be brief",
+                userMessage = "what is in this image?",
+                images = listOf(CompletionImage("image/jpeg", "QUJD")),
+            ),
+        )
+        val content = body.getJSONArray("messages").getJSONObject(0).getJSONArray("content")
+        assertEquals(2, content.length())
+        assertEquals("image", content.getJSONObject(0).getString("type"))
+        assertEquals("image/jpeg", content.getJSONObject(0).getJSONObject("source").getString("media_type"))
+        assertEquals("QUJD", content.getJSONObject(0).getJSONObject("source").getString("data"))
+        assertEquals("text", content.getJSONObject(1).getString("type"))
+        assertEquals("what is in this image?", content.getJSONObject(1).getString("text"))
+    }
+
+    @Test
+    fun openAiChatMultimodalBodyUsesImageUrlDataUrls() {
+        val body = JSONObject(
+            ProviderApiClient().completionBody(
+                model = "gpt-4o",
+                protocol = ProviderProtocol.OPENAI_CHAT,
+                systemPrompt = "be brief",
+                userMessage = "describe",
+                images = listOf(CompletionImage("image/png", "QUJD")),
+            ),
+        )
+        val messages = body.getJSONArray("messages")
+        val userContent = messages.getJSONObject(1).getJSONArray("content")
+        assertEquals("text", userContent.getJSONObject(0).getString("type"))
+        assertEquals("image_url", userContent.getJSONObject(1).getString("type"))
+        assertEquals("data:image/png;base64,QUJD", userContent.getJSONObject(1).getJSONObject("image_url").getString("url"))
+    }
+
+    @Test
+    fun openAiResponsesMultimodalBodyUsesInputImageBlocks() {
+        val body = JSONObject(
+            ProviderApiClient().completionBody(
+                model = "gpt-4o",
+                protocol = ProviderProtocol.OPENAI_RESPONSES,
+                systemPrompt = "be brief",
+                userMessage = "describe",
+                images = listOf(CompletionImage("image/jpeg", "QUJD")),
+            ),
+        )
+        val input = body.getJSONArray("input")
+        assertEquals("input_text", input.getJSONObject(0).getString("type"))
+        assertEquals("input_image", input.getJSONObject(1).getString("type"))
+        assertEquals("data:image/jpeg;base64,QUJD", input.getJSONObject(1).getString("image_url"))
+    }
+
+    @Test
+    fun emptyImagesPreservePlainStringContent() {
+        val body = JSONObject(
+            ProviderApiClient().completionBody(
+                model = "claude-sonnet-4-6",
+                protocol = ProviderProtocol.ANTHROPIC,
+                systemPrompt = "be brief",
+                userMessage = "hi",
+                images = emptyList(),
+            ),
+        )
+        assertEquals("hi", body.getJSONArray("messages").getJSONObject(0).getString("content"))
+    }
 }

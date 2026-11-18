@@ -380,4 +380,19 @@
     <string name="eco_mode_note">When on, the assistant asks for shorter answers and gathers less background-research context, and background polling relaxes during quiet hours (00:00–06:00) when no task is running. Never disables a feature you started.</string>
     <string name="eco_mode_on">On — saving tokens and battery</string>
     <string name="eco_mode_off">Off</string>
+    <!-- Sidekick multimodal input + voice typing -->
+    <string name="sidekick_attach">Attach</string>
+    <string name="sidekick_attach_photo">Take photo</string>
+    <string name="sidekick_attach_image">Add image</string>
+    <string name="sidekick_attach_file">Add file</string>
+    <string name="sidekick_remove_attachment">Remove attachment</string>
+    <string name="sidekick_mic">Voice input</string>
+    <string name="sidekick_mic_stop">Stop listening</string>
+    <string name="sidekick_mic_permission">Microphone permission is required.</string>
+    <string name="sidekick_mic_error">Voice recognition failed.</string>
+    <string name="sidekick_speech_language">Voice language</string>
+    <string name="sidekick_speech_auto">Auto</string>
+    <string name="sidekick_attachment_too_large">This image or file is too large to attach.</string>
+    <string name="sidekick_attachment_unsupported">This file type is not supported.</string>
+    <string name="sidekick_attachment_failed">Could not read the attachment.</string>
 </resources>

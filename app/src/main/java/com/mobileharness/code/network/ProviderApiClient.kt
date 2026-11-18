@@ -34,6 +34,9 @@ sealed interface ChatCompletion {
     data class Failure(val message: String) : ChatCompletion
 }
 
+/** A base64-encoded image block for a multimodal completion (no data-URL prefix). */
+data class CompletionImage(val mimeType: String, val base64: String)
+
 /** Parsed completion payload: final answer text plus an optional chain-of-thought excerpt. */
 internal data class CompletionPayload(val text: String, val reasoning: String?)
 
@@ -211,6 +214,7 @@ class ProviderApiClient(private val context: Context? = null) {
         systemPrompt: String,
         userMessage: String,
         maxTokens: Int = COMPLETION_MAX_TOKENS,
+        images: List<CompletionImage> = emptyList(),
     ): ChatCompletion = withContext(Dispatchers.IO) {
         if (baseUrl.isBlank() || model.isBlank()) {
             return@withContext ChatCompletion.Failure(
@@ -218,7 +222,7 @@ class ProviderApiClient(private val context: Context? = null) {
             )
         }
         val endpoint = messagesEndpoint(baseUrl, protocol)
-        val body = completionBody(model, protocol, systemPrompt, userMessage, maxTokens)
+        val body = completionBody(model, protocol, systemPrompt, userMessage, maxTokens, images)
         val response = request(endpoint, "POST", apiKey, body, protocol, connectTimeoutMs = 12_000, readTimeoutMs = 60_000)
         when {
             response.code in 200..299 -> {
@@ -249,27 +253,113 @@ class ProviderApiClient(private val context: Context? = null) {
         systemPrompt: String,
         userMessage: String,
         maxTokens: Int = COMPLETION_MAX_TOKENS,
-    ): String = when (protocol) {
-        ProviderProtocol.OPENAI_CHAT -> JSONObject()
+        images: List<CompletionImage> = emptyList(),
+    ): String {
+        val safeImages = images.filter { it.mimeType.isNotBlank() && it.base64.isNotBlank() }
+        return when (protocol) {
+            ProviderProtocol.OPENAI_CHAT -> chatCompletionBody(model, systemPrompt, userMessage, maxTokens, safeImages)
+            ProviderProtocol.OPENAI_RESPONSES -> responsesBody(model, systemPrompt, userMessage, safeImages)
+            else -> anthropicMessagesBody(model, systemPrompt, userMessage, maxTokens, safeImages)
+        }
+    }
+
+    /** Anthropic Messages: image blocks precede a trailing text block inside `content`. */
+    private fun anthropicMessagesBody(
+        model: String,
+        systemPrompt: String,
+        userMessage: String,
+        maxTokens: Int,
+        images: List<CompletionImage>,
+    ): String {
+        val content: Any = if (images.isEmpty()) {
+            userMessage
+        } else {
+            val blocks = JSONArray()
+            for (image in images) {
+                blocks.put(
+                    JSONObject()
+                        .put("type", "image")
+                        .put(
+                            "source",
+                            JSONObject()
+                                .put("type", "base64")
+                                .put("media_type", image.mimeType)
+                                .put("data", image.base64),
+                        ),
+                )
+            }
+            blocks.put(JSONObject().put("type", "text").put("text", userMessage))
+            blocks
+        }
+        return JSONObject()
+            .put("model", model)
+            .put("max_tokens", maxTokens)
+            .put("system", systemPrompt)
+            .put("messages", JSONArray().put(JSONObject().put("role", "user").put("content", content)))
+            .toString()
+    }
+
+    /** OpenAI chat completions: text block plus `image_url` blocks carrying data URLs. */
+    private fun chatCompletionBody(
+        model: String,
+        systemPrompt: String,
+        userMessage: String,
+        maxTokens: Int,
+        images: List<CompletionImage>,
+    ): String {
+        val content: Any = if (images.isEmpty()) {
+            userMessage
+        } else {
+            val blocks = JSONArray()
+            blocks.put(JSONObject().put("type", "text").put("text", userMessage))
+            for (image in images) {
+                blocks.put(
+                    JSONObject()
+                        .put("type", "image_url")
+                        .put("image_url", JSONObject().put("url", "data:${image.mimeType};base64,${image.base64}")),
+                )
+            }
+            blocks
+        }
+        return JSONObject()
             .put("model", model)
             .put("max_tokens", maxTokens)
             .put(
                 "messages",
                 JSONArray()
                     .put(JSONObject().put("role", "system").put("content", systemPrompt))
-                    .put(JSONObject().put("role", "user").put("content", userMessage)),
+                    .put(JSONObject().put("role", "user").put("content", content)),
             )
             .toString()
-        ProviderProtocol.OPENAI_RESPONSES -> JSONObject()
+    }
+
+    /** OpenAI Responses: `input_text` plus `input_image` blocks; kept a plain string without images. */
+    private fun responsesBody(
+        model: String,
+        systemPrompt: String,
+        userMessage: String,
+        images: List<CompletionImage>,
+    ): String {
+        if (images.isEmpty()) {
+            return JSONObject()
+                .put("model", model)
+                .put("instructions", systemPrompt)
+                .put("input", userMessage)
+                .toString()
+        }
+        val input = JSONArray()
+        input.put(JSONObject().put("type", "input_text").put("text", userMessage))
+        for (image in images) {
+            input.put(
+                JSONObject()
+                    .put("type", "input_image")
+                    .put("image_url", "data:${image.mimeType};base64,${image.base64}"),
+            )
+        }
+        return JSONObject()
             .put("model", model)
             .put("instructions", systemPrompt)
-            .put("input", userMessage)
-            .toString()
-        else -> JSONObject()
-            .put("model", model)
-            .put("max_tokens", maxTokens)
-            .put("system", systemPrompt)
-            .put("messages", JSONArray().put(JSONObject().put("role", "user").put("content", userMessage)))
+            .put("input", input)
             .toString()
     }
 
