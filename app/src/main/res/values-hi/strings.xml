@@ -257,4 +257,63 @@
     <string name="server_sync_save">सहेजें</string>
     <string name="server_sync_saved">सिंक सेटिंग्स सहेजी गईं</string>
     <string name="server_sync_opt_in_note">सिंक डिफ़ॉल्ट रूप से बंद है और कोई टेलीमेट्री नहीं करता। जब तक आप कोई गंतव्य सक्षम करके बैकअप नहीं चलाते, कुछ भी डिवाइस से बाहर नहीं जाता।</string>
+
+    <!-- Telegram bot -->
+    <string name="telegram_title">Telegram bot</string>
+    <string name="telegram_subtitle">Optional remote control from Telegram</string>
+    <string name="telegram_enabled">Enable Telegram bot</string>
+    <string name="telegram_running_status">Bot is running</string>
+    <string name="telegram_stopped_status">Bot is stopped</string>
+    <string name="telegram_token">Bot token</string>
+    <string name="telegram_token_saved">Bot token (saved, encrypted)</string>
+    <string name="telegram_token_required">Enter a bot token first.</string>
+    <string name="telegram_enabled_started">Bot started.</string>
+    <string name="telegram_disabled_stopped">Bot stopped.</string>
+    <string name="telegram_token_invalid">Invalid bot token. Use the token from @BotFather (digits:letters).</string>
+    <string name="telegram_save_token">Save token</string>
+    <string name="telegram_clear_token">Clear token</string>
+    <string name="telegram_token_cleared">Token cleared.</string>
+    <string name="telegram_saved">Saved.</string>
+    <string name="telegram_generate_pair_code">Generate pairing code</string>
+    <string name="telegram_pair_code_label">Pairing code</string>
+    <string name="telegram_pair_code_hint">Send this code to your bot in a private chat: /pair %1$s (valid for 10 minutes).</string>
+    <string name="telegram_copy_pair_command">Copy /pair command</string>
+    <string name="telegram_opt_in_note">The bot is off by default and uses no telemetry. It polls Telegram only while enabled, and only paired private chats can send commands.</string>
+    <string name="telegram_pair_private_only">Pairing works only in a private chat with the bot.</string>
+    <string name="telegram_rate_limited">Too many commands. Wait a moment.</string>
+    <string name="telegram_not_paired">This chat is not paired. Open the app, generate a pairing code, and send /pair (code).</string>
+    <string name="telegram_already_paired">This chat is already paired.</string>
+    <string name="telegram_unknown_command">Unknown command: /%1$s. Send /help.</string>
+    <string name="telegram_help">Mobile Harness Code bot\n\nCommands:\n/start or /help — this list\n/version — app version\n/status — device and runtime status\n/projects — saved projects\n/backup (password) — encrypted backup (sent if under 48 MB)\n/apk — latest signed release link and SHA-256\n/pair (code) — pair this chat</string>
+    <string name="telegram_pair_code_issued">Your pairing code is %1$s (valid 10 min). Send /pair %1$s.</string>
+    <string name="telegram_pair_success">Paired. You can now send commands.</string>
+    <string name="telegram_pair_no_code">No pairing code is active. Generate one in the app first.</string>
+    <string name="telegram_pair_expired">That pairing code expired or was invalidated.</string>
+    <string name="telegram_pair_wrong">Wrong code. Try again.</string>
+    <string name="telegram_backup_usage">Usage: /backup (password) — creates a password-protected backup.</string>
+    <string name="telegram_backup_done">Backup created: %1$d projects, %2$d files.</string>
+    <string name="telegram_backup_failed">Backup failed.</string>
+    <string name="telegram_backup_too_large">Backup created but too large to send (%1$s, Telegram limit is 48 MB).</string>
+    <string name="telegram_apk_unavailable">Could not read the latest release info. Check the update manifest.</string>
+    <string name="telegram_apk_info">Latest release: %1$s\nSHA-256: %2$s\nDownload: %3$s</string>
+    <string name="telegram_backup_notify_done">Backup finished: %1$d projects, %2$d files.</string>
+    <string name="telegram_backup_notify_failed">Backup failed.</string>
+    <string name="telegram_notification_title">Mobile Harness Code bot</string>
+    <string name="telegram_notification_running">Connected as @%1$s</string>
+    <string name="telegram_notification_connecting">Connecting…</string>
+    <string name="telegram_notification_stop">Stop</string>
+    <string name="telegram_notification_channel">Telegram bot</string>
+    <string name="telegram_stopped_no_token">Telegram bot stopped: no token.</string>
+    <string name="telegram_stopped_invalid_token">Telegram bot stopped: invalid token.</string>
+
+    <!-- Sidekick assistant -->
+    <string name="sidekick_title">Assistant</string>
+    <string name="sidekick_subtitle">In-app helper for questions</string>
+    <string name="sidekick_note">Ask questions about Mobile Harness Code, on-device Android builds, coding agents, or the terminal. Answers use the provider you already configured.</string>
+    <string name="sidekick_launch">Open assistant</string>
+    <string name="sidekick_greeting">Hi, I\'m the Mobile Harness Code assistant. Ask me anything about building apps on this phone, coding agents, the terminal, or backups.</string>
+    <string name="sidekick_placeholder">Ask a question…</string>
+    <string name="sidekick_send">Send</string>
+    <string name="sidekick_loading">Thinking…</string>
+    <string name="sidekick_requires_key">The assistant needs an API-key provider (Anthropic, OpenRouter, DeepSeek, or custom). Add one under Settings → Provider, or switch from Claude subscription.</string>
 </resources>
