@@ -1,0 +1,31 @@
+Categories:
+  - Development
+  - System
+License: MIT
+AuthorName: Konprostart
+SourceCode: https://github.com/Konprostart/mobile-harness-code
+IssueTracker: https://github.com/Konprostart/mobile-harness-code/issues
+Changelog: https://github.com/Konprostart/mobile-harness-code/releases
+
+AutoName: Mobile Harness Code
+
+RepoType: git
+Repo: https://github.com/Konprostart/mobile-harness-code.git
+
+AntiFeatures:
+  - NonFreeNet
+
+Builds:
+  - versionName: 1.0.2
+    versionCode: 3
+    commit: v1.0.2
+    subdir: app
+    ndk: r26b
+    submodules: true
+    gradle:
+      - yes
+
+AutoUpdateMode: Version v%v
+UpdateCheckMode: Tags
+CurrentVersion: 1.0.2
+CurrentVersionCode: 3

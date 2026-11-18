@@ -2,10 +2,10 @@
 set -euo pipefail
 
 project_dir="$(cd "$(dirname "$0")/.." && pwd)"
-keystore_path="${MH_UPLOAD_STORE_FILE:-/Users/jarves/.mobile-harness/mobile-harness-upload.jks}"
+keystore_path="${MH_UPLOAD_STORE_FILE:-$HOME/.mobile-harness/mobile-harness-code-upload.jks}"
 key_alias="${MH_UPLOAD_KEY_ALIAS:-mobile-harness-upload}"
-keychain_account="com.jarves.mh"
-keychain_service="Mobile Harness Upload Key"
+keychain_account="com.mobileharness.code"
+keychain_service="Mobile Harness Code Upload Key"
 version_code="${1:-1}"
 version_name="${2:-1.0.0}"
 

@@ -1,0 +1,25 @@
+Mobile Harness Code
+===================
+
+Mobile Harness Code is an independent fork of the Mobile Harness project
+(https://github.com/techjarves/Mobile-Harness), created and maintained by
+Konprostart.
+
+This product includes software developed by the Mobile Harness project and its
+contributors, distributed under the MIT License:
+
+    Copyright (c) 2026 Mobile Harness Contributors
+
+The original project's full license text is preserved in the LICENSE file at
+the root of this repository.
+
+This fork, Mobile Harness Code, is also distributed under the MIT License:
+
+    Copyright (c) 2026 Konprostart and Mobile Harness Code Contributors
+
+This fork is an independent project and is not affiliated with, endorsed by,
+or sponsored by the original Mobile Harness project or its maintainers.
+
+Third-party components incorporated in this project, and their respective
+licenses, are listed in THIRD_PARTY_NOTICES.md and in the per-component notice
+files under app/src/main/assets/licenses/.
