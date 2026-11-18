@@ -9,7 +9,7 @@ import org.junit.Test
 class UpdateManifestTest {
 
     private fun manifest(
-        versionCode: Long = 2,
+        versionCode: Long = 6,
         versionName: String = "1.2.2",
         url: String = "https://github.com/Konprostart/mobile-harness-code/releases/download/v1.2.2/mobile-harness-online.apk",
         sha256: String = "abc123",
