@@ -1,12 +1,12 @@
 {
-  "versionCode": 9,
-  "versionName": "1.2.5",
-  "notes": "Mobile Harness Code — independent fork of Mobile Harness. NEW: native Anthropic adapter (system + messages + tool-use headers), DeepSeek reasoning_content support shown as a collapsible Reasoning box in the assistant, and curated popular-model presets (Claude, DeepSeek, GPT, Kimi) in provider settings. Plus Material 3 dynamic color, in-app update, Telegram bot, Sidekick assistant, session auto-recovery, Gradle memory tuning, release & signing pipeline, optional SSH/dukoi.com server sync, reproducible build + SBOM. This APK is SIGNED (V1+V2+V3); install mobile-harness-online.apk.",
+  "versionCode": 10,
+  "versionName": "1.2.6",
+  "notes": "Mobile Harness Code — independent fork of Mobile Harness. Material 3 dynamic color (Monet) themes, in-app update (download + SHA-256 verify + install), Telegram bot remote control, Sidekick assistant with floating button and background research, Eco Mode (Token Saver) with overnight throttling, Developer Tools (crash history + CPU monitor), session auto-recovery, Gradle memory tuning, release & signing pipeline, optional SSH/dukoi.com server sync, reproducible build + SBOM. This APK is SIGNED (V1+V2+V3); install mobile-harness-online.apk.",
   "artifacts": {
     "online": {
-      "url": "https://github.com/Konprostart/mobile-harness-code/releases/download/v1.2.5/mobile-harness-online.apk",
-      "sha256": "f4f29d9f393c6ce2be112ec6a0e0d85036afc8572c22f6a9a1a4b89f4b52505b",
-      "sizeBytes": 90282995
+      "url": "https://github.com/Konprostart/mobile-harness-code/releases/download/v1.2.6/mobile-harness-online.apk",
+      "sha256": "b68b84a5c71fca66d512ee2d36496feaa064b67f81d363a10a335b70a7579f7b",
+      "sizeBytes": 90299379
     }
   }
 }
