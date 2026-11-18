@@ -1,12 +1,12 @@
 {
-  "versionCode": 4,
-  "versionName": "1.2.0",
-  "notes": "Mobile Harness Code — independent fork of Mobile Harness. Telegram bot remote control (pairing, status, projects, encrypted backup, APK link), in-app Sidekick assistant, session auto-recovery, Gradle memory tuning, release & signing pipeline, optional SSH/dukoi.com server sync, reproducible build + SBOM. This APK is SIGNED (V1+V2+V3); install mobile-harness-online.apk.",
+  "versionCode": 5,
+  "versionName": "1.2.1",
+  "notes": "Mobile Harness Code v1.2.1 — Sidekick assistant upgrade: global floating AI button, prompt advisor + bounded background research, and an independent (more powerful) model choice. Telegram bot remote control, session auto-recovery, Gradle memory tuning, release & signing pipeline, optional SSH/dukoi.com server sync, reproducible build + SBOM. This APK is SIGNED (V1+V2+V3); install mobile-harness-online.apk.",
   "artifacts": {
     "online": {
-      "url": "https://github.com/Konprostart/mobile-harness-code/releases/download/v1.2.0/mobile-harness-online.apk",
-      "sha256": "fd8306d2357af02c6842a40803440a3bb9045c4b1b4fdafc42f33e70109b469c",
-      "sizeBytes": 90065907
+      "url": "https://github.com/Konprostart/mobile-harness-code/releases/download/v1.2.1/mobile-harness-online.apk",
+      "sha256": "c26e17562d60d2dd03f629a1fa308a4ec212b186b33f46426d2e6c0b49cb2a37",
+      "sizeBytes": 90164211
     }
   }
 }
