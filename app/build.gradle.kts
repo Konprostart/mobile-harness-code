@@ -232,6 +232,7 @@ tasks.withType<AbstractArchiveTask>().configureEach {
 // SPDX license for each direct dependency (keyed as `group:name`). Transitive
 // components are still listed in the SBOM (with their purl) for downstream audit.
 val directDependencyLicenses = mapOf(
+    "androidx.compose:compose-bom" to "Apache-2.0",
     "androidx.core:core-ktx" to "Apache-2.0",
     "androidx.activity:activity-compose" to "Apache-2.0",
     "androidx.compose.ui:ui" to "Apache-2.0",
