@@ -12,5 +12,8 @@ Features:
 • Guided Ubuntu 20.04 ARM64 runtime setup with live progress
 • Anthropic API and experimental Anthropic-compatible gateways
 • API-key encryption backed by Android Keystore
+• Release pipeline: build, sign (V1+V2+V3), verify, and checksum APKs locally
+• Optional, opt-in backup sync to your own SSH server or a local dukoi.com server
+• No analytics, no telemetry — all network connections are opt-in
 
 Important: Mobile Harness Code is experimental alpha software. PRoot is not a hardened security sandbox. Open only projects and dependencies you trust. Provider capabilities vary, and some models may not support every Claude Code tool or streaming event.

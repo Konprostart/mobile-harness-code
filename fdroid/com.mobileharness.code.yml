@@ -16,16 +16,18 @@ AntiFeatures:
   - NonFreeNet
 
 Builds:
-  - versionName: 1.0.2
-    versionCode: 3
-    commit: v1.0.2
+  - versionName: 1.0.0
+    versionCode: 1
+    commit: v1.0.0
     subdir: app
-    ndk: r26b
+    # The native PRoot loader needs NDK 28 for flexible page-size binaries
+    # (Android 15+ 16 KiB pages). Gradle's default is 28.2.13676358.
+    ndk: r28b
     submodules: true
     gradle:
       - yes
 
 AutoUpdateMode: Version v%v
 UpdateCheckMode: Tags
-CurrentVersion: 1.0.2
-CurrentVersionCode: 3
+CurrentVersion: 1.0.0
+CurrentVersionCode: 1

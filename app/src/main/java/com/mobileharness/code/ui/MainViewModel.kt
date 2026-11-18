@@ -93,6 +93,11 @@ import com.mobileharness.code.runtime.AndroidLogcatState
 import com.mobileharness.code.runtime.AndroidProjectTemplateGenerator
 import com.mobileharness.code.runtime.GradleMemory
 import com.mobileharness.code.runtime.GradleMemoryProfile
+import com.mobileharness.code.runtime.ReleasePipelineOutcome
+import com.mobileharness.code.runtime.ReleasePipelineRunner
+import com.mobileharness.code.runtime.ReleasePipelineStage
+import com.mobileharness.code.runtime.ReleaseSigningConfig
+import com.mobileharness.code.runtime.ReleaseStageResult
 import com.mobileharness.code.runtime.RuntimeExecutionService
 import com.mobileharness.code.runtime.RuntimeTaskController
 import com.mobileharness.code.runtime.androidGradleCommand
@@ -476,6 +481,20 @@ internal fun recoveryUiStateFromFailure(recovery: RecoveryFailureInfo, reason: S
         toolsExecuted = recovery.toolsExecuted,
     )
 
+/** User-facing release pipeline state (Build → Sign → Verify → Checksum). */
+data class ReleaseUiState(
+    val running: Boolean = false,
+    val keystoreDisplayName: String = "",
+    val keyAlias: String = "",
+    val message: String? = null,
+    val stages: List<ReleaseStageResult> = emptyList(),
+    val success: Boolean = false,
+    val signedApkPath: String? = null,
+    val sha256: String? = null,
+    val savedToDownloads: Boolean = false,
+    val exportedViaSaf: Boolean = false,
+)
+
 data class AppUiState(
     val startupStage: StartupStage = StartupStage.CHECKING,
     val startupProgress: Float = 0f,
@@ -612,6 +631,9 @@ data class AppUiState(
     val gradleDeviceRamMb: Long = 0,
     val gradleEffectiveHeapMb: Int = 1536,
     val gradleEffectiveMetaspaceMb: Int = 768,
+    val releaseUi: ReleaseUiState = ReleaseUiState(),
+    val serverSyncConfig: ServerSyncConfig = ServerSyncConfig(),
+    val serverSyncDukoiTokenConfigured: Boolean = false,
 )
 
 class MainViewModel(application: Application) : AndroidViewModel(application) {
@@ -728,6 +750,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             gradleDeviceRamMb = GradleMemory.deviceRamMb(application),
             gradleEffectiveHeapMb = GradleMemory.resolve(application, preferences).maxHeapMb,
             gradleEffectiveMetaspaceMb = GradleMemory.resolve(application, preferences).maxMetaspaceMb,
+            serverSyncConfig = loadServerSyncConfig().copy(dukoiToken = ""),
+            serverSyncDukoiTokenConfigured = loadServerSyncConfig().dukoiToken.isNotBlank(),
         ),
     ).also {
         if (!preferences.onboardingComplete) preferences.whatsNewSeenVersionCode = BuildConfig.VERSION_CODE
@@ -787,8 +811,12 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         dukoiToken = vault.get(SYNC_DUKOI_TOKEN_ID) ?: "",
     )
 
-    /** Persists the opt-in server sync destination; an empty dukoi token clears the stored one. */
+    /** Persists the opt-in server sync destination; an empty dukoi token keeps the stored one. */
     fun saveServerSyncConfig(config: ServerSyncConfig) {
+        val storedToken = vault.get(SYNC_DUKOI_TOKEN_ID).orEmpty()
+        // The UI never sends a decrypted secret back, so a blank token means "leave the stored
+        // token unchanged". Clearing is an explicit action via [clearServerSyncToken].
+        val effectiveToken = if (config.dukoiToken.isNotBlank()) config.dukoiToken else storedToken
         preferences.serverSyncEnabled = config.enabled
         preferences.serverSyncMode = config.mode.name
         preferences.serverSyncSshHost = config.sshHost
@@ -797,7 +825,167 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         preferences.serverSyncSshKeyPath = config.sshKeyPath
         preferences.serverSyncSshRemoteDir = config.sshRemoteDir
         preferences.serverSyncDukoiBaseUrl = config.dukoiBaseUrl
-        if (config.dukoiToken.isBlank()) vault.remove(SYNC_DUKOI_TOKEN_ID) else vault.put(SYNC_DUKOI_TOKEN_ID, config.dukoiToken)
+        if (effectiveToken.isBlank()) vault.remove(SYNC_DUKOI_TOKEN_ID) else vault.put(SYNC_DUKOI_TOKEN_ID, effectiveToken)
+        refreshServerSyncState()
+    }
+
+    /** Explicitly removes the stored dukoi.com access token. */
+    fun clearServerSyncToken() {
+        vault.remove(SYNC_DUKOI_TOKEN_ID)
+        refreshServerSyncState()
+    }
+
+    private fun refreshServerSyncState() {
+        val full = loadServerSyncConfig()
+        _state.update {
+            it.copy(
+                serverSyncConfig = full.copy(dukoiToken = ""),
+                serverSyncDukoiTokenConfigured = full.dukoiToken.isNotBlank(),
+            )
+        }
+    }
+
+    // --- Release pipeline (Build → Sign → Verify → Checksum) -------------------------------
+
+    private fun releaseKeystoreDir(): File =
+        File(getApplication<Application>().filesDir, "release").apply { mkdirs() }
+
+    /** Copies a SAF-chosen signing keystore into app-private storage (passwords are never stored). */
+    fun setReleaseKeystore(uri: Uri) {
+        viewModelScope.launch(Dispatchers.IO) {
+            val resolver = getApplication<Application>().contentResolver
+            var displayName = "upload-keystore.jks"
+            resolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)?.use { cursor ->
+                if (cursor.moveToFirst()) {
+                    cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME).takeIf { it >= 0 }?.let { index ->
+                        displayName = cursor.getString(index) ?: displayName
+                    }
+                }
+            }
+            val target = File(releaseKeystoreDir(), "upload-keystore.jks")
+            val copied = runCatching {
+                resolver.openInputStream(uri)?.use { input ->
+                    target.outputStream().use { output -> input.copyTo(output) }
+                }
+                true
+            }.getOrDefault(false)
+            _state.update {
+                it.copy(
+                    releaseUi = it.releaseUi.copy(
+                        keystoreDisplayName = if (copied) displayName else "",
+                        message = if (copied) null else str(R.string.release_signing_keystore_error),
+                    ),
+                )
+            }
+        }
+    }
+
+    fun setReleaseKeyAlias(alias: String) {
+        _state.update { it.copy(releaseUi = it.releaseUi.copy(keyAlias = alias.trim())) }
+    }
+
+    fun clearReleaseKeystore() {
+        releaseKeystoreDir().deleteRecursively()
+        _state.update { it.copy(releaseUi = it.releaseUi.copy(keystoreDisplayName = "", keyAlias = "", signedApkPath = null, sha256 = null)) }
+    }
+
+    /** Runs the full release pipeline for the active project. Passwords are held in memory only. */
+    fun runReleasePipeline(storePassword: String, keyPassword: String) {
+        val project = _state.value.activeProject
+        if (project == null) {
+            _state.update { it.copy(releaseUi = it.releaseUi.copy(message = str(R.string.release_signing_requires_project))) }
+            return
+        }
+        if (_state.value.releaseUi.running) return
+        val keystore = File(releaseKeystoreDir(), "upload-keystore.jks")
+        val alias = _state.value.releaseUi.keyAlias
+        if (!keystore.isFile || alias.isBlank()) {
+            _state.update { it.copy(releaseUi = it.releaseUi.copy(message = str(R.string.release_signing_requires_keystore))) }
+            return
+        }
+        _state.update {
+            it.copy(
+                releaseUi = it.releaseUi.copy(
+                    running = true, message = null, stages = emptyList(), success = false,
+                    signedApkPath = null, sha256 = null, savedToDownloads = false, exportedViaSaf = false,
+                ),
+            )
+        }
+        viewModelScope.launch(Dispatchers.IO) {
+            val runner = ReleasePipelineRunner(getApplication())
+            val outputDir = File(releaseKeystoreDir(), "output").apply { mkdirs() }
+            val signing = ReleaseSigningConfig(
+                keystorePath = keystore.absolutePath,
+                keyAlias = alias,
+                storePassword = storePassword,
+                keyPassword = keyPassword,
+            )
+            val outcome = runCatching {
+                runner.runProjectRelease(
+                    installer = installer,
+                    projectRoot = projectWorkspaceRoot(project),
+                    signing = signing,
+                    outputDir = outputDir,
+                    jvmArgs = resolveGradleMemoryProfile().jvmArgs,
+                )
+            }.getOrElse { error ->
+                ReleasePipelineOutcome(
+                    success = false,
+                    stages = listOf(ReleaseStageResult(ReleasePipelineStage.FAILED, false, error.message ?: error::class.java.simpleName)),
+                )
+            }
+            _state.update { state ->
+                state.copy(
+                    releaseUi = state.releaseUi.copy(
+                        running = false,
+                        success = outcome.success,
+                        // The engine returns a guest path; the runner copied the signed APK
+                        // back to the host output dir, so resolve the host path for the UI.
+                        signedApkPath = if (outcome.success) File(outputDir, "signed.apk").takeIf { it.isFile }?.absolutePath else null,
+                        sha256 = outcome.sha256,
+                        stages = outcome.stages,
+                        message = if (outcome.success) str(R.string.release_signing_success) else str(R.string.release_signing_failed),
+                    ),
+                )
+            }
+        }
+    }
+
+    /** Saves the signed APK to the shared Downloads collection. */
+    fun saveReleaseArtifactToDownloads() {
+        val apkPath = _state.value.releaseUi.signedApkPath ?: return
+        viewModelScope.launch(Dispatchers.IO) {
+            val saved = ReleasePipelineRunner(getApplication()).saveToDownloads(File(apkPath)) != null
+            _state.update {
+                it.copy(
+                    releaseUi = it.releaseUi.copy(
+                        savedToDownloads = saved,
+                        message = if (saved) str(R.string.release_signing_saved_downloads) else str(R.string.release_signing_failed),
+                    ),
+                )
+            }
+        }
+    }
+
+    /** Exports the signed APK to a SAF document (e.g. for manual Signiffia signing). */
+    fun exportReleaseArtifactToUri(uri: Uri) {
+        val apkPath = _state.value.releaseUi.signedApkPath ?: return
+        viewModelScope.launch(Dispatchers.IO) {
+            val source = File(apkPath)
+            val exported = runCatching {
+                getApplication<Application>().contentResolver.openOutputStream(uri)?.use { output ->
+                    source.inputStream().use { input -> input.copyTo(output) }
+                } != null
+            }.getOrDefault(false)
+            _state.update {
+                it.copy(
+                    releaseUi = it.releaseUi.copy(
+                        exportedViaSaf = exported,
+                        message = if (exported) str(R.string.release_signing_exported) else str(R.string.release_signing_failed),
+                    ),
+                )
+            }
+        }
     }
 
     init {

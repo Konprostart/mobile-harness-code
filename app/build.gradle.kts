@@ -1,5 +1,6 @@
 import java.util.Properties
 import org.gradle.api.tasks.Sync
+import org.gradle.api.tasks.bundling.AbstractArchiveTask
 
 plugins {
     id("com.android.application")
@@ -214,4 +215,116 @@ dependencies {
     testImplementation("org.json:json:20250107")
     debugImplementation("androidx.compose.ui:ui-tooling")
     debugImplementation("androidx.compose.ui:ui-test-manifest")
+}
+
+// ---------------------------------------------------------------------------
+// Reproducible build + SBOM + license transparency (#108)
+// ---------------------------------------------------------------------------
+
+// Deterministic archive contents: strip file timestamps and use a sorted entry
+// order so two clean builds of the same source produce byte-identical artifacts.
+// This makes third-party AV "detections" auditable and enables reproducible builds.
+tasks.withType<AbstractArchiveTask>().configureEach {
+    isPreserveFileTimestamps = false
+    isReproducibleFileOrder = true
+}
+
+// SPDX license for each direct dependency (keyed as `group:name`). Transitive
+// components are still listed in the SBOM (with their purl) for downstream audit.
+val directDependencyLicenses = mapOf(
+    "androidx.core:core-ktx" to "Apache-2.0",
+    "androidx.activity:activity-compose" to "Apache-2.0",
+    "androidx.compose.ui:ui" to "Apache-2.0",
+    "androidx.compose.ui:ui-tooling-preview" to "Apache-2.0",
+    "androidx.compose.material3:material3" to "Apache-2.0",
+    "androidx.compose.material:material-icons-extended" to "Apache-2.0",
+    "androidx.lifecycle:lifecycle-runtime-ktx" to "Apache-2.0",
+    "androidx.lifecycle:lifecycle-runtime-compose" to "Apache-2.0",
+    "androidx.lifecycle:lifecycle-viewmodel-compose" to "Apache-2.0",
+    "androidx.lifecycle:lifecycle-viewmodel-ktx" to "Apache-2.0",
+    "org.jetbrains.kotlinx:kotlinx-coroutines-android" to "Apache-2.0",
+    "org.jetbrains.kotlin:kotlin-stdlib" to "Apache-2.0",
+    "org.jetbrains.kotlin:kotlin-stdlib-jdk8" to "Apache-2.0",
+    "org.jetbrains.kotlin:kotlin-stdlib-jdk7" to "Apache-2.0",
+    "org.jetbrains:annotations" to "Apache-2.0",
+    "org.apache.commons:commons-compress" to "Apache-2.0",
+    "com.github.luben:zstd-jni" to "BSD-2-Clause",
+)
+
+val allowedSpdxLicenses = setOf(
+    "Apache-2.0", "MIT", "BSD-2-Clause", "BSD-3-Clause", "ISC",
+    "LGPL-2.1", "LGPL-3.0", "MPL-2.0", "EPL-2.0", "CC0-1.0",
+)
+
+val sbomOutputDir = layout.buildDirectory.dir("reports/sbom")
+
+val generateSbom = tasks.register("generateSbom") {
+    group = "verification"
+    description = "Writes a dependency-free CycloneDX SBOM of the online release runtime classpath."
+    val outputFile = sbomOutputDir.map { it.file("cyclonedx.json") }
+    outputs.file(outputFile)
+    doLast {
+        fun esc(value: String) = value.replace("\\", "\\\\").replace("\"", "\\\"")
+        fun purl(group: String, name: String, version: String) = "pkg:maven/$group/$name@$version"
+        val resolved = configurations.getByName("onlineReleaseRuntimeClasspath").resolvedConfiguration
+        val seen = sortedSetOf<String>()
+        val componentJsons = mutableListOf<String>()
+        fun addComponent(group: String, name: String, version: String, license: String?) {
+            if (!seen.add("$group:$name:$version")) return
+            val licenseJson = if (license.isNullOrBlank()) ""
+            else ""","licenses":[{"license":{"id":"${esc(license)}"}}]"""
+            componentJsons +=
+                """{"type":"library","name":"${esc(group)}:${esc(name)}","version":"${esc(version)}","purl":"${esc(purl(group, name, version))}"$licenseJson}"""
+        }
+        // Direct dependencies carry their curated SPDX license; transitive ones are listed by purl.
+        resolved.firstLevelModuleDependencies.forEach {
+            addComponent(it.moduleGroup, it.moduleName, it.moduleVersion, directDependencyLicenses["${it.moduleGroup}:${it.moduleName}"])
+        }
+        resolved.allModuleDependencies.forEach {
+            addComponent(it.moduleGroup, it.moduleName, it.moduleVersion, null)
+        }
+        val json = buildString {
+            appendLine("{")
+            appendLine("  \"bomFormat\": \"CycloneDX\",")
+            appendLine("  \"specVersion\": \"1.4\",")
+            appendLine("  \"serialNumber\": \"urn:uuid:${java.util.UUID.randomUUID()}\",")
+            appendLine("  \"version\": 1,")
+            appendLine("  \"metadata\": { \"component\": { \"type\": \"application\", \"name\": \"Mobile Harness Code\", \"version\": \"1.0.0\" } },")
+            appendLine("  \"components\": [")
+            componentJsons.forEachIndexed { index, component ->
+                append("    $component")
+                if (index != componentJsons.lastIndex) append(",")
+                appendLine()
+            }
+            appendLine("  ]")
+            append("}")
+        }
+        outputFile.get().parentFile.mkdirs()
+        outputFile.get().writeText(json)
+        println("SBOM written to ${outputFile.get()}")
+    }
+}
+
+val licenseCheck = tasks.register("licenseCheck") {
+    group = "verification"
+    description = "Fails the build if a direct dependency has a denied or unverified license."
+    dependsOn(generateSbom)
+    doLast {
+        val resolved = configurations.getByName("onlineReleaseRuntimeClasspath").resolvedConfiguration
+        val problems = mutableListOf<String>()
+        resolved.firstLevelModuleDependencies.forEach { dep ->
+            val coord = "${dep.moduleGroup}:${dep.moduleName}"
+            val license = directDependencyLicenses[coord]
+            when {
+                license == null -> problems += "Unverified license for direct dependency $coord:${dep.moduleVersion}"
+                license.startsWith("GPL") || license.startsWith("AGPL") ->
+                    problems += "Copyleft license $license for $coord is not compatible with this distribution"
+                license !in allowedSpdxLicenses -> problems += "License $license for $coord is not on the allow-list"
+            }
+        }
+        if (problems.isNotEmpty()) {
+            throw GradleException("License check failed:\n" + problems.joinToString("\n") { " - $it" })
+        }
+        println("License check passed for ${resolved.firstLevelModuleDependencies.size} direct dependencies.")
+    }
 }

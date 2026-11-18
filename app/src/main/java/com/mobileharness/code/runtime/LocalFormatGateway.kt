@@ -24,6 +24,13 @@ internal class LocalFormatGateway(
     private val server = ServerSocket(0, 8, InetAddress.getByName("127.0.0.1"))
     val url: String = "http://127.0.0.1:${server.localPort}"
 
+    /**
+     * Random per-session credential the agent CLI must present to this gateway. Using a fresh
+     * token instead of the long-lived provider key means even if another app reads this loopback
+     * port it can only replay a token that dies with the session — it never learns the real key.
+     */
+    val sessionToken: String = UUID.randomUUID().toString().replace("-", "")
+
     fun start(): LocalFormatGateway = apply {
         Thread({ acceptLoop() }, "mh-format-gateway").apply { isDaemon = true; start() }
     }
@@ -225,18 +232,19 @@ internal class LocalFormatGateway(
     }
 
     /**
-     * Only forward requests that present the provider key Claude Code was configured with.
-     *
-     * Binding to 127.0.0.1 keeps this server off the network, but it does not make it
-     * private: on Android any app with the INTERNET permission can connect to a loopback
-     * port. Without this check, another installed app could have its requests forwarded
-     * upstream on the user's key.
+     * Only forward requests that present the random per-session token the agent CLI was
+     * configured with. Binding to 127.0.0.1 keeps this server off the network, but it does
+     * not make it private: on Android any app with the INTERNET permission can connect to a
+     * loopback port. Without this check, another installed app could have its requests
+     * forwarded upstream on the user's key. The session token (never the provider key) is
+     * compared in constant time so the real credential is never exposed on the wire to the
+     * agent or accepted from a foreign process.
      */
     private fun isAuthorized(headers: Map<String, String>): Boolean {
         val presented = headers["x-api-key"]
             ?: headers["authorization"]?.removePrefix("Bearer ")?.trim()
             ?: return false
-        return MessageDigest.isEqual(presented.toByteArray(), apiKey.toByteArray())
+        return MessageDigest.isEqual(presented.toByteArray(), sessionToken.toByteArray())
     }
 
     private fun readLine(input: BufferedInputStream): String? {
