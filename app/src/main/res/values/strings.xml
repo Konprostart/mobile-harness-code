@@ -394,5 +394,4 @@
     <string name="gradle_memory_metaspace_label">Max metaspace (MiB)</string>
     <string name="gradle_memory_effective">Effective: %1$s</string>
     <string name="gradle_memory_save_override">Save override</string>
-    <string name="gradle_memory_saved">Build memory updated</string>
 </resources>
