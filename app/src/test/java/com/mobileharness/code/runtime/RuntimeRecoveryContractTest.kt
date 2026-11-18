@@ -1,7 +1,7 @@
 package com.mobileharness.code.runtime
 
-import com.jarves.mh.model.RecoveryDecision
-import com.jarves.mh.model.RuntimeRecoveryContext
+import com.mobileharness.code.model.RecoveryDecision
+import com.mobileharness.code.model.RuntimeRecoveryContext
 import org.junit.Assert.assertEquals
 import org.junit.Test
 

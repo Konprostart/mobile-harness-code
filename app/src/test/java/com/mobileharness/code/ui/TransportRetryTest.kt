@@ -1,6 +1,6 @@
 package com.mobileharness.code.ui
 
-import com.jarves.mh.model.RecoveryFailureInfo
+import com.mobileharness.code.model.RecoveryFailureInfo
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
