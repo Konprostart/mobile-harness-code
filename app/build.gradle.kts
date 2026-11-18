@@ -1,4 +1,5 @@
 import java.util.Properties
+import java.util.UUID
 import org.gradle.api.tasks.Sync
 import org.gradle.api.tasks.bundling.AbstractArchiveTask
 
@@ -281,14 +282,14 @@ val generateSbom = tasks.register("generateSbom") {
         resolved.firstLevelModuleDependencies.forEach {
             addComponent(it.moduleGroup, it.moduleName, it.moduleVersion, directDependencyLicenses["${it.moduleGroup}:${it.moduleName}"])
         }
-        resolved.allModuleDependencies.forEach {
+        resolved.lenientConfiguration.allModuleDependencies.forEach {
             addComponent(it.moduleGroup, it.moduleName, it.moduleVersion, null)
         }
         val json = buildString {
             appendLine("{")
             appendLine("  \"bomFormat\": \"CycloneDX\",")
             appendLine("  \"specVersion\": \"1.4\",")
-            appendLine("  \"serialNumber\": \"urn:uuid:${java.util.UUID.randomUUID()}\",")
+            appendLine("  \"serialNumber\": \"urn:uuid:${UUID.randomUUID()}\",")
             appendLine("  \"version\": 1,")
             appendLine("  \"metadata\": { \"component\": { \"type\": \"application\", \"name\": \"Mobile Harness Code\", \"version\": \"1.0.0\" } },")
             appendLine("  \"components\": [")
@@ -300,9 +301,10 @@ val generateSbom = tasks.register("generateSbom") {
             appendLine("  ]")
             append("}")
         }
-        outputFile.get().parentFile.mkdirs()
-        outputFile.get().writeText(json)
-        println("SBOM written to ${outputFile.get()}")
+        val file = outputFile.get().asFile
+        file.parentFile.mkdirs()
+        file.writeText(json)
+        println("SBOM written to $file")
     }
 }
 
