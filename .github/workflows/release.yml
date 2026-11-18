@@ -59,7 +59,10 @@ jobs:
 
       - name: Prepare release artifacts
         run: |
-          APK=app/build/outputs/apk/online/release/app-online-release.apk
+          APK_DIR=app/build/outputs/apk/online/release
+          APK="$APK_DIR/app-online-release-unsigned.apk"
+          [ -f "$APK" ] || APK="$(find "$APK_DIR" -maxdepth 1 -name '*.apk' | head -1)"
+          { [ -n "$APK" ] && [ -f "$APK" ]; } || { echo "No APK found in $APK_DIR"; exit 1; }
           cp "$APK" mobile-harness-online.apk
           SHA=$(sha256sum mobile-harness-online.apk | cut -d' ' -f1)
           SIZE=$(stat -c%s mobile-harness-online.apk)
