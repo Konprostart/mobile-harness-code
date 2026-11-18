@@ -30,6 +30,10 @@ jobs:
 
       - name: Set up Android SDK
         uses: android-actions/setup-android@v3
+        with:
+          # Default 'tools platform-tools' includes the deprecated 'tools'
+          # package which no longer resolves; install only platform-tools.
+          packages: platform-tools
 
       - name: Install SDK components
         run: |
