@@ -341,4 +341,26 @@
     <string name="sidekick_base_url_label">Base URL</string>
     <string name="sidekick_save">Save assistant settings</string>
     <string name="sidekick_saved">Saved</string>
+    <string name="devtools_title">Developer tools</string>
+    <string name="devtools_subtitle">Device, performance, and crash history</string>
+    <string name="devtools_refresh">Refresh</string>
+    <string name="devtools_not_loaded">Tap Refresh to load device details</string>
+    <string name="devtools_device_info">Device &amp; environment</string>
+    <string name="devtools_device_model">Device</string>
+    <string name="devtools_abi">CPU architecture</string>
+    <string name="devtools_android_version">Android version</string>
+    <string name="devtools_cpu_cores">CPU cores</string>
+    <string name="devtools_cpu_max_freq">Max core frequency</string>
+    <string name="devtools_physical_ram">Physical RAM</string>
+    <string name="devtools_available_ram">Available RAM</string>
+    <string name="devtools_live_monitor">Live monitor</string>
+    <string name="devtools_app_memory">App memory (PSS)</string>
+    <string name="devtools_java_heap">Java heap</string>
+    <string name="devtools_cpu_usage">CPU usage</string>
+    <string name="devtools_cpu_measuring">Measuring…</string>
+    <string name="devtools_crash_history">Crash &amp; ANR history</string>
+    <string name="devtools_no_crashes">No crashes recorded</string>
+    <string name="devtools_clear_crashes">Clear history</string>
+    <string name="devtools_crashes_cleared">Crash history cleared</string>
+    <string name="devtools_thread">Thread: %1$s</string>
 </resources>

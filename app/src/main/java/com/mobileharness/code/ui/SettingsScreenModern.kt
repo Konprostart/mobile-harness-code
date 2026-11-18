@@ -122,7 +122,7 @@ import com.mobileharness.code.ui.theme.AppThemeMode
 import com.mobileharness.code.ui.theme.PocketOrange
 import kotlinx.coroutines.launch
 
-private enum class SettingsSection { APPEARANCE, LANGUAGE, TOOLS, RUNTIME, DIAGNOSTICS, BACKUP, UPDATE_CHANNEL, UPDATES, GRADLE_MEMORY, RELEASE_SIGNING, SERVER_SYNC, TELEGRAM, SIDEKICK }
+private enum class SettingsSection { APPEARANCE, LANGUAGE, TOOLS, RUNTIME, DIAGNOSTICS, DEVELOPER_TOOLS, BACKUP, UPDATE_CHANNEL, UPDATES, GRADLE_MEMORY, RELEASE_SIGNING, SERVER_SYNC, TELEGRAM, SIDEKICK }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -177,6 +177,8 @@ fun SettingsScreen(
     onSaveSidekickProvider: (ProviderProfile) -> Unit = {},
     onCheckForAppUpdate: () -> Unit = {},
     onInstallAppUpdate: () -> Unit = {},
+    onRefreshDevTools: () -> Unit = {},
+    onClearDevToolsCrashLogs: () -> Unit = {},
 ) {
     val context = LocalContext.current
     val installPermissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) {
@@ -429,6 +431,26 @@ fun SettingsScreen(
                         onRefresh = onRefreshDiagnostics,
                         onStopInactiveProcesses = onStopInactiveProcesses,
                         onClearRuntimeCache = onClearRuntimeCache,
+                    )
+                }
+            }
+
+            item {
+                SettingsAccordion(
+                    title = stringResource(R.string.devtools_title),
+                    subtitle = stringResource(R.string.devtools_subtitle),
+                    icon = Icons.Default.Code,
+                    expanded = expanded == SettingsSection.DEVELOPER_TOOLS,
+                    onClick = {
+                        val opening = expanded != SettingsSection.DEVELOPER_TOOLS
+                        toggle(SettingsSection.DEVELOPER_TOOLS)
+                        if (opening) onRefreshDevTools()
+                    },
+                ) {
+                    DeveloperToolsContent(
+                        state = state.devTools,
+                        onRefresh = onRefreshDevTools,
+                        onClearCrashLogs = onClearDevToolsCrashLogs,
                     )
                 }
             }

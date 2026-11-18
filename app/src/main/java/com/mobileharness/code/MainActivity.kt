@@ -19,6 +19,7 @@ import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.LayoutDirection.Ltr
 import androidx.compose.ui.unit.LayoutDirection.Rtl
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.mobileharness.code.devtools.CrashHandler
 import com.mobileharness.code.ui.AppStrings
 import com.mobileharness.code.ui.LocaleHelper
 import com.mobileharness.code.ui.MainViewModel
@@ -38,6 +39,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        CrashHandler.install(applicationContext)
         enableEdgeToEdge()
         setContent {
             val vm = mainViewModel

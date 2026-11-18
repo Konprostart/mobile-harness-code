@@ -27,6 +27,9 @@ import com.mobileharness.code.R
 import com.mobileharness.code.data.ApiKeyVault
 import com.mobileharness.code.data.ApiKeyInfo
 import com.mobileharness.code.data.AppPreferences
+import com.mobileharness.code.devtools.CpuUsageReader
+import com.mobileharness.code.devtools.CrashLogStore
+import com.mobileharness.code.devtools.DeviceInfo
 import com.mobileharness.code.model.ActivityItem
 import com.mobileharness.code.model.AgentKind
 import com.mobileharness.code.model.ChangeItem
@@ -550,6 +553,7 @@ data class AppUiState(
     val androidProjectDetected: Boolean = false,
     val filesLoading: Boolean = false,
     val diagnostics: DeveloperDiagnostics = DeveloperDiagnostics(),
+    val devTools: DevToolsState = DevToolsState(),
     val openedFile: OpenedFileState? = null,
     val projectExportRunning: Boolean = false,
     val projectExportSucceededAtMillis: Long? = null,
@@ -694,6 +698,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private var androidLogcatJob: kotlinx.coroutines.Job? = null
     private var diagnosticsJob: kotlinx.coroutines.Job? = null
     private var lastDiagnosticsRefreshAtElapsedMillis = 0L
+    private var devToolsJob: kotlinx.coroutines.Job? = null
+    private var lastDevToolsRefreshAtElapsedMillis = 0L
     private var cachedRecentExitSummary: String? = null
     private var recentExitLoadedAtElapsedMillis = 0L
     private var pendingAndroidInstallId: String? = null
@@ -1424,6 +1430,55 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 _state.update { it.copy(diagnostics = snapshot) }
             } finally {
                 diagnosticsJob = null
+            }
+        }
+    }
+
+    fun refreshDevTools() {
+        if (devToolsJob?.isActive == true) return
+        val now = SystemClock.elapsedRealtime()
+        if (now - lastDevToolsRefreshAtElapsedMillis < DIAGNOSTICS_REFRESH_COOLDOWN_MS) return
+        _state.update { it.copy(devTools = it.devTools.copy(loading = true)) }
+        devToolsJob = viewModelScope.launch {
+            try {
+                val snapshot = withContext(Dispatchers.IO) { collectDevTools() }
+                lastDevToolsRefreshAtElapsedMillis = SystemClock.elapsedRealtime()
+                _state.update { it.copy(devTools = snapshot) }
+            } finally {
+                devToolsJob = null
+            }
+        }
+    }
+
+    private fun collectDevTools(): DevToolsState {
+        val memory = Debug.MemoryInfo().also(Debug::getMemoryInfo)
+        val runtime = Runtime.getRuntime()
+        val deviceInfo = DeviceInfo.collect(getApplication())
+        val cpuUsage = CpuUsageReader.readUsageNow()
+        val crashLogs = CrashLogStore.read(getApplication())
+        return DevToolsState(
+            loading = false,
+            deviceInfo = deviceInfo,
+            appPssBytes = memory.totalPss.toLong() * 1_024L,
+            javaHeapBytes = runtime.totalMemory() - runtime.freeMemory(),
+            javaHeapMaxBytes = runtime.maxMemory(),
+            cpuUsage = cpuUsage,
+            crashLogs = crashLogs,
+            refreshedAtMillis = System.currentTimeMillis(),
+        )
+    }
+
+    fun clearDevToolsCrashLogs() {
+        viewModelScope.launch(Dispatchers.IO) {
+            CrashLogStore.clear(getApplication())
+            val remaining = CrashLogStore.read(getApplication())
+            withContext(Dispatchers.Main) {
+                _state.update {
+                    it.copy(
+                        devTools = it.devTools.copy(crashLogs = remaining),
+                        toastMessage = str(R.string.devtools_crashes_cleared),
+                    )
+                }
             }
         }
     }
