@@ -383,4 +383,16 @@
     <string name="diagnostics_inactive_stopped">Inactive processes stopped</string>
     <string name="diagnostics_cache_busy">Wait for active work to finish before clearing output</string>
     <string name="diagnostics_cache_cleared">Disposable runtime output cleared</string>
+
+    <!-- On-device Gradle memory -->
+    <string name="gradle_memory_title">Android build memory</string>
+    <string name="gradle_memory_subtitle">Heap and metaspace for builds made on this phone</string>
+    <string name="gradle_memory_auto_label">Automatic (recommended)</string>
+    <string name="gradle_memory_auto_desc">Derived from %1$d MiB of device RAM</string>
+    <string name="gradle_memory_manual_label">Manual override</string>
+    <string name="gradle_memory_heap_label">Max heap (MiB)</string>
+    <string name="gradle_memory_metaspace_label">Max metaspace (MiB)</string>
+    <string name="gradle_memory_effective">Effective: %1$s</string>
+    <string name="gradle_memory_save_override">Save override</string>
+    <string name="gradle_memory_saved">Build memory updated</string>
 </resources>
