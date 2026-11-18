@@ -1,13 +1,17 @@
 package com.mobileharness.code.ui.theme
 
 import android.app.Activity
+import android.os.Build
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
+import androidx.compose.material3.dynamicDarkColorScheme
+import androidx.compose.material3.dynamicLightColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.SideEffect
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import androidx.core.view.WindowCompat
 
@@ -66,12 +70,33 @@ private val LightColors = lightColorScheme(
 
 enum class AppThemeMode { SYSTEM, DARK, LIGHT }
 
+/**
+ * Material 3 dynamic color (Monet) is only available on Android 12 (API 31) and newer.
+ * Extracted so the decision is unit-testable without an Android runtime.
+ */
+internal fun shouldUseDynamicColor(sdkInt: Int, dynamicColorEnabled: Boolean): Boolean =
+    dynamicColorEnabled && sdkInt >= Build.VERSION_CODES.S
+
 @Composable
-fun PocketTheme(themeMode: AppThemeMode = AppThemeMode.SYSTEM, content: @Composable () -> Unit) {
+fun PocketTheme(
+    themeMode: AppThemeMode = AppThemeMode.SYSTEM,
+    dynamicColor: Boolean = true,
+    content: @Composable () -> Unit,
+) {
     val isDark = when (themeMode) {
         AppThemeMode.DARK -> true
         AppThemeMode.LIGHT -> false
         AppThemeMode.SYSTEM -> isSystemInDarkTheme()
+    }
+
+    val context = LocalContext.current
+    val colorScheme = if (shouldUseDynamicColor(Build.VERSION.SDK_INT, dynamicColor)) {
+        // Android 12+ (API 31): derive the whole palette from the system wallpaper
+        // (Monet). Dark/Light/System still only picks the brightness variant.
+        if (isDark) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
+    } else {
+        // Below API 31 (or dynamic color disabled): use the tuned brand fallback.
+        if (isDark) DarkColors else LightColors
     }
 
     val view = LocalView.current
@@ -85,7 +110,7 @@ fun PocketTheme(themeMode: AppThemeMode = AppThemeMode.SYSTEM, content: @Composa
     }
 
     MaterialTheme(
-        colorScheme = if (isDark) DarkColors else LightColors,
+        colorScheme = colorScheme,
         content = content,
     )
 }
