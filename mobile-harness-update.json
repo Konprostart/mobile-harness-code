@@ -1,12 +1,12 @@
 {
-  "versionCode": 3,
-  "versionName": "1.1.1",
-  "notes": "Mobile Harness Code — independent fork of Mobile Harness. Fix: API keys are no longer rejected on transient rate-limit/quota/expired errors (only genuine 401/403 auth failures reject a key). This APK is SIGNED (V1+V2+V3); install mobile-harness-online.apk.",
+  "versionCode": 4,
+  "versionName": "1.2.0",
+  "notes": "Mobile Harness Code — independent fork of Mobile Harness. Telegram bot remote control (pairing, status, projects, encrypted backup, APK link), in-app Sidekick assistant, session auto-recovery, Gradle memory tuning, release & signing pipeline, optional SSH/dukoi.com server sync, reproducible build + SBOM. This APK is SIGNED (V1+V2+V3); install mobile-harness-online.apk.",
   "artifacts": {
     "online": {
-      "url": "https://github.com/Konprostart/mobile-harness-code/releases/download/v1.1.1/mobile-harness-online.apk",
-      "sha256": "32a69d29f0b11393855a14279c735a1e9dd80cd093764507077a3e68d1bdb6db",
-      "sizeBytes": 89881587
+      "url": "https://github.com/Konprostart/mobile-harness-code/releases/download/v1.2.0/mobile-harness-online.apk",
+      "sha256": "fd8306d2357af02c6842a40803440a3bb9045c4b1b4fdafc42f33e70109b469c",
+      "sizeBytes": 90065907
     }
   }
 }
