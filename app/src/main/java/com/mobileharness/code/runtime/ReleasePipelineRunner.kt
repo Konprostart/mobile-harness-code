@@ -77,6 +77,10 @@ class ReleasePipelineRunner(private val context: Context) {
         outputDir.mkdirs()
         val runner = GuestReleaseCommandRunner(installer, installed.proot, installed.rootfs, workspace)
 
+        // The user's keystore is chosen on the host (SAF) and must be copied into the
+        // guest workspace so the guest `apksigner` can read it; translate its path too.
+        val effectiveSigning = stageKeystore(workspace, signing)
+
         val build = runner.run(
             binary = "/usr/bin/bash",
             args = listOf("-lc", androidGradleCommand(workspace, "assembleRelease", jvmArgs)),
@@ -102,7 +106,7 @@ class ReleasePipelineRunner(private val context: Context) {
             runner = runner,
             unsignedApk = toGuestPath(workspace, unsigned),
             outputDir = guestReleaseDir,
-            signing = signing,
+            signing = effectiveSigning,
             zipalignBinary = ReleaseGuestTools.ZIPALIGN,
             apksignerBinary = ReleaseGuestTools.APKSIGNER,
             // The engine's checksum runs on the host, so translate the guest path back.
@@ -114,6 +118,22 @@ class ReleasePipelineRunner(private val context: Context) {
             }
         }
         return outcome.copy(stages = listOf(ReleaseStageResult(ReleasePipelineStage.BUILD, true, "release build succeeded")) + outcome.stages)
+    }
+
+    /**
+     * Copies a host-chosen keystore into the guest workspace and rewrites its path to the
+     * guest view. A path that already starts with `/workspace/` is left untouched so the
+     * engine can also be driven with pre-staged guest files.
+     */
+    private fun stageKeystore(workspace: File, signing: ReleaseSigningConfig): ReleaseSigningConfig {
+        if (signing.keystorePath.startsWith("/workspace/")) return signing
+        val hostFile = File(signing.keystorePath)
+        if (!hostFile.isFile) return signing
+        val staged = File(File(workspace, ".release").apply { mkdirs() }, "upload-keystore.jks")
+        return runCatching {
+            hostFile.copyTo(staged, overwrite = true)
+            signing.copy(keystorePath = "/workspace/.release/upload-keystore.jks")
+        }.getOrElse { signing }
     }
 
     private fun toGuestPath(workspace: File, hostFile: File): String =

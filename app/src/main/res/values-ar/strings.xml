@@ -216,4 +216,51 @@
 <string name="android_estimated_remaining">متبقٍ نحو %1$s</string><string name="android_finishing_build">جارٍ إنهاء البناء…</string><string name="android_estimating_build">جارٍ تعلّم مدة البناء…</string><string name="android_usually_takes">عادةً نحو %1$s</string>
 <string name="diagnostics_title">تشخيصات المطور</string><string name="diagnostics_subtitle">الأداء والعمليات وتخزين بيئة التشغيل</string><string name="diagnostics_refresh">تحديث التشخيصات</string><string name="diagnostics_memory">الذاكرة</string><string name="diagnostics_app_memory">ذاكرة التطبيق</string><string name="diagnostics_java_heap">ذاكرة Java</string><string name="diagnostics_processes">العمليات النشطة</string><string name="diagnostics_no_processes">لا توجد عملية تطوير قيد التشغيل</string><string name="diagnostics_stop_inactive">إيقاف العمليات غير النشطة</string><string name="diagnostics_buffers">المخازن المؤقتة</string><string name="diagnostics_messages">رسائل المحادثة</string><string name="diagnostics_live_activity">صفوف النشاط المباشر</string><string name="diagnostics_terminal_buffer">نص الطرفية</string><string name="diagnostics_build_log">سجل البناء</string><string name="diagnostics_logcat_lines">أسطر السجل</string><string name="diagnostics_file_entries">إدخالات الملفات المحملة</string><string name="diagnostics_runtime_cache">ذاكرة مخرجات التشغيل</string><string name="diagnostics_cached_output">المخرجات المخزنة</string><string name="diagnostics_clear_cache">مسح المخرجات المؤقتة</string><string name="diagnostics_cache_disabled">يتاح بعد انتهاء العمل النشط.</string><string name="diagnostics_recent_exit">مشكلة حديثة في التطبيق</string><string name="diagnostics_no_recent_exit">لا يوجد تعطل أو عدم استجابة حديث</string><string name="diagnostics_inactive_stopped">تم إيقاف العمليات غير النشطة</string><string name="diagnostics_cache_busy">انتظر انتهاء العمل النشط قبل المسح</string><string name="diagnostics_cache_cleared">تم مسح مخرجات التشغيل المؤقتة</string>
 <string name="gradle_memory_title">ذاكرة بناء Android</string><string name="gradle_memory_subtitle">الذاكرة المؤقتة والمساحة الوصفية لعمليات البناء على هذا الهاتف</string><string name="gradle_memory_auto_label">تلقائي (موصى به)</string><string name="gradle_memory_auto_desc">مشتق من %1$d ميجابايت من ذاكرة الجهاز</string><string name="gradle_memory_manual_label">تجاوز يدوي</string><string name="gradle_memory_heap_label">الحد الأقصى للذاكرة المؤقتة (ميجابايت)</string><string name="gradle_memory_metaspace_label">الحد الأقصى للمساحة الوصفية (ميجابايت)</string><string name="gradle_memory_effective">الفعلي: %1$s</string><string name="gradle_memory_save_override">حفظ التجاوز</string>
+
+    <string name="release_stage_build">بناء</string>
+    <string name="release_stage_zipalign">محاذاة</string>
+    <string name="release_stage_sign">توقيع</string>
+    <string name="release_stage_verify">تحقق</string>
+    <string name="release_stage_checksum">مجموع تحققي</string>
+    <string name="release_stage_complete">اكتمل</string>
+    <string name="release_stage_failed">فشل</string>
+    <string name="release_signing_title">الإصدار والتوقيع</string>
+    <string name="release_signing_subtitle">بناء وتوقيع وتحقق وحساب المجموع التحققي لملف APK إصدار</string>
+    <string name="release_signing_password_note">تُحفظ كلمات المرور في الذاكرة فقط وتُمرَّر إلى الموقِّع عبر متغيرات البيئة — ولا تُخزَّن أو تُسجَّل أبدًا.</string>
+    <string name="release_signing_keystore_choose">اختيار مخزن المفاتيح…</string>
+    <string name="release_signing_keystore_none">لم يتم اختيار مخزن مفاتيح</string>
+    <string name="release_signing_keystore_label">مخزن المفاتيح</string>
+    <string name="release_signing_alias_label">اسم المفتاح المستعار</string>
+    <string name="release_signing_store_password_label">كلمة مرور مخزن المفاتيح</string>
+    <string name="release_signing_key_password_label">كلمة مرور المفتاح</string>
+    <string name="release_signing_run">بناء وتوقيع APK الإصدار</string>
+    <string name="release_signing_running">خط إصدار الإصدار قيد التشغيل…</string>
+    <string name="release_signing_sha256_label">SHA-256 (اضغط للنسخ)</string>
+    <string name="release_signing_save_downloads">حفظ في التنزيلات</string>
+    <string name="release_signing_export_signiffia">تصدير لـ Signiffia</string>
+    <string name="release_signing_keystore_error">تعذّرت قراءة مخزن المفاتيح المحدد</string>
+    <string name="release_signing_requires_project">افتح مشروع Android أولًا</string>
+    <string name="release_signing_requires_keystore">اختر مخزن المفاتيح وأدخل اسم المفتاح المستعار</string>
+    <string name="release_signing_success">تم توقيع APK الإصدار والتحقق منه</string>
+    <string name="release_signing_failed">فشل خط إصدار الإصدار</string>
+    <string name="release_signing_saved_downloads">حُفظ في التنزيلات</string>
+    <string name="release_signing_exported">تم التصدير</string>
+    <string name="server_sync_title">مزامنة الخادم</string>
+    <string name="server_sync_subtitle">نسخ احتياطي اختياري إلى خادمك الخاص</string>
+    <string name="server_sync_enabled">تفعيل مزامنة الخادم</string>
+    <string name="server_sync_mode_label">الوجهة</string>
+    <string name="server_sync_mode_ssh">خادم SSH الخاص بك</string>
+    <string name="server_sync_mode_dukoi">خادم dukoi.com</string>
+    <string name="server_sync_ssh_host">مضيف SSH</string>
+    <string name="server_sync_ssh_port">منفذ SSH</string>
+    <string name="server_sync_ssh_user">مستخدم SSH</string>
+    <string name="server_sync_ssh_key_path">مسار مفتاح SSH (اختياري)</string>
+    <string name="server_sync_ssh_remote_dir">الدليل البعيد</string>
+    <string name="server_sync_dukoi_url">عنوان URL للخادم</string>
+    <string name="server_sync_dukoi_token">رمز الوصول</string>
+    <string name="server_sync_dukoi_token_saved">رمز الوصول (محفوظ ومشفّر)</string>
+    <string name="server_sync_clear_token">مسح الرمز</string>
+    <string name="server_sync_save">حفظ</string>
+    <string name="server_sync_saved">حُفظت إعدادات المزامنة</string>
+    <string name="server_sync_opt_in_note">المزامنة متوقفة افتراضيًا ولا تستخدم أي تتبُّع. لا يغادر أي شيء الجهاز إلا إذا فعّلت وجهة وشغّلت نسخة احتياطية.</string>
 </resources>

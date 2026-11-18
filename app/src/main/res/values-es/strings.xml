@@ -210,4 +210,51 @@
 <string name="android_estimated_remaining">Quedan unos %1$s</string><string name="android_finishing_build">Finalizando compilación…</string><string name="android_estimating_build">Calculando el tiempo…</string><string name="android_usually_takes">Suele tardar unos %1$s</string>
 <string name="diagnostics_title">Diagnóstico para desarrolladores</string><string name="diagnostics_subtitle">Rendimiento, procesos y almacenamiento</string><string name="diagnostics_refresh">Actualizar diagnóstico</string><string name="diagnostics_memory">Memoria</string><string name="diagnostics_app_memory">Memoria de la app</string><string name="diagnostics_java_heap">Memoria Java</string><string name="diagnostics_processes">Procesos activos</string><string name="diagnostics_no_processes">No hay procesos de desarrollo activos</string><string name="diagnostics_stop_inactive">Detener procesos inactivos</string><string name="diagnostics_buffers">Búferes internos</string><string name="diagnostics_messages">Mensajes del chat</string><string name="diagnostics_live_activity">Filas de actividad</string><string name="diagnostics_terminal_buffer">Texto del terminal</string><string name="diagnostics_build_log">Registro de compilación</string><string name="diagnostics_logcat_lines">Líneas de registro</string><string name="diagnostics_file_entries">Archivos cargados</string><string name="diagnostics_runtime_cache">Caché de ejecución</string><string name="diagnostics_cached_output">Salida almacenada</string><string name="diagnostics_clear_cache">Borrar salida temporal</string><string name="diagnostics_cache_disabled">Disponible cuando termine el trabajo activo.</string><string name="diagnostics_recent_exit">Problema reciente</string><string name="diagnostics_no_recent_exit">No hay fallos ni ANR recientes</string><string name="diagnostics_inactive_stopped">Procesos inactivos detenidos</string><string name="diagnostics_cache_busy">Espera a que termine el trabajo activo</string><string name="diagnostics_cache_cleared">Salida temporal eliminada</string>
 <string name="gradle_memory_title">Memoria de compilación de Android</string><string name="gradle_memory_subtitle">Montículo y metaespacio para compilaciones en este teléfono</string><string name="gradle_memory_auto_label">Automático (recomendado)</string><string name="gradle_memory_auto_desc">Derivado de %1$d MiB de RAM del dispositivo</string><string name="gradle_memory_manual_label">Anulación manual</string><string name="gradle_memory_heap_label">Montículo máximo (MiB)</string><string name="gradle_memory_metaspace_label">Metaespacio máximo (MiB)</string><string name="gradle_memory_effective">Efectivo: %1$s</string><string name="gradle_memory_save_override">Guardar anulación</string>
+
+    <string name="release_stage_build">Compilar</string>
+    <string name="release_stage_zipalign">Alinear</string>
+    <string name="release_stage_sign">Firmar</string>
+    <string name="release_stage_verify">Verificar</string>
+    <string name="release_stage_checksum">Suma de verificación</string>
+    <string name="release_stage_complete">Completado</string>
+    <string name="release_stage_failed">Falló</string>
+    <string name="release_signing_title">Lanzamiento y firma</string>
+    <string name="release_signing_subtitle">Compila, firma, verifica y calcula el checksum de un APK de lanzamiento</string>
+    <string name="release_signing_password_note">Las contraseñas solo se mantienen en memoria y se pasan al firmador mediante variables de entorno; nunca se almacenan ni se registran.</string>
+    <string name="release_signing_keystore_choose">Elegir almacén de claves…</string>
+    <string name="release_signing_keystore_none">Sin almacén de claves seleccionado</string>
+    <string name="release_signing_keystore_label">Almacén de claves</string>
+    <string name="release_signing_alias_label">Alias de la clave</string>
+    <string name="release_signing_store_password_label">Contraseña del almacén</string>
+    <string name="release_signing_key_password_label">Contraseña de la clave</string>
+    <string name="release_signing_run">Compilar y firmar APK de lanzamiento</string>
+    <string name="release_signing_running">Tubería de lanzamiento en curso…</string>
+    <string name="release_signing_sha256_label">SHA-256 (toca para copiar)</string>
+    <string name="release_signing_save_downloads">Guardar en Descargas</string>
+    <string name="release_signing_export_signiffia">Exportar para Signiffia</string>
+    <string name="release_signing_keystore_error">No se pudo leer el almacén de claves seleccionado</string>
+    <string name="release_signing_requires_project">Abre primero un proyecto Android</string>
+    <string name="release_signing_requires_keystore">Selecciona un almacén de claves e introduce el alias</string>
+    <string name="release_signing_success">APK de lanzamiento firmado y verificado</string>
+    <string name="release_signing_failed">Falló la tubería de lanzamiento</string>
+    <string name="release_signing_saved_downloads">Guardado en Descargas</string>
+    <string name="release_signing_exported">Exportado</string>
+    <string name="server_sync_title">Sincronización con servidor</string>
+    <string name="server_sync_subtitle">Copia de seguridad opcional a tu propio servidor</string>
+    <string name="server_sync_enabled">Activar sincronización con servidor</string>
+    <string name="server_sync_mode_label">Destino</string>
+    <string name="server_sync_mode_ssh">Servidor SSH propio</string>
+    <string name="server_sync_mode_dukoi">Servidor dukoi.com</string>
+    <string name="server_sync_ssh_host">Host SSH</string>
+    <string name="server_sync_ssh_port">Puerto SSH</string>
+    <string name="server_sync_ssh_user">Usuario SSH</string>
+    <string name="server_sync_ssh_key_path">Ruta de la clave SSH (opcional)</string>
+    <string name="server_sync_ssh_remote_dir">Directorio remoto</string>
+    <string name="server_sync_dukoi_url">URL del servidor</string>
+    <string name="server_sync_dukoi_token">Token de acceso</string>
+    <string name="server_sync_dukoi_token_saved">Token de acceso (guardado, cifrado)</string>
+    <string name="server_sync_clear_token">Borrar token</string>
+    <string name="server_sync_save">Guardar</string>
+    <string name="server_sync_saved">Ajustes de sincronización guardados</string>
+    <string name="server_sync_opt_in_note">La sincronización está desactivada por defecto y no usa telemetría. Nada sale del dispositivo a menos que actives un destino y ejecutes una copia de seguridad.</string>
 </resources>

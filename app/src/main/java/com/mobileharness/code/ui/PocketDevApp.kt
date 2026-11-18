@@ -90,6 +90,7 @@ import androidx.compose.material.icons.filled.ArrowUpward
 import androidx.compose.material.icons.filled.AttachFile
 import androidx.compose.material.icons.filled.Android
 import androidx.compose.material.icons.filled.Build
+import androidx.compose.material.icons.filled.Bolt
 import androidx.compose.material.icons.filled.BugReport
 import androidx.compose.material.icons.filled.HealthAndSafety
 import androidx.compose.material.icons.filled.InstallMobile
@@ -2620,6 +2621,14 @@ private fun RootScreenHost(
                     onClearRuntimeCache = viewModel::clearDeveloperRuntimeCache,
                     onSetGradleMemoryAuto = viewModel::setGradleMemoryAuto,
                     onSetGradleMemoryOverride = viewModel::setGradleMemoryOverride,
+                    onPickReleaseKeystore = viewModel::setReleaseKeystore,
+                    onSetReleaseKeyAlias = viewModel::setReleaseKeyAlias,
+                    onClearReleaseKeystore = viewModel::clearReleaseKeystore,
+                    onRunReleasePipeline = viewModel::runReleasePipeline,
+                    onSaveReleaseToDownloads = viewModel::saveReleaseArtifactToDownloads,
+                    onExportReleaseArtifact = viewModel::exportReleaseArtifactToUri,
+                    onSaveServerSyncConfig = viewModel::saveServerSyncConfig,
+                    onClearServerSyncToken = viewModel::clearServerSyncToken,
                 )
             }
         }
@@ -7642,7 +7651,7 @@ private fun BrandMark(modifier: Modifier = Modifier, compact: Boolean = false) {
         contentAlignment = Alignment.Center,
     ) {
         Icon(
-            imageVector = Icons.Default.Terminal,
+            imageVector = Icons.Default.Bolt,
             contentDescription = "Mobile Harness Code",
             modifier = Modifier.size(iconSize),
             tint = primary,

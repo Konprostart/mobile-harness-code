@@ -13,6 +13,7 @@ Mobile Harness Code may handle the following information when you choose to prov
 - Project files, imported documents, images, audio, and other attachments
 - Terminal commands, command output, file changes, checkpoints, and diagnostic logs
 - Basic device compatibility information such as Android version, processor architecture, memory, and available storage
+- When you use the optional release pipeline: a signing keystore you select and its passwords. Passwords are held only in memory and are passed to the signer through environment variables — they are never written to disk, logged, or stored
 
 ## Local storage
 
@@ -26,7 +27,18 @@ When you use an AI feature, the content required to answer your request may be t
 
 During runtime setup and maintenance, the app connects to software distribution services—including Ubuntu, Anthropic, Node.js, Composer, App Dev For All's Android development assets, and configured Linux package repositories—to download required components. Those services may receive standard network information such as your IP address, request time, requested file, and user-agent information.
 
-Mobile Harness Code does not sell personal information. It does not send projects or conversations to the Mobile Harness Code developer unless you explicitly share them, submit diagnostics, or use a future opt-in backup or support feature.
+Mobile Harness Code does not sell personal information. It does not send projects or conversations to the Mobile Harness Code developer unless you explicitly share them, submit diagnostics, or use the optional backup/sync feature described below.
+
+## Optional server sync
+
+Server sync is **off by default and strictly opt-in**. It contains no telemetry.
+
+If you enable it, you choose one of two destinations:
+
+- **Your own SSH server** — backups are transferred with `scp` to the host, port, and directory you configure, authenticated by your own SSH key.
+- **A local/Android `dukoi.com` server** — backups are uploaded to the endpoint URL you configure over HTTP(S), authenticated with an access token that is encrypted at rest by Android Keystore.
+
+Nothing is synced unless you enable a destination and start a backup. You remain in control of the server, credentials, and what leaves the device.
 
 ## Permissions
 
@@ -46,7 +58,7 @@ Information already transmitted to an AI provider is governed by that provider's
 
 ## Security
 
-Mobile Harness Code uses app-private Android storage, Android Keystore-backed credential encryption, HTTPS for external services, and checksum verification for supported runtime downloads. No system can guarantee complete security. Code executed inside the local Linux environment should be limited to projects and dependencies you trust.
+Mobile Harness Code uses app-private Android storage, Android Keystore-backed credential encryption, HTTPS for external services, and checksum verification for supported runtime downloads. The local loopback gateway used for OpenAI-compatible providers authenticates each request with a random per-session token that is never the provider key. No system can guarantee complete security. Code executed inside the local Linux environment should be limited to projects and dependencies you trust.
 
 ## Children
 

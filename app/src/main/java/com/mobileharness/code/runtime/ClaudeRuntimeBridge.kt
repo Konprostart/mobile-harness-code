@@ -251,7 +251,10 @@ class ClaudeRuntimeBridge(
             ) OpenRouterRoutingGateway(provider, secret).start() else null
             val launch = RuntimeLaunchConfigBuilder.build(
                 provider,
-                authToken = secret,
+                // The local format gateway validates a fresh per-session token (never the
+                // provider key), so hand the agent that token; direct/OpenRouter paths keep
+                // the real secret because no local gateway sits in front of them.
+                authToken = formatGateway?.sessionToken ?: secret,
                 localGatewayUrl = formatGateway?.url ?: openRouterGateway?.url,
             )
             Log.d("ClaudeBridge", "Provider: ${provider.kind}, Model: ${provider.model}, BaseUrl: ${provider.baseUrl}")

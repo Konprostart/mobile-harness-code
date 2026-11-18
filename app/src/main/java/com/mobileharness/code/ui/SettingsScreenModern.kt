@@ -30,10 +30,12 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.OpenInNew
 import androidx.compose.material.icons.filled.Backup
+import androidx.compose.material.icons.filled.Build
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Code
 import androidx.compose.material.icons.filled.DarkMode
 import androidx.compose.material.icons.filled.DeleteSweep
+import androidx.compose.material.icons.filled.Dns
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.LightMode
@@ -102,6 +104,7 @@ import com.mobileharness.code.model.providersForAgent
 import com.mobileharness.code.network.ConnectionValidation
 import com.mobileharness.code.network.DiscoveredModel
 import com.mobileharness.code.network.ModelDiscoveryResult
+import com.mobileharness.code.network.ServerSyncConfig
 import androidx.compose.material.icons.filled.Language
 import androidx.compose.ui.res.stringResource
 import com.mobileharness.code.R
@@ -111,7 +114,7 @@ import com.mobileharness.code.ui.theme.AppThemeMode
 import com.mobileharness.code.ui.theme.PocketOrange
 import kotlinx.coroutines.launch
 
-private enum class SettingsSection { APPEARANCE, LANGUAGE, TOOLS, RUNTIME, DIAGNOSTICS, BACKUP, UPDATE_CHANNEL, GRADLE_MEMORY }
+private enum class SettingsSection { APPEARANCE, LANGUAGE, TOOLS, RUNTIME, DIAGNOSTICS, BACKUP, UPDATE_CHANNEL, GRADLE_MEMORY, RELEASE_SIGNING, SERVER_SYNC }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -151,6 +154,14 @@ fun SettingsScreen(
     openBackup: Boolean = false,
     onSetGradleMemoryAuto: (Boolean) -> Unit = {},
     onSetGradleMemoryOverride: (Int, Int) -> Unit = { _, _ -> },
+    onPickReleaseKeystore: (Uri) -> Unit = {},
+    onSetReleaseKeyAlias: (String) -> Unit = {},
+    onClearReleaseKeystore: () -> Unit = {},
+    onRunReleasePipeline: (String, String) -> Unit = { _, _ -> },
+    onSaveReleaseToDownloads: () -> Unit = {},
+    onExportReleaseArtifact: (Uri) -> Unit = {},
+    onSaveServerSyncConfig: (ServerSyncConfig) -> Unit = {},
+    onClearServerSyncToken: () -> Unit = {},
 ) {
     val context = LocalContext.current
     var expanded by rememberSaveable { mutableStateOf<SettingsSection?>(null) }
@@ -303,6 +314,43 @@ fun SettingsScreen(
                         state = state,
                         onSetAuto = onSetGradleMemoryAuto,
                         onSaveOverride = onSetGradleMemoryOverride,
+                    )
+                }
+            }
+
+            item {
+                SettingsAccordion(
+                    title = stringResource(R.string.release_signing_title),
+                    subtitle = stringResource(R.string.release_signing_subtitle),
+                    icon = Icons.Default.Build,
+                    expanded = expanded == SettingsSection.RELEASE_SIGNING,
+                    onClick = { toggle(SettingsSection.RELEASE_SIGNING) },
+                ) {
+                    ReleaseSigningSettings(
+                        state = state,
+                        onPickKeystore = onPickReleaseKeystore,
+                        onSetAlias = onSetReleaseKeyAlias,
+                        onClearKeystore = onClearReleaseKeystore,
+                        onRunPipeline = onRunReleasePipeline,
+                        onSaveDownloads = onSaveReleaseToDownloads,
+                        onExport = onExportReleaseArtifact,
+                    )
+                }
+            }
+
+            item {
+                SettingsAccordion(
+                    title = stringResource(R.string.server_sync_title),
+                    subtitle = stringResource(R.string.server_sync_subtitle),
+                    icon = Icons.Default.Dns,
+                    expanded = expanded == SettingsSection.SERVER_SYNC,
+                    onClick = { toggle(SettingsSection.SERVER_SYNC) },
+                ) {
+                    ServerSyncSettings(
+                        config = state.serverSyncConfig,
+                        dukoiTokenConfigured = state.serverSyncDukoiTokenConfigured,
+                        onSave = onSaveServerSyncConfig,
+                        onClearToken = onClearServerSyncToken,
                     )
                 }
             }
