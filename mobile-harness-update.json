@@ -1,12 +1,12 @@
 {
-  "versionCode": 7,
-  "versionName": "1.2.3",
-  "notes": "Mobile Harness Code — independent fork of Mobile Harness. Material 3 dynamic color (Monet) themes with Light/Dark/System, in-app update (check, download, SHA-256 verification, install), Telegram bot remote control, in-app Sidekick assistant with floating button and background research, session auto-recovery, Gradle memory tuning, release & signing pipeline, optional SSH/dukoi.com server sync, reproducible build + SBOM. This APK is SIGNED (V1+V2+V3); install mobile-harness-online.apk.",
+  "versionCode": 8,
+  "versionName": "1.2.4",
+  "notes": "Mobile Harness Code — independent fork of Mobile Harness. NEW: Developer Tools panel (device info, live CPU/memory monitor, crash & ANR history). Plus Material 3 dynamic color (Monet), in-app update, Telegram bot, Sidekick assistant, session auto-recovery, Gradle memory tuning, release & signing pipeline, optional SSH/dukoi.com server sync, reproducible build + SBOM. This APK is SIGNED (V1+V2+V3); install mobile-harness-online.apk.",
   "artifacts": {
     "online": {
-      "url": "https://github.com/Konprostart/mobile-harness-code/releases/download/v1.2.3/mobile-harness-online.apk",
-      "sha256": "34e3b46befa0c9de7d94dadf52cd0cb0cc4ffae4ec4874dbb2de2bf4272899e3",
-      "sizeBytes": 90180595
+      "url": "https://github.com/Konprostart/mobile-harness-code/releases/download/v1.2.4/mobile-harness-online.apk",
+      "sha256": "0214fa42a7b4d0a82fdd03cef908bb388a19b114b62509b6b32845e91494276d",
+      "sizeBytes": 90258419
     }
   }
 }
