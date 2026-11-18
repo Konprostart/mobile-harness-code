@@ -1,12 +1,12 @@
 {
-  "versionCode": 1,
-  "versionName": "1.0.0",
-  "notes": "Mobile Harness Code — independent fork of Mobile Harness. Rebranded application id (com.mobileharness.code), updated distribution URLs, MIT attribution preserved.",
+  "versionCode": 2,
+  "versionName": "1.1.0",
+  "notes": "Mobile Harness Code — independent fork of Mobile Harness. Session auto-recovery, Gradle memory tuning, release & signing pipeline, optional SSH/dukoi.com server sync, reproducible build + SBOM.",
   "artifacts": {
     "online": {
-      "url": "https://github.com/Konprostart/mobile-harness-code/releases/download/v1.0.0/mobile-harness-online.apk",
-      "sha256": "c2e13d75f103aaa47034e5424e4c80723557351d3a9491f0eff7611639f835e6",
-      "sizeBytes": 89491680
+      "url": "https://github.com/Konprostart/mobile-harness-code/releases/download/v1.1.0/mobile-harness-online.apk",
+      "sha256": "6e84838bbaaa538ac169779dc27b450a2f4a99936106d714cad41d4b1eac2528",
+      "sizeBytes": 89853848
     }
   }
 }
