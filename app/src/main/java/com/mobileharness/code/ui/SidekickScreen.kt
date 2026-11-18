@@ -16,10 +16,13 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.clickable
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.AutoAwesome
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -34,6 +37,7 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
@@ -48,9 +52,15 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.mobileharness.code.R
 import com.mobileharness.code.sidekick.SidekickEngine
+import com.mobileharness.code.sidekick.SidekickResult
 import kotlinx.coroutines.launch
 
-private data class SidekickMessage(val fromUser: Boolean, val text: String)
+private data class SidekickMessage(
+    val fromUser: Boolean,
+    val text: String,
+    val reasoning: String? = null,
+    val reasoningExpanded: MutableState<Boolean> = mutableStateOf(false),
+)
 
 private enum class SidekickMode { ASK, PROMPT, RESEARCH }
 
@@ -95,12 +105,12 @@ fun SidekickScreen(onClose: () -> Unit) {
         input = ""
         loading = true
         scope.launch {
-            val answer = when (mode) {
+            val answer: SidekickResult = when (mode) {
                 SidekickMode.ASK -> engine.ask(question)
                 SidekickMode.PROMPT -> engine.optimizePrompt(question)
                 SidekickMode.RESEARCH -> engine.research(question)
             }
-            messages.add(SidekickMessage(fromUser = false, text = answer))
+            messages.add(SidekickMessage(fromUser = false, text = answer.text, reasoning = answer.reasoning))
             loading = false
         }
     }
@@ -146,19 +156,27 @@ fun SidekickScreen(onClose: () -> Unit) {
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = if (message.fromUser) Arrangement.End else Arrangement.Start,
                     ) {
-                        Surface(
-                            shape = RoundedCornerShape(14.dp),
-                            color = if (message.fromUser) MaterialTheme.colorScheme.primary
-                            else MaterialTheme.colorScheme.surfaceVariant,
+                        Column(
                             modifier = Modifier.widthIn(max = 320.dp),
+                            verticalArrangement = Arrangement.spacedBy(6.dp),
+                            horizontalAlignment = if (message.fromUser) Alignment.End else Alignment.Start,
                         ) {
-                            Text(
-                                message.text,
-                                modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
-                                fontSize = 14.sp,
-                                color = if (message.fromUser) MaterialTheme.colorScheme.onPrimary
-                                else MaterialTheme.colorScheme.onSurface,
-                            )
+                            if (message.reasoning != null) {
+                                ReasoningBox(message.reasoning, message.reasoningExpanded)
+                            }
+                            Surface(
+                                shape = RoundedCornerShape(14.dp),
+                                color = if (message.fromUser) MaterialTheme.colorScheme.primary
+                                else MaterialTheme.colorScheme.surfaceVariant,
+                            ) {
+                                Text(
+                                    message.text,
+                                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
+                                    fontSize = 14.sp,
+                                    color = if (message.fromUser) MaterialTheme.colorScheme.onPrimary
+                                    else MaterialTheme.colorScheme.onSurface,
+                                )
+                            }
                         }
                     }
                 }
@@ -202,6 +220,45 @@ fun SidekickScreen(onClose: () -> Unit) {
                         )
                     }
                 }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ReasoningBox(reasoning: String, expanded: MutableState<Boolean>) {
+    val isExpanded = expanded.value
+    Surface(
+        shape = RoundedCornerShape(12.dp),
+        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f),
+    ) {
+        Column {
+            Row(
+                Modifier.fillMaxWidth().clickable { expanded.value = !expanded.value }
+                    .padding(horizontal = 12.dp, vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    stringResource(R.string.sidekick_reasoning_title),
+                    Modifier.weight(1f),
+                    fontSize = 11.sp,
+                    fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Icon(
+                    if (isExpanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
+                    stringResource(if (isExpanded) R.string.sidekick_hide_reasoning else R.string.sidekick_show_reasoning),
+                    Modifier.size(16.dp),
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            if (isExpanded) {
+                Text(
+                    reasoning,
+                    modifier = Modifier.padding(start = 12.dp, end = 12.dp, bottom = 10.dp),
+                    fontSize = 12.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
             }
         }
     }

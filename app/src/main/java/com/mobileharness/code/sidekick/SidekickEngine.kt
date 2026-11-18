@@ -10,6 +10,9 @@ import com.mobileharness.code.network.ChatCompletion
 import com.mobileharness.code.network.ProviderApiClient
 import com.mobileharness.code.ui.AppStrings
 
+/** Answer from the assistant: final text plus an optional chain-of-thought excerpt. */
+data class SidekickResult(val text: String, val reasoning: String? = null)
+
 /**
  * Backend for the in-app "Sidekick" assistant. It answers questions, helps optimize prompts and
  * runs bounded background research using the provider the user already configured for their
@@ -35,20 +38,20 @@ class SidekickEngine(context: Context) {
         }
     }
 
-    suspend fun ask(question: String): String =
+    suspend fun ask(question: String): SidekickResult =
         complete(systemPrompt = SYSTEM_PROMPT, userMessage = question.trim())
 
-    suspend fun optimizePrompt(draft: String): String =
+    suspend fun optimizePrompt(draft: String): SidekickResult =
         complete(systemPrompt = PROMPT_ADVISOR_PROMPT, userMessage = draft.trim())
 
-    suspend fun research(question: String): String {
+    suspend fun research(question: String): SidekickResult {
         val rawSources = preferences.sidekickResearchSources
         if (!preferences.sidekickBackgroundResearch) {
-            return AppStrings.get(appContext, R.string.sidekick_research_disabled)
+            return SidekickResult(AppStrings.get(appContext, R.string.sidekick_research_disabled))
         }
         val sources = SidekickResearch.parseSources(rawSources)
         if (sources.isEmpty()) {
-            return AppStrings.get(appContext, R.string.sidekick_research_no_sources)
+            return SidekickResult(AppStrings.get(appContext, R.string.sidekick_research_no_sources))
         }
         val context = SidekickResearch.gatherContext(sources)
         val userMessage = buildString {
@@ -61,14 +64,14 @@ class SidekickEngine(context: Context) {
         return complete(systemPrompt = RESEARCH_PROMPT, userMessage = userMessage)
     }
 
-    private suspend fun complete(systemPrompt: String, userMessage: String): String {
+    private suspend fun complete(systemPrompt: String, userMessage: String): SidekickResult {
         val profile = resolveProfile()
         if (profile.kind == ProviderKind.CLAUDE) {
-            return AppStrings.get(appContext, R.string.sidekick_requires_key)
+            return SidekickResult(AppStrings.get(appContext, R.string.sidekick_requires_key))
         }
         val key = vault.get(profile.kind.name)
         if (key.isNullOrBlank()) {
-            return AppStrings.get(appContext, R.string.sidekick_requires_key)
+            return SidekickResult(AppStrings.get(appContext, R.string.sidekick_requires_key))
         }
         return when (val result = client.complete(
             baseUrl = profile.resolvedBaseUrl,
@@ -78,8 +81,8 @@ class SidekickEngine(context: Context) {
             systemPrompt = systemPrompt,
             userMessage = userMessage,
         )) {
-            is ChatCompletion.Success -> result.text
-            is ChatCompletion.Failure -> result.message
+            is ChatCompletion.Success -> SidekickResult(result.text, result.reasoning)
+            is ChatCompletion.Failure -> SidekickResult(result.message)
         }
     }
 

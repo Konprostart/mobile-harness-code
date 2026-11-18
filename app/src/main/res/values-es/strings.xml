@@ -363,4 +363,9 @@
     <string name="devtools_clear_crashes">Clear history</string>
     <string name="devtools_crashes_cleared">Crash history cleared</string>
     <string name="devtools_thread">Thread: %1$s</string>
+    <!-- Model compatibility: reasoning + presets -->
+    <string name="sidekick_reasoning_title">Reasoning</string>
+    <string name="sidekick_show_reasoning">Show reasoning</string>
+    <string name="sidekick_hide_reasoning">Hide reasoning</string>
+    <string name="model_presets_title">Popular models</string>
 </resources>

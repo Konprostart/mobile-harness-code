@@ -549,4 +549,9 @@
     <string name="sidekick_base_url_label">Base URL</string>
     <string name="sidekick_save">Save assistant settings</string>
     <string name="sidekick_saved">Saved</string>
+    <!-- Model compatibility: reasoning + presets -->
+    <string name="sidekick_reasoning_title">Reasoning</string>
+    <string name="sidekick_show_reasoning">Show reasoning</string>
+    <string name="sidekick_hide_reasoning">Hide reasoning</string>
+    <string name="model_presets_title">Popular models</string>
 </resources>

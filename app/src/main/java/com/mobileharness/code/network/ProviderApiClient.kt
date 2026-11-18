@@ -30,8 +30,33 @@ sealed interface ConnectionValidation {
 
 /** One-shot chat completion result used by the in-app Sidekick assistant. */
 sealed interface ChatCompletion {
-    data class Success(val text: String) : ChatCompletion
+    data class Success(val text: String, val reasoning: String? = null) : ChatCompletion
     data class Failure(val message: String) : ChatCompletion
+}
+
+/** Parsed completion payload: final answer text plus an optional chain-of-thought excerpt. */
+internal data class CompletionPayload(val text: String, val reasoning: String?)
+
+/** Anthropic API version header required by the native Messages API and its gateways. */
+internal const val ANTHROPIC_VERSION = "2023-06-01"
+
+/**
+ * Authentication headers for a provider request. Kept pure and testable so the per-provider
+ * contract is explicit: OpenAI-compatible endpoints and OpenRouter take a Bearer token, while
+ * Anthropic-family endpoints additionally send `x-api-key` and `anthropic-version` (the headers
+ * the native Anthropic Messages API requires).
+ */
+internal fun buildAuthHeaders(protocol: ProviderProtocol, apiKey: String): List<Pair<String, String>> {
+    if (apiKey.isBlank()) return emptyList()
+    val headers = mutableListOf("Authorization" to "Bearer $apiKey")
+    val anthropicFamily = protocol != ProviderProtocol.OPENROUTER &&
+        protocol != ProviderProtocol.OPENAI_CHAT &&
+        protocol != ProviderProtocol.OPENAI_RESPONSES
+    if (anthropicFamily) {
+        headers += "x-api-key" to apiKey
+        headers += "anthropic-version" to ANTHROPIC_VERSION
+    }
+    return headers
 }
 
 /**
@@ -195,7 +220,10 @@ class ProviderApiClient(private val context: Context? = null) {
         val body = completionBody(model, protocol, systemPrompt, userMessage)
         val response = request(endpoint, "POST", apiKey, body, protocol, connectTimeoutMs = 12_000, readTimeoutMs = 60_000)
         when {
-            response.code in 200..299 -> ChatCompletion.Success(extractCompletionText(response.body, protocol))
+            response.code in 200..299 -> {
+                val payload = extractCompletion(response.body, protocol)
+                ChatCompletion.Success(payload.text, payload.reasoning)
+            }
             response.code == 401 || response.code == 403 -> ChatCompletion.Failure(
                 text(R.string.rt_api_check_key, "Check this API key or select another saved key."),
             )
@@ -214,7 +242,7 @@ class ProviderApiClient(private val context: Context? = null) {
         }
     }
 
-    private fun completionBody(
+    internal fun completionBody(
         model: String,
         protocol: ProviderProtocol,
         systemPrompt: String,
@@ -243,22 +271,77 @@ class ProviderApiClient(private val context: Context? = null) {
             .toString()
     }
 
-    private fun extractCompletionText(body: String, protocol: ProviderProtocol): String {
-        val root = runCatching { JSONObject(body) }.getOrNull() ?: return body.take(2000)
-        return when (protocol) {
-            ProviderProtocol.OPENAI_CHAT -> root.optJSONArray("choices")
-                ?.optJSONObject(0)
-                ?.optJSONObject("message")
-                ?.optString("content")
-            ProviderProtocol.OPENAI_RESPONSES -> root.optJSONArray("output")
-                ?.optJSONObject(0)
-                ?.optJSONArray("content")
-                ?.optJSONObject(0)
-                ?.optString("text")
-            else -> root.optJSONArray("content")
-                ?.optJSONObject(0)
-                ?.optString("text")
-        }.orEmpty().ifBlank { body.take(2000) }
+    /**
+     * Parses a completion response into final text plus an optional reasoning excerpt.
+     *
+     * - OpenAI chat: `choices[0].message.content` and DeepSeek-style
+     *   `choices[0].message.reasoning_content` (falling back to `reasoning`).
+     * - OpenAI Responses: text blocks and `reasoning` summary blocks.
+     * - Anthropic Messages: `text` blocks and extended `thinking` blocks.
+     */
+    internal fun extractCompletion(body: String, protocol: ProviderProtocol): CompletionPayload {
+        val root = runCatching { JSONObject(body) }.getOrNull() ?: return CompletionPayload(body.take(2000), null)
+        val payload = when (protocol) {
+            ProviderProtocol.OPENAI_CHAT -> extractOpenAiChat(root)
+            ProviderProtocol.OPENAI_RESPONSES -> extractOpenAiResponses(root)
+            else -> extractAnthropicMessages(root)
+        }
+        return CompletionPayload(payload.text.ifBlank { body.take(2000) }, payload.reasoning)
+    }
+
+    private fun extractOpenAiChat(root: JSONObject): CompletionPayload {
+        val message = root.optJSONArray("choices")?.optJSONObject(0)?.optJSONObject("message")
+        val text = message?.optString("content").orEmpty()
+        val reasoning = message?.optString("reasoning_content").orEmpty()
+            .ifBlank { message?.optString("reasoning").orEmpty() }
+        return CompletionPayload(text, reasoning.ifBlank { null })
+    }
+
+    private fun extractOpenAiResponses(root: JSONObject): CompletionPayload {
+        val output = root.optJSONArray("output") ?: return CompletionPayload("", null)
+        val text = StringBuilder()
+        val reasoning = StringBuilder()
+        for (i in 0 until output.length()) {
+            val item = output.optJSONObject(i) ?: continue
+            when (item.optString("type")) {
+                "reasoning" -> {
+                    val summary = item.optJSONArray("summary")
+                    if (summary != null) {
+                        for (j in 0 until summary.length()) {
+                            val part = summary.optJSONObject(j) ?: continue
+                            if (part.optString("type") == "summary_text") reasoning.append(part.optString("text"))
+                        }
+                    }
+                    if (reasoning.isEmpty()) reasoning.append(item.optString("summary_text"))
+                }
+                "message" -> {
+                    val content = item.optJSONArray("content")
+                    if (content != null) {
+                        for (j in 0 until content.length()) {
+                            val part = content.optJSONObject(j) ?: continue
+                            if (part.optString("type") == "output_text") text.append(part.optString("text"))
+                        }
+                    }
+                }
+                "output_text" -> text.append(item.optString("text"))
+            }
+        }
+        return CompletionPayload(text.toString(), reasoning.toString().ifBlank { null })
+    }
+
+    private fun extractAnthropicMessages(root: JSONObject): CompletionPayload {
+        val content = root.optJSONArray("content") ?: return CompletionPayload("", null)
+        val text = StringBuilder()
+        val reasoning = StringBuilder()
+        for (i in 0 until content.length()) {
+            val block = content.optJSONObject(i) ?: continue
+            when (block.optString("type")) {
+                "text" -> text.append(block.optString("text"))
+                "thinking" -> reasoning.append(block.optString("thinking").ifBlank { block.optString("text") })
+                "redacted_thinking" -> reasoning.append(block.optString("data"))
+            }
+        }
+        return CompletionPayload(text.toString(), reasoning.toString().ifBlank { null })
     }
 
     private fun request(
@@ -280,17 +363,13 @@ class ProviderApiClient(private val context: Context? = null) {
                 readTimeout = readTimeoutMs
                 setRequestProperty("Accept", "application/json")
                 setRequestProperty("Content-Type", "application/json")
-                if (apiKey.isNotBlank()) {
-                    setRequestProperty("Authorization", "Bearer $apiKey")
+                for ((name, value) in buildAuthHeaders(protocol, apiKey)) {
+                    setRequestProperty(name, value)
                 }
                 if (endpoint.startsWith("https://opencode.ai/zen/")) {
                     // OpenCode Zen expects requests to identify the OpenCode client and session.
                     setRequestProperty("User-Agent", "opencode/1.18.20")
                     setRequestProperty("x-session-id", "session-${UUID.randomUUID()}")
-                }
-                if (apiKey.isNotBlank() && protocol != ProviderProtocol.OPENROUTER && protocol != ProviderProtocol.OPENAI_CHAT && protocol != ProviderProtocol.OPENAI_RESPONSES) {
-                    setRequestProperty("x-api-key", apiKey)
-                    setRequestProperty("anthropic-version", "2023-06-01")
                 }
                 if (body != null) doOutput = true
             }
