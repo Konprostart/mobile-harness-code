@@ -70,4 +70,27 @@ class CrashLogStoreTest {
         CrashLogStore.clear(dir)
         assertTrue(CrashLogStore.read(dir).isEmpty())
     }
+
+    @Test
+    fun pruneStaleRemovesOnlyOldRecords() {
+        val dir = tempDir()
+        val now = System.currentTimeMillis()
+        val stale = now - CrashLogStore.MAX_AGE_MILLIS - 60_000L
+        CrashLogStore.write(dir, record("old", stale))
+        CrashLogStore.write(dir, record("fresh", now))
+        CrashLogStore.pruneStale(dir)
+        val read = CrashLogStore.read(dir)
+        assertEquals(listOf("fresh"), read.map { it.id })
+    }
+
+    @Test
+    fun pruneStaleWithCustomWindow() {
+        val dir = tempDir()
+        val now = System.currentTimeMillis()
+        CrashLogStore.write(dir, record("a", now - 10_000L))
+        CrashLogStore.write(dir, record("b", now - 200_000L))
+        CrashLogStore.pruneStale(dir, maxAgeMillis = 100_000L)
+        val read = CrashLogStore.read(dir)
+        assertEquals(listOf("a"), read.map { it.id })
+    }
 }

@@ -77,6 +77,20 @@ class ProviderApiClientTest {
     }
 
     @Test
+    fun completionBodyHonorsEcoTokenBudget() {
+        val body = JSONObject(
+            ProviderApiClient().completionBody(
+                model = "claude-sonnet-4-6",
+                protocol = ProviderProtocol.ANTHROPIC,
+                systemPrompt = "be brief",
+                userMessage = "hi",
+                maxTokens = 512,
+            ),
+        )
+        assertEquals(512, body.getInt("max_tokens"))
+    }
+
+    @Test
     fun deepSeekReasoningContentIsExtractedFromOpenAiChat() {
         val body = """{"choices":[{"message":{"content":"final answer","reasoning_content":"step one, step two"}}]}"""
         val payload = ProviderApiClient().extractCompletion(body, ProviderProtocol.OPENAI_CHAT)

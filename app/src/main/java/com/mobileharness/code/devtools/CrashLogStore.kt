@@ -46,6 +46,9 @@ object CrashLogStore {
     /** Hard cap on retained crash files; oldest entries are evicted first. */
     const val MAX_RECORDS = 20
 
+    /** Age-based cap: crash files older than this are pruned on startup (30 days). */
+    const val MAX_AGE_MILLIS = 30L * 24 * 60 * 60 * 1000
+
     fun directory(context: Context): File = File(context.filesDir, "crashlogs")
 
     fun write(context: Context, record: CrashRecord) = write(directory(context), record)
@@ -91,6 +94,19 @@ object CrashLogStore {
 
     fun clear(dir: File) {
         dir.listFiles().orEmpty().forEach { runCatching { it.delete() } }
+    }
+
+    /**
+     * Deletes crash records older than [maxAgeMillis]. This is an age-based housekeeping step
+     * that complements the ring buffer: a crash that happened long ago is no longer useful and
+     * should not accumulate in private storage across many app versions.
+     */
+    fun pruneStale(dir: File, maxAgeMillis: Long = MAX_AGE_MILLIS) {
+        val cutoff = System.currentTimeMillis() - maxAgeMillis
+        dir.listFiles().orEmpty().forEach { file ->
+            val timestamp = timestampOf(file.name)
+            if (timestamp > 0L && timestamp < cutoff) runCatching { file.delete() }
+        }
     }
 
     private fun trim(dir: File) {

@@ -37,6 +37,7 @@ import androidx.compose.material.icons.automirrored.filled.OpenInNew
 import androidx.compose.material.icons.filled.Backup
 import androidx.compose.material.icons.automirrored.filled.Chat
 import androidx.compose.material.icons.filled.AutoAwesome
+import androidx.compose.material.icons.filled.Bolt
 import androidx.compose.material.icons.filled.Build
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Code
@@ -125,7 +126,7 @@ import com.mobileharness.code.ui.theme.AppThemeMode
 import com.mobileharness.code.ui.theme.PocketOrange
 import kotlinx.coroutines.launch
 
-private enum class SettingsSection { APPEARANCE, LANGUAGE, TOOLS, RUNTIME, DIAGNOSTICS, DEVELOPER_TOOLS, BACKUP, UPDATE_CHANNEL, UPDATES, GRADLE_MEMORY, RELEASE_SIGNING, SERVER_SYNC, TELEGRAM, SIDEKICK }
+private enum class SettingsSection { APPEARANCE, LANGUAGE, TOOLS, RUNTIME, DIAGNOSTICS, DEVELOPER_TOOLS, BACKUP, UPDATE_CHANNEL, UPDATES, GRADLE_MEMORY, RELEASE_SIGNING, SERVER_SYNC, TELEGRAM, SIDEKICK, ECO_MODE }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -178,6 +179,7 @@ fun SettingsScreen(
     onSetSidekickBackgroundResearch: (Boolean) -> Unit = {},
     onSetSidekickResearchSources: (String) -> Unit = {},
     onSaveSidekickProvider: (ProviderProfile) -> Unit = {},
+    onSetEcoMode: (Boolean) -> Unit = {},
     onCheckForAppUpdate: () -> Unit = {},
     onInstallAppUpdate: () -> Unit = {},
     onRefreshDevTools: () -> Unit = {},
@@ -543,6 +545,25 @@ fun SettingsScreen(
                         onSetResearchSources = onSetSidekickResearchSources,
                         onSaveProvider = onSaveSidekickProvider,
                         onLaunch = { showSidekick = true },
+                    )
+                }
+            }
+
+            item {
+                SettingsAccordion(
+                    title = stringResource(R.string.eco_mode_title),
+                    subtitle = if (state.ecoModeEnabled) {
+                        stringResource(R.string.eco_mode_on)
+                    } else {
+                        stringResource(R.string.eco_mode_off)
+                    },
+                    icon = Icons.Default.Bolt,
+                    expanded = expanded == SettingsSection.ECO_MODE,
+                    onClick = { toggle(SettingsSection.ECO_MODE) },
+                ) {
+                    EcoModeSettings(
+                        enabled = state.ecoModeEnabled,
+                        onSetEnabled = onSetEcoMode,
                     )
                 }
             }

@@ -8,6 +8,7 @@ import com.mobileharness.code.model.ProviderKind
 import com.mobileharness.code.model.ProviderProfile
 import com.mobileharness.code.network.ChatCompletion
 import com.mobileharness.code.network.ProviderApiClient
+import com.mobileharness.code.runtime.EcoMode
 import com.mobileharness.code.ui.AppStrings
 
 /** Answer from the assistant: final text plus an optional chain-of-thought excerpt. */
@@ -53,7 +54,12 @@ class SidekickEngine(context: Context) {
         if (sources.isEmpty()) {
             return SidekickResult(AppStrings.get(appContext, R.string.sidekick_research_no_sources))
         }
-        val context = SidekickResearch.gatherContext(sources)
+        val eco = preferences.ecoModeEnabled
+        val context = SidekickResearch.gatherContext(
+            sources,
+            maxFiles = EcoMode.researchFileLimit(eco),
+            maxTotalBytes = EcoMode.researchByteLimit(eco),
+        )
         val userMessage = buildString {
             append("Question: ").append(question.trim()).append('\n')
             append("Allowed sources: ").append(
@@ -80,6 +86,7 @@ class SidekickEngine(context: Context) {
             protocol = profile.kind.protocol,
             systemPrompt = systemPrompt,
             userMessage = userMessage,
+            maxTokens = EcoMode.recommendedMaxTokens(preferences.ecoModeEnabled),
         )) {
             is ChatCompletion.Success -> SidekickResult(result.text, result.reasoning)
             is ChatCompletion.Failure -> SidekickResult(result.message)

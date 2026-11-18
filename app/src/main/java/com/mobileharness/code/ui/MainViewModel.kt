@@ -655,6 +655,7 @@ data class AppUiState(
     val sidekickBackgroundResearch: Boolean = false,
     val sidekickResearchSources: String = "",
     val sidekickProvider: ProviderProfile = ProviderProfile(ProviderKind.ANTHROPIC),
+    val ecoModeEnabled: Boolean = false,
 )
 
 class MainViewModel(application: Application) : AndroidViewModel(application) {
@@ -780,6 +781,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             sidekickBackgroundResearch = preferences.sidekickBackgroundResearch,
             sidekickResearchSources = preferences.sidekickResearchSources,
             sidekickProvider = loadSidekickProvider(),
+            ecoModeEnabled = preferences.ecoModeEnabled,
         ),
     ).also {
         if (!preferences.onboardingComplete) preferences.whatsNewSeenVersionCode = BuildConfig.VERSION_CODE
@@ -914,6 +916,11 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     fun saveSidekickProvider(profile: ProviderProfile) {
         preferences.saveSidekickProvider(profile)
         _state.update { it.copy(sidekickProvider = profile) }
+    }
+
+    fun setEcoMode(enabled: Boolean) {
+        preferences.ecoModeEnabled = enabled
+        _state.update { it.copy(ecoModeEnabled = enabled) }
     }
 
     // --- Release pipeline (Build → Sign → Verify → Checksum) -------------------------------

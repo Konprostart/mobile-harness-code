@@ -15,6 +15,8 @@ import com.mobileharness.code.MainActivity
 import com.mobileharness.code.R
 import com.mobileharness.code.backup.BackupController
 import com.mobileharness.code.backup.BackupJobStatus
+import com.mobileharness.code.data.AppPreferences
+import com.mobileharness.code.runtime.EcoMode
 import com.mobileharness.code.ui.AppStrings
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -80,6 +82,7 @@ class TelegramBotService : Service() {
 
     private suspend fun pollLoop() {
         val settings = TelegramSettings(this)
+        val appPrefs = AppPreferences(this)
         val token = settings.currentToken()
         if (token == null) {
             notifyStopped(R.string.telegram_stopped_no_token)
@@ -118,6 +121,13 @@ class TelegramBotService : Service() {
                     handleUpdate(current, update)
                 }
                 backoff = INITIAL_BACKOFF_MS
+                // Eco Mode: after an idle long-poll during quiet hours (00:00–06:00), sleep a
+                // while before the next poll so an overnight bot drains far less battery. An
+                // active command stream is never throttled, and non-Eco behavior is unchanged.
+                if (updates.isEmpty() && appPrefs.ecoModeEnabled) {
+                    val hour = java.util.Calendar.getInstance().get(java.util.Calendar.HOUR_OF_DAY)
+                    if (EcoMode.isQuietHour(hour)) delay(EcoMode.QUIET_POLL_INTERVAL_MS)
+                }
             } catch (_: TelegramApiFailure.InvalidToken) {
                 settings.setEnabled(false)
                 notifyStopped(R.string.telegram_stopped_invalid_token)

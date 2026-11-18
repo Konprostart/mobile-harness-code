@@ -38,6 +38,8 @@ class CrashHandler(
         fun install(context: Context) {
             val current = Thread.getDefaultUncaughtExceptionHandler()
             if (current is CrashHandler) return
+            // Housekeeping: drop crash records older than 30 days so they cannot accumulate.
+            runCatching { CrashLogStore.pruneStale(CrashLogStore.directory(context.applicationContext)) }
             Thread.setDefaultUncaughtExceptionHandler(CrashHandler(context.applicationContext, current))
         }
     }

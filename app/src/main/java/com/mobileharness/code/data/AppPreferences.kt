@@ -162,6 +162,11 @@ class AppPreferences(private val context: Context) {
         get() = preferences.getString("server_sync_dukoi_base_url", "") ?: ""
         set(value) { preferences.edit().putString("server_sync_dukoi_base_url", value).apply() }
 
+    // --- Eco Mode / Token Saver (opt-in, off by default) ---------------------------------
+    var ecoModeEnabled: Boolean
+        get() = preferences.getBoolean("eco_mode_enabled", false)
+        set(value) { preferences.edit().putBoolean("eco_mode_enabled", value).apply() }
+
     // --- Sidekick assistant ---------------------------------------------------------------
     var sidekickFloatingButton: Boolean
         get() = preferences.getBoolean("sidekick_floating_button", false)

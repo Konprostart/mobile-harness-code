@@ -210,6 +210,7 @@ class ProviderApiClient(private val context: Context? = null) {
         protocol: ProviderProtocol,
         systemPrompt: String,
         userMessage: String,
+        maxTokens: Int = COMPLETION_MAX_TOKENS,
     ): ChatCompletion = withContext(Dispatchers.IO) {
         if (baseUrl.isBlank() || model.isBlank()) {
             return@withContext ChatCompletion.Failure(
@@ -217,7 +218,7 @@ class ProviderApiClient(private val context: Context? = null) {
             )
         }
         val endpoint = messagesEndpoint(baseUrl, protocol)
-        val body = completionBody(model, protocol, systemPrompt, userMessage)
+        val body = completionBody(model, protocol, systemPrompt, userMessage, maxTokens)
         val response = request(endpoint, "POST", apiKey, body, protocol, connectTimeoutMs = 12_000, readTimeoutMs = 60_000)
         when {
             response.code in 200..299 -> {
@@ -247,10 +248,11 @@ class ProviderApiClient(private val context: Context? = null) {
         protocol: ProviderProtocol,
         systemPrompt: String,
         userMessage: String,
+        maxTokens: Int = COMPLETION_MAX_TOKENS,
     ): String = when (protocol) {
         ProviderProtocol.OPENAI_CHAT -> JSONObject()
             .put("model", model)
-            .put("max_tokens", COMPLETION_MAX_TOKENS)
+            .put("max_tokens", maxTokens)
             .put(
                 "messages",
                 JSONArray()
@@ -265,7 +267,7 @@ class ProviderApiClient(private val context: Context? = null) {
             .toString()
         else -> JSONObject()
             .put("model", model)
-            .put("max_tokens", COMPLETION_MAX_TOKENS)
+            .put("max_tokens", maxTokens)
             .put("system", systemPrompt)
             .put("messages", JSONArray().put(JSONObject().put("role", "user").put("content", userMessage)))
             .toString()

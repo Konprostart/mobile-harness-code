@@ -554,4 +554,10 @@
     <string name="sidekick_show_reasoning">Show reasoning</string>
     <string name="sidekick_hide_reasoning">Hide reasoning</string>
     <string name="model_presets_title">Popular models</string>
+    <!-- Eco Mode / Token Saver -->
+    <string name="eco_mode_title">Eco Mode (Token Saver)</string>
+    <string name="eco_mode_subtitle">Save tokens, battery and CPU for overnight runs</string>
+    <string name="eco_mode_note">When on, the assistant asks for shorter answers and gathers less background-research context, and background polling relaxes during quiet hours (00:00–06:00) when no task is running. Never disables a feature you started.</string>
+    <string name="eco_mode_on">On — saving tokens and battery</string>
+    <string name="eco_mode_off">Off</string>
 </resources>

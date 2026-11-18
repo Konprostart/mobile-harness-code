@@ -472,3 +472,29 @@ fun SidekickSettings(
         }
     }
 }
+
+/**
+ * Eco Mode (Token Saver) toggle. Opt-in and off by default; it only reduces costs that scale
+ * with verbosity and polling, never disables a feature the user explicitly started.
+ */
+@Composable
+fun EcoModeSettings(
+    enabled: Boolean,
+    onSetEnabled: (Boolean) -> Unit,
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+            Column(Modifier.weight(1f)) {
+                Text(stringResource(R.string.eco_mode_title), fontWeight = FontWeight.SemiBold)
+                Text(stringResource(R.string.eco_mode_subtitle), fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+            Switch(checked = enabled, onCheckedChange = onSetEnabled)
+        }
+
+        Text(
+            stringResource(R.string.eco_mode_note),
+            fontSize = 11.sp,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
+}

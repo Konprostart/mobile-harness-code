@@ -116,15 +116,21 @@ object SidekickResearch {
     }.getOrDefault("")
 
     /** Aggregates a typed source list into a single bounded context string for the model. */
-    fun gatherContext(sources: List<SidekickSource>): String {
+    fun gatherContext(
+        sources: List<SidekickSource>,
+        maxFiles: Int = MAX_FILES,
+        maxTotalBytes: Long = MAX_TOTAL_BYTES,
+    ): String {
         val parts = mutableListOf<String>()
         for (source in sources) {
             when (source.kind) {
-                SidekickSourceKind.DIRECTORY -> collectDirectoryContext(File(source.value)).takeIf(String::isNotBlank)?.let(parts::add)
+                SidekickSourceKind.DIRECTORY ->
+                    collectDirectoryContext(File(source.value), maxFiles, maxTotalBytes)
+                        .takeIf(String::isNotBlank)?.let(parts::add)
                 SidekickSourceKind.URL -> fetchUrl(source.value).takeIf(String::isNotBlank)?.let(parts::add)
             }
         }
-        return parts.joinToString("\n\n").take(MAX_TOTAL_BYTES.toInt() * 3)
+        return parts.joinToString("\n\n").take(maxTotalBytes.toInt() * 3)
     }
 
     private fun isBinary(file: File): Boolean =
