@@ -150,7 +150,7 @@ fun SettingsScreen(
     onBackupOpened: () -> Unit = {},
     openBackup: Boolean = false,
     onSetGradleMemoryAuto: (Boolean) -> Unit = {},
-    onSetGradleMemoryOverride: (Int, Int) -> Unit = {},
+    onSetGradleMemoryOverride: (Int, Int) -> Unit = { _, _ -> },
 ) {
     val context = LocalContext.current
     var expanded by rememberSaveable { mutableStateOf<SettingsSection?>(null) }
