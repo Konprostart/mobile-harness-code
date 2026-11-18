@@ -80,6 +80,7 @@ class ReleasePipelineRunner(private val context: Context) {
         val build = runner.run(
             binary = "/usr/bin/bash",
             args = listOf("-lc", androidGradleCommand(workspace, "assembleRelease", jvmArgs)),
+            env = emptyMap(),
         )
         if (!build.succeeded) {
             return ReleasePipelineOutcome(

@@ -25,13 +25,13 @@ class SshSyncTransport(
     private val runner: ReleaseCommandRunner,
 ) : ServerSyncTransport {
     override fun push(sourceFilePath: String, remoteName: String): ServerSyncResult {
-        val result = runner.run("scp", SshSyncCommands.pushArgs(config, sourceFilePath, remoteName))
+        val result = runner.run("scp", SshSyncCommands.pushArgs(config, sourceFilePath, remoteName), emptyMap())
         return if (result.succeeded) ServerSyncResult.Success("Backup pushed over SSH")
         else ServerSyncResult.Failure(result.stderr.ifBlank { "scp failed (exit ${result.exitCode})" })
     }
 
     override fun pull(remoteName: String, destinationFilePath: String): ServerSyncResult {
-        val result = runner.run("scp", SshSyncCommands.pullArgs(config, remoteName, destinationFilePath))
+        val result = runner.run("scp", SshSyncCommands.pullArgs(config, remoteName, destinationFilePath), emptyMap())
         return if (result.succeeded) ServerSyncResult.Success("Backup pulled over SSH")
         else ServerSyncResult.Failure(result.stderr.ifBlank { "scp failed (exit ${result.exitCode})" })
     }

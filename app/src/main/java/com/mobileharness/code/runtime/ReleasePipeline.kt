@@ -59,7 +59,7 @@ data class ReleaseCommandResult(
 
 /** Runs one release command (binary + args) with an optional environment. */
 fun interface ReleaseCommandRunner {
-    fun run(binary: String, args: List<String>, env: Map<String, String> = emptyMap()): ReleaseCommandResult
+    fun run(binary: String, args: List<String>, env: Map<String, String>): ReleaseCommandResult
 }
 
 data class ReleaseStageResult(
