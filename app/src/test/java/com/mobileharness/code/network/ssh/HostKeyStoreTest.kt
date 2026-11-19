@@ -7,9 +7,9 @@ import org.junit.Test
 class HostKeyStoreTest {
     @Test
     fun emptyInputMatchesKnownSha256Vector() {
-        // SHA-256("") is the well-known NIST empty-string vector.
+        // SHA-256("") base64 is the well-known NIST empty-string vector.
         assertEquals(
-            "SHA256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "SHA256:47DEQpj8HBSa+/TImW+5JCeuQeRkm5NMpJWZG3hSuFU=",
             HostKeyStore.fingerprint(byteArrayOf()),
         )
     }
@@ -17,7 +17,7 @@ class HostKeyStoreTest {
     @Test
     fun abcInputMatchesKnownSha256Vector() {
         assertEquals(
-            "SHA256:ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad",
+            "SHA256:ungWv48Bz+pBQUDeXa4iI7ADYaOWF3qctBD/YfIAFa0=",
             HostKeyStore.fingerprint("abc".toByteArray(Charsets.UTF_8)),
         )
     }
