@@ -1,12 +1,12 @@
 {
-  "versionCode": 20,
-  "versionName": "1.3.6",
-  "notes": "Mobile Harness Code — independent fork of Mobile Harness. New: the interactive SSH terminal gains a two-row extra-keys keyboard (Esc/Ctrl/Alt/Tab/Home/End/PgUp/PgDn/arrows with an Fn toggle to F1–F12/Insert/Delete/symbols), sticky & lock Ctrl/Alt modifiers, auto-repeat on held keys, hardware-keyboard mapping (arrows/F-keys/Ctrl+Alt+letter, Ctrl+Shift+V paste, Ctrl+Shift+C copy), long-press paste and pinch-to-zoom font scaling. Existing tools are untouched: providers + AI router/fallback, local model (Ollama), MCP client, RAG, SSH client/tunnel/TOFU, in-app update, Telegram bot, multimodal Sidekick, Material 3 dynamic color, Eco Mode, Developer Tools, Share & Invite. This APK is SIGNED (V1+V2+V3); install mobile-harness-online.apk.",
+  "versionCode": 21,
+  "versionName": "1.3.7",
+  "notes": "Mobile Harness Code — independent fork of Mobile Harness. New: Phone Control (Developer Tools) adds a strict, opt-in privileged shell layer — Shizuku (shell/root through the Shizuku service), Wireless ADB (detected; SPAKE2 pairing marked not-implemented) and root via the device su binary — with a fail-closed policy (opt-in -> available -> authorized -> level -> sanitized command), bounded output and timeouts, a no-secrets event log, and a test command. libsu (JitPack-hosted) and any LGPL/GPL code are deliberately excluded; the Shizuku API is MIT. Existing tools are untouched: providers + AI router/fallback, local model (Ollama), MCP client, RAG, SSH client/tunnel/TOFU/PTY terminal, in-app update, Telegram bot, multimodal Sidekick, Material 3 dynamic color, Eco Mode, Developer Tools, Share & Invite. This APK is SIGNED (V1+V2+V3); install mobile-harness-online.apk.",
   "artifacts": {
     "online": {
-      "url": "https://github.com/Konprostart/mobile-harness-code/releases/download/v1.3.6/mobile-harness-online.apk",
-      "sha256": "53eca211c404a0e2db15a5ec640e32300da0ad9150ca1cd8cb0f0a47fb8a95c5",
-      "sizeBytes": 99098461
+      "url": "https://github.com/Konprostart/mobile-harness-code/releases/download/v1.3.7/mobile-harness-online.apk",
+      "sha256": "04dbfe80c328a396eec8b4c08f214ca72a18efe93f17afe6ca3161f37090abc6",
+      "sizeBytes": 99315607
     }
   }
 }
