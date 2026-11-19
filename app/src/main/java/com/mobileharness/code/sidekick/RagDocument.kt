@@ -110,12 +110,15 @@ object RagIndex {
             }
         }
         val ranked = scored.sortedByDescending { it.score }.take(topK.coerceAtLeast(1))
+        if (maxChars <= 0) return emptyList()
         val result = mutableListOf<RagChunk>()
         var used = 0
         for (chunk in ranked) {
             if (used >= maxChars) break
-            result += chunk
-            used += chunk.text.length
+            val remaining = maxChars - used
+            val text = if (chunk.text.length > remaining) chunk.text.take(remaining) else chunk.text
+            result += chunk.copy(text = text)
+            used += text.length
         }
         return result
     }
