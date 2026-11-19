@@ -1,12 +1,12 @@
 {
-  "versionCode": 23,
-  "versionName": "1.3.9",
-  "notes": "Mobile Harness Code — independent fork of Mobile Harness. New: the Sidekick assistant now remembers your language — pick Serbian (sr-RS), English (US/UK) or Swedish (sv-SE) and it stays selected instead of resetting to Auto; the assistant then consistently answers in that language. In Auto mode it detects the language of your question (Serbian/Swedish/English) and replies in the same language. Voice input and response language share the same persisted setting. Existing tools untouched: providers + AI router/fallback, local model (Ollama), MCP client, RAG, SSH client/tunnel/TOFU/PTY terminal, Phone Control (Shizuku/Wireless ADB/root), in-app update, Telegram bot, multimodal Sidekick, Eco Mode, Share & Invite. This APK is SIGNED (V1+V2+V3); install mobile-harness-online.apk.",
+  "versionCode": 24,
+  "versionName": "1.3.10",
+  "notes": "Mobile Harness Code — independent fork of Mobile Harness. Deep sanitation pass: production Logcat is now fully silent — user prompts, agent output, environment variable names and provider error bodies can no longer be written to the system log in release builds (debug builds keep full logging). The voice recognizer is released immediately after every final result instead of being held open, and the agent chat voice language now persists across restarts and stays in sync with the Sidekick assistant language setting. Existing tools untouched: providers + AI router/fallback, local model (Ollama), MCP client, RAG, SSH client/tunnel/TOFU/PTY terminal + terminal keyboard, Phone Control (Shizuku/Wireless ADB/root), in-app update, Telegram bot, multimodal Sidekick, Eco Mode, Share & Invite. This APK is SIGNED (V1+V2+V3); install mobile-harness-online.apk.",
   "artifacts": {
     "online": {
-      "url": "https://github.com/Konprostart/mobile-harness-code/releases/download/v1.3.9/mobile-harness-online.apk",
-      "sha256": "a3ee41df3c34b9d1d62b8dae45d657f9e3a9139f77faf7a4a3d83516dfdbc55c",
-      "sizeBytes": 99323799
+      "url": "https://github.com/Konprostart/mobile-harness-code/releases/download/v1.3.10/mobile-harness-online.apk",
+      "sha256": "88a09f80fe5ef3bdc910c84f6138e748e1b4bd706640e0c9229ee4d4a9e6cf5d",
+      "sizeBytes": 99327895
     }
   }
 }
