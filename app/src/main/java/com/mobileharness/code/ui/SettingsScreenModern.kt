@@ -181,11 +181,14 @@ fun SettingsScreen(
     onSetSidekickBackgroundResearch: (Boolean) -> Unit = {},
     onSetSidekickResearchSources: (String) -> Unit = {},
     onSaveSidekickProvider: (ProviderProfile) -> Unit = {},
+    onSetSidekickFallbackEnabled: (Boolean) -> Unit = {},
+    onSetSidekickFallbackModel: (String) -> Unit = {},
     onSetEcoMode: (Boolean) -> Unit = {},
     onCheckForAppUpdate: () -> Unit = {},
     onInstallAppUpdate: () -> Unit = {},
     onRefreshDevTools: () -> Unit = {},
     onClearDevToolsCrashLogs: () -> Unit = {},
+    onClearDevToolsRoutingLog: () -> Unit = {},
 ) {
     val context = LocalContext.current
     val installPermissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) {
@@ -469,6 +472,7 @@ fun SettingsScreen(
                         state = state.devTools,
                         onRefresh = onRefreshDevTools,
                         onClearCrashLogs = onClearDevToolsCrashLogs,
+                        onClearRoutingLog = onClearDevToolsRoutingLog,
                     )
                 }
             }
@@ -552,11 +556,15 @@ fun SettingsScreen(
                         backgroundResearch = state.sidekickBackgroundResearch,
                         researchSources = state.sidekickResearchSources,
                         provider = state.sidekickProvider,
+                        fallbackEnabled = state.sidekickFallbackEnabled,
+                        fallbackModel = state.sidekickFallbackModel,
                         onSetFloatingButton = onSetSidekickFloatingButton,
                         onSetUseCustomProvider = onSetSidekickUseCustomProvider,
                         onSetBackgroundResearch = onSetSidekickBackgroundResearch,
                         onSetResearchSources = onSetSidekickResearchSources,
                         onSaveProvider = onSaveSidekickProvider,
+                        onSetFallbackEnabled = onSetSidekickFallbackEnabled,
+                        onSetFallbackModel = onSetSidekickFallbackModel,
                         onLaunch = { showSidekick = true },
                     )
                 }

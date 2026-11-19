@@ -357,11 +357,15 @@ fun SidekickSettings(
     backgroundResearch: Boolean,
     researchSources: String,
     provider: ProviderProfile,
+    fallbackEnabled: Boolean,
+    fallbackModel: String,
     onSetFloatingButton: (Boolean) -> Unit,
     onSetUseCustomProvider: (Boolean) -> Unit,
     onSetBackgroundResearch: (Boolean) -> Unit,
     onSetResearchSources: (String) -> Unit,
     onSaveProvider: (ProviderProfile) -> Unit,
+    onSetFallbackEnabled: (Boolean) -> Unit,
+    onSetFallbackModel: (String) -> Unit,
     onLaunch: () -> Unit,
 ) {
     var selectedKind by rememberSaveable { mutableStateOf(provider.kind.name) }
@@ -444,6 +448,30 @@ fun SidekickSettings(
             if (saved) {
                 Text(stringResource(R.string.sidekick_saved), fontSize = 12.sp, color = MaterialTheme.colorScheme.primary)
             }
+        }
+
+        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+            Column(Modifier.weight(1f)) {
+                Text(stringResource(R.string.sidekick_fallback_title), fontWeight = FontWeight.SemiBold)
+                Text(stringResource(R.string.sidekick_fallback_subtitle), fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+            Switch(checked = fallbackEnabled, onCheckedChange = onSetFallbackEnabled)
+        }
+
+        if (fallbackEnabled) {
+            OutlinedTextField(
+                value = fallbackModel,
+                onValueChange = onSetFallbackModel,
+                label = { Text(stringResource(R.string.sidekick_fallback_model_label)) },
+                placeholder = { Text(stringResource(R.string.sidekick_fallback_model_hint), fontSize = 12.sp) },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth(),
+            )
+            Text(
+                stringResource(R.string.sidekick_fallback_note),
+                fontSize = 11.sp,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
         }
 
         Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {

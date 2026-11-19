@@ -55,6 +55,7 @@ import com.mobileharness.code.model.providerProtocolForAgent
 import com.mobileharness.code.network.ConnectionValidation
 import com.mobileharness.code.network.ModelDiscoveryResult
 import com.mobileharness.code.network.ProviderApiClient
+import com.mobileharness.code.network.RouteLog
 import com.mobileharness.code.network.GitHubRepository
 import com.mobileharness.code.network.ServerSyncConfig
 import com.mobileharness.code.network.ServerSyncMode
@@ -657,6 +658,8 @@ data class AppUiState(
     val sidekickBackgroundResearch: Boolean = false,
     val sidekickResearchSources: String = "",
     val sidekickProvider: ProviderProfile = ProviderProfile(ProviderKind.ANTHROPIC),
+    val sidekickFallbackEnabled: Boolean = false,
+    val sidekickFallbackModel: String = "",
     val ecoModeEnabled: Boolean = false,
 )
 
@@ -785,6 +788,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             sidekickBackgroundResearch = preferences.sidekickBackgroundResearch,
             sidekickResearchSources = preferences.sidekickResearchSources,
             sidekickProvider = loadSidekickProvider(),
+            sidekickFallbackEnabled = preferences.sidekickFallbackEnabled,
+            sidekickFallbackModel = preferences.sidekickFallbackModel,
             ecoModeEnabled = preferences.ecoModeEnabled,
         ),
     ).also {
@@ -920,6 +925,16 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     fun saveSidekickProvider(profile: ProviderProfile) {
         preferences.saveSidekickProvider(profile)
         _state.update { it.copy(sidekickProvider = profile) }
+    }
+
+    fun setSidekickFallbackEnabled(enabled: Boolean) {
+        preferences.sidekickFallbackEnabled = enabled
+        _state.update { it.copy(sidekickFallbackEnabled = enabled) }
+    }
+
+    fun setSidekickFallbackModel(model: String) {
+        preferences.sidekickFallbackModel = model
+        _state.update { it.copy(sidekickFallbackModel = model.trim()) }
     }
 
     fun setEcoMode(enabled: Boolean) {
@@ -1475,8 +1490,19 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             javaHeapMaxBytes = runtime.maxMemory(),
             cpuUsage = cpuUsage,
             crashLogs = crashLogs,
+            routingLog = RouteLog.snapshot(),
             refreshedAtMillis = System.currentTimeMillis(),
         )
+    }
+
+    fun clearDevToolsRoutingLog() {
+        RouteLog.clear()
+        _state.update {
+            it.copy(
+                devTools = it.devTools.copy(routingLog = emptyList()),
+                toastMessage = str(R.string.devtools_routing_log_cleared),
+            )
+        }
     }
 
     fun clearDevToolsCrashLogs() {

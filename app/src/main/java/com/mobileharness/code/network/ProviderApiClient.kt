@@ -31,7 +31,10 @@ sealed interface ConnectionValidation {
 /** One-shot chat completion result used by the in-app Sidekick assistant. */
 sealed interface ChatCompletion {
     data class Success(val text: String, val reasoning: String? = null) : ChatCompletion
-    data class Failure(val message: String) : ChatCompletion
+    data class Failure(
+        val message: String,
+        val kind: CompletionFailureKind = CompletionFailureKind.OTHER,
+    ) : ChatCompletion
 }
 
 /** A base64-encoded image block for a multimodal completion (no data-URL prefix). */
@@ -231,18 +234,23 @@ class ProviderApiClient(private val context: Context? = null) {
             }
             response.code == 401 || response.code == 403 -> ChatCompletion.Failure(
                 text(R.string.rt_api_check_key, "Check this API key or select another saved key."),
+                CompletionFailureKind.AUTH,
             )
             response.code == 429 -> ChatCompletion.Failure(
                 text(R.string.rt_api_rate_limited_retry, "Wait a moment, then retry or use another API key."),
+                CompletionFailureKind.RATE_LIMITED,
             )
             response.code in 500..599 -> ChatCompletion.Failure(
                 text(R.string.rt_api_provider_unavailable, "The provider is temporarily unavailable. Try again shortly."),
+                CompletionFailureKind.SERVER_ERROR,
             )
             response.code > 0 -> ChatCompletion.Failure(
                 text(R.string.rt_api_http_error, "The provider returned HTTP ${response.code}. Check the URL and account access.", response.code),
+                classifyCompletionFailure(response.code, response.error),
             )
             else -> ChatCompletion.Failure(
                 response.error ?: text(R.string.rt_api_check_internet, "Check your internet connection and provider settings."),
+                classifyCompletionFailure(response.code, response.error),
             )
         }
     }

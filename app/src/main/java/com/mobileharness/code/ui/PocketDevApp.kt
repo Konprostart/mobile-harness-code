@@ -2643,11 +2643,14 @@ private fun RootScreenHost(
                     onSetSidekickBackgroundResearch = viewModel::setSidekickBackgroundResearch,
                     onSetSidekickResearchSources = viewModel::setSidekickResearchSources,
                     onSaveSidekickProvider = viewModel::saveSidekickProvider,
+                    onSetSidekickFallbackEnabled = viewModel::setSidekickFallbackEnabled,
+                    onSetSidekickFallbackModel = viewModel::setSidekickFallbackModel,
                     onSetEcoMode = viewModel::setEcoMode,
                     onCheckForAppUpdate = { viewModel.checkForAppUpdate(force = true) },
                     onInstallAppUpdate = viewModel::installAppUpdate,
                     onRefreshDevTools = viewModel::refreshDevTools,
                     onClearDevToolsCrashLogs = viewModel::clearDevToolsCrashLogs,
+                    onClearDevToolsRoutingLog = viewModel::clearDevToolsRoutingLog,
                 )
             }
         }

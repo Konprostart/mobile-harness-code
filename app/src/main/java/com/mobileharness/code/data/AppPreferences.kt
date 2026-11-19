@@ -194,6 +194,16 @@ class AppPreferences(private val context: Context) {
         get() = preferences.getBoolean("sidekick_bg_research", false)
         set(value) { preferences.edit().putBoolean("sidekick_bg_research", value).apply() }
 
+    /** When true the assistant falls back to [sidekickFallbackModel] on transient provider errors. */
+    var sidekickFallbackEnabled: Boolean
+        get() = preferences.getBoolean("sidekick_fallback_enabled", false)
+        set(value) { preferences.edit().putBoolean("sidekick_fallback_enabled", value).apply() }
+
+    /** Model id the assistant tries after the primary model fails with a transient error. */
+    var sidekickFallbackModel: String
+        get() = preferences.getString("sidekick_fallback_model", "") ?: ""
+        set(value) { preferences.edit().putString("sidekick_fallback_model", value.trim()).apply() }
+
     /** Newline/line-separated list of directories and https:// URLs the assistant may search. */
     var sidekickResearchSources: String
         get() = preferences.getString("sidekick_research_sources", "") ?: ""

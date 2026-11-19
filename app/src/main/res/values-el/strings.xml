@@ -613,6 +613,12 @@
     <string name="sidekick_base_url_label">Base URL</string>
     <string name="sidekick_save">Save assistant settings</string>
     <string name="sidekick_saved">Saved</string>
+    <string name="sidekick_fallback_title">Fallback model</string>
+    <string name="sidekick_fallback_subtitle">Automatically try a backup model when the primary is overloaded or briefly unavailable</string>
+    <string name="sidekick_fallback_model_label">Fallback model</string>
+    <string name="sidekick_fallback_model_hint">e.g. claude-sonnet-4-6 or deepseek-chat</string>
+    <string name="sidekick_fallback_note">The fallback reuses the same provider, protocol and API key. Rate limits (429), server errors (5xx) and timeouts fall back automatically; an invalid key (401/403) is reported and never cascades.</string>
+    <string name="sidekick_fallback_exhausted">The assistant could not get an answer: %1$s</string>
     <string name="devtools_title">Developer tools</string>
     <string name="devtools_subtitle">Device, performance, and crash history</string>
     <string name="devtools_refresh">Refresh</string>
@@ -635,6 +641,14 @@
     <string name="devtools_clear_crashes">Clear history</string>
     <string name="devtools_crashes_cleared">Crash history cleared</string>
     <string name="devtools_thread">Thread: %1$s</string>
+    <string name="devtools_routing_log">Routing log</string>
+    <string name="devtools_no_routing_events">No model routing events recorded yet. Ask the assistant a question to populate this.</string>
+    <string name="devtools_clear_routing_log">Clear routing log</string>
+    <string name="devtools_routing_log_cleared">Routing log cleared</string>
+    <string name="devtools_routing_attempt">attempt</string>
+    <string name="devtools_routing_fallback">fallback</string>
+    <string name="devtools_routing_exhausted">exhausted</string>
+    <string name="devtools_routing_budget_halted">budget halted</string>
     <!-- Model compatibility: reasoning + presets -->
     <string name="sidekick_reasoning_title">Reasoning</string>
     <string name="sidekick_show_reasoning">Show reasoning</string>

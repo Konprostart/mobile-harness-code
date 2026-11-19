@@ -47,6 +47,9 @@ import androidx.compose.ui.res.stringResource
 import com.mobileharness.code.devtools.CrashRecord
 import com.mobileharness.code.devtools.CpuUsage
 import com.mobileharness.code.devtools.DeviceInfoSnapshot
+import com.mobileharness.code.network.RouteLogEntry
+import com.mobileharness.code.network.RouteStage
+import com.mobileharness.code.ui.theme.PocketOrange
 import java.text.DateFormat
 import java.util.Date
 
@@ -59,6 +62,7 @@ data class DevToolsState(
     val javaHeapMaxBytes: Long = 0L,
     val cpuUsage: CpuUsage? = null,
     val crashLogs: List<CrashRecord> = emptyList(),
+    val routingLog: List<RouteLogEntry> = emptyList(),
     val refreshedAtMillis: Long? = null,
 )
 
@@ -67,6 +71,7 @@ fun DeveloperToolsContent(
     state: DevToolsState,
     onRefresh: () -> Unit,
     onClearCrashLogs: () -> Unit,
+    onClearRoutingLog: () -> Unit = {},
 ) {
     Column {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
@@ -122,6 +127,24 @@ fun DeveloperToolsContent(
                 Icon(Icons.Default.DeleteSweep, null, Modifier.size(17.dp))
                 Spacer(Modifier.width(7.dp))
                 Text(stringResource(R.string.devtools_clear_crashes))
+            }
+        }
+
+        DevToolsCard(stringResource(R.string.devtools_routing_log)) {
+            if (state.routingLog.isEmpty()) {
+                DevToolsHint(stringResource(R.string.devtools_no_routing_events))
+            } else {
+                state.routingLog.forEach { entry -> RoutingLogEntryRow(entry) }
+            }
+            Spacer(Modifier.height(10.dp))
+            OutlinedButton(
+                onClick = onClearRoutingLog,
+                enabled = state.routingLog.isNotEmpty(),
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Icon(Icons.Default.DeleteSweep, null, Modifier.size(17.dp))
+                Spacer(Modifier.width(7.dp))
+                Text(stringResource(R.string.devtools_clear_routing_log))
             }
         }
     }
@@ -208,6 +231,48 @@ private fun CrashEntry(record: CrashRecord) {
                         .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(8.dp))
                         .padding(8.dp)
                         .verticalScroll(rememberScrollState()),
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun RoutingLogEntryRow(entry: RouteLogEntry) {
+    val stageLabel = when (entry.stage) {
+        RouteStage.ATTEMPT -> stringResource(R.string.devtools_routing_attempt)
+        RouteStage.FALLBACK -> stringResource(R.string.devtools_routing_fallback)
+        RouteStage.EXHAUSTED -> stringResource(R.string.devtools_routing_exhausted)
+        RouteStage.BUDGET_HALTED -> stringResource(R.string.devtools_routing_budget_halted)
+    }
+    Surface(
+        modifier = Modifier.fillMaxWidth().padding(vertical = 3.dp),
+        shape = RoundedCornerShape(10.dp),
+        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f),
+    ) {
+        Column(Modifier.padding(horizontal = 10.dp, vertical = 7.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    "${entry.routeId} · ${entry.model}",
+                    fontWeight = FontWeight.SemiBold,
+                    fontSize = 12.sp,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f),
+                )
+                Text(
+                    stageLabel,
+                    fontSize = 11.sp,
+                    color = if (entry.stage == RouteStage.FALLBACK) PocketOrange else MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            entry.detail?.let { detail ->
+                Text(
+                    detail,
+                    fontSize = 11.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
                 )
             }
         }

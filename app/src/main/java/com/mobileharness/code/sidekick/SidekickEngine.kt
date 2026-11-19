@@ -7,8 +7,16 @@ import com.mobileharness.code.data.AppPreferences
 import com.mobileharness.code.model.ProviderKind
 import com.mobileharness.code.model.ProviderProfile
 import com.mobileharness.code.network.ChatCompletion
+import com.mobileharness.code.network.CompletionFailureKind
 import com.mobileharness.code.network.CompletionImage
+import com.mobileharness.code.network.FallbackChain
+import com.mobileharness.code.network.ModelRoute
 import com.mobileharness.code.network.ProviderApiClient
+import com.mobileharness.code.network.RouteAttempt
+import com.mobileharness.code.network.RouteBudget
+import com.mobileharness.code.network.RouteLog
+import com.mobileharness.code.network.RouteLogEntry
+import com.mobileharness.code.network.RouteOutcome
 import com.mobileharness.code.runtime.EcoMode
 import com.mobileharness.code.ui.AppStrings
 
@@ -94,18 +102,63 @@ class SidekickEngine(context: Context) {
         if (key.isNullOrBlank()) {
             return SidekickResult(AppStrings.get(appContext, R.string.sidekick_requires_key))
         }
-        return when (val result = client.complete(
-            baseUrl = profile.resolvedBaseUrl,
-            model = profile.model,
-            apiKey = key,
-            protocol = profile.kind.protocol,
-            systemPrompt = systemPrompt,
-            userMessage = userMessage,
-            maxTokens = EcoMode.recommendedMaxTokens(preferences.ecoModeEnabled),
-            images = images.map { CompletionImage(it.mimeType, it.base64) },
-        )) {
-            is ChatCompletion.Success -> SidekickResult(result.text, result.reasoning)
-            is ChatCompletion.Failure -> SidekickResult(result.message)
+
+        val ecoEnabled = preferences.ecoModeEnabled
+        val maxTokensPerCall = EcoMode.recommendedMaxTokens(ecoEnabled)
+        val routes = buildList {
+            add(ModelRoute("primary", profile.model))
+            val fallback = preferences.sidekickFallbackModel
+            if (preferences.sidekickFallbackEnabled && fallback.isNotBlank() && fallback != profile.model) {
+                add(ModelRoute("fallback", fallback))
+            }
+        }
+        // A small, self-documenting cap bounds the fallback loop: up to 4 attempts and a token
+        // ceiling of four times the per-call budget. On exhaustion the chain halts fail-closed.
+        val budget = RouteBudget(maxRequests = 4, maxTokens = maxTokensPerCall.toLong() * 4L)
+        val chain = FallbackChain(
+            routes = routes,
+            budget = budget,
+            mutating = false,
+            ecoEnabled = ecoEnabled,
+            onEvent = { event ->
+                RouteLog.record(
+                    RouteLogEntry(
+                        timestampMillis = System.currentTimeMillis(),
+                        routeId = event.routeId,
+                        model = event.model,
+                        stage = event.stage,
+                        detail = event.detail,
+                    ),
+                )
+            },
+        ).also { it.tokensPerAttempt = maxTokensPerCall.toLong() }
+
+        return when (val outcome = chain.run { route ->
+            when (val result = client.complete(
+                baseUrl = profile.resolvedBaseUrl,
+                model = route.model,
+                apiKey = key,
+                protocol = profile.kind.protocol,
+                systemPrompt = systemPrompt,
+                userMessage = userMessage,
+                maxTokens = maxTokensPerCall,
+                images = images.map { CompletionImage(it.mimeType, it.base64) },
+            )) {
+                is ChatCompletion.Success -> RouteAttempt.Success(result.text, result.reasoning)
+                is ChatCompletion.Failure -> RouteAttempt.Failure(result.kind, result.message)
+            }
+        }) {
+            is RouteOutcome.Success -> SidekickResult(outcome.text, outcome.reasoning)
+            is RouteOutcome.Failure -> when (outcome.kind) {
+                CompletionFailureKind.AUTH -> SidekickResult(outcome.message)
+                else -> SidekickResult(
+                    if (routes.size > 1 && outcome.routeId == routes.last().id) {
+                        AppStrings.get(appContext, R.string.sidekick_fallback_exhausted, outcome.message)
+                    } else {
+                        outcome.message
+                    },
+                )
+            }
         }
     }
 
