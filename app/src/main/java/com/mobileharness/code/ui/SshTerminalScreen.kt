@@ -3,6 +3,11 @@ package com.mobileharness.code.ui
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.calculateZoom
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -32,8 +37,6 @@ import androidx.compose.material.icons.filled.Terminal
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
@@ -43,15 +46,27 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyEvent
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.isAltPressed
+import androidx.compose.ui.input.key.isCtrlPressed
+import androidx.compose.ui.input.key.isShiftPressed
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.onPreviewKeyEvent
+import androidx.compose.ui.input.key.type
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onSizeChanged
-import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextStyle
@@ -65,16 +80,23 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.res.stringResource
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.mobileharness.code.R
-import com.mobileharness.code.network.ssh.SshControlKey
 import com.mobileharness.code.network.ssh.SshProfile
 import com.mobileharness.code.terminal.TerminalCell
 import com.mobileharness.code.terminal.TerminalColor
+import com.mobileharness.code.terminal.TerminalKey
+import com.mobileharness.code.terminal.TerminalKeyMapper
+import com.mobileharness.code.terminal.TerminalModifier
+import kotlinx.coroutines.withTimeoutOrNull
 
 private val TerminalDefaultFg = Color(0xFFE6EDF3)
 private val TerminalDefaultBg = Color(0xFF0D1117)
+private val ModifierOneShot = Color(0xFFD29922)
+private val ModifierLocked = Color(0xFF3FB950)
+
+private const val MinFontSizeSp = 8f
+private const val MaxFontSizeSp = 28f
 
 private val Ansi16 = listOf(
     Color(0xFF000000), Color(0xFFCD3131), Color(0xFF0DBC79), Color(0xFFE5E510),
@@ -130,11 +152,62 @@ fun renderTerminalLine(cells: List<TerminalCell>): AnnotatedString {
     return builder.toAnnotatedString()
 }
 
+/** Maps a hardware key to a semantic terminal key (Enter/Backspace are left to the text field). */
+private fun hardwareTerminalKey(key: Key): TerminalKey? = when (key) {
+    Key.Tab -> TerminalKey.TAB
+    Key.Escape -> TerminalKey.ESC
+    Key.Delete -> TerminalKey.DELETE
+    Key.Insert -> TerminalKey.INSERT
+    Key.DirectionUp -> TerminalKey.ARROW_UP
+    Key.DirectionDown -> TerminalKey.ARROW_DOWN
+    Key.DirectionLeft -> TerminalKey.ARROW_LEFT
+    Key.DirectionRight -> TerminalKey.ARROW_RIGHT
+    Key.MoveHome -> TerminalKey.HOME
+    Key.MoveEnd -> TerminalKey.END
+    Key.PageUp -> TerminalKey.PAGE_UP
+    Key.PageDown -> TerminalKey.PAGE_DOWN
+    Key.F1 -> TerminalKey.F1
+    Key.F2 -> TerminalKey.F2
+    Key.F3 -> TerminalKey.F3
+    Key.F4 -> TerminalKey.F4
+    Key.F5 -> TerminalKey.F5
+    Key.F6 -> TerminalKey.F6
+    Key.F7 -> TerminalKey.F7
+    Key.F8 -> TerminalKey.F8
+    Key.F9 -> TerminalKey.F9
+    Key.F10 -> TerminalKey.F10
+    Key.F11 -> TerminalKey.F11
+    Key.F12 -> TerminalKey.F12
+    else -> null
+}
+
+private fun keyToLetterChar(key: Key): Char? = when (key) {
+    Key.A -> 'a'; Key.B -> 'b'; Key.C -> 'c'; Key.D -> 'd'; Key.E -> 'e'; Key.F -> 'f'
+    Key.G -> 'g'; Key.H -> 'h'; Key.I -> 'i'; Key.J -> 'j'; Key.K -> 'k'; Key.L -> 'l'
+    Key.M -> 'm'; Key.N -> 'n'; Key.O -> 'o'; Key.P -> 'p'; Key.Q -> 'q'; Key.R -> 'r'
+    Key.S -> 's'; Key.T -> 't'; Key.U -> 'u'; Key.V -> 'v'; Key.W -> 'w'; Key.X -> 'x'
+    Key.Y -> 'y'; Key.Z -> 'z'
+    else -> null
+}
+
+private fun modifierAccent(state: TerminalModifier): Color? = when (state) {
+    TerminalModifier.OFF -> null
+    TerminalModifier.ONE_SHOT -> ModifierOneShot
+    TerminalModifier.LOCKED -> ModifierLocked
+}
+
+private fun modifierLabel(base: String, state: TerminalModifier): String = when (state) {
+    TerminalModifier.OFF -> base
+    TerminalModifier.ONE_SHOT -> "$base ⁺"
+    TerminalModifier.LOCKED -> "$base ●"
+}
+
 /**
  * Full-screen interactive SSH terminal (PTY + VT100/ANSI). It owns the remote shell lifecycle
  * through [MainViewModel] and renders the emulated grid as a virtualized list of monospace lines
- * with a dark, high-contrast background, plus an input bar and quick keys for the control
- * sequences a phone keyboard cannot easily produce.
+ * with a dark, high-contrast background. It adds a two-row "extra keys" terminal keyboard
+ * (with sticky/lock Ctrl+Alt modifiers and auto-repeat), hardware-keyboard support, clipboard
+ * copy/paste and pinch-to-zoom font scaling.
  */
 @Composable
 fun SshTerminalScreen(
@@ -150,14 +223,33 @@ fun SshTerminalScreen(
     var input by rememberSaveable { mutableStateOf("") }
     var cols by remember { mutableStateOf(0) }
     var rows by remember { mutableStateOf(0) }
+    var fontSize by rememberSaveable { mutableStateOf(12f) }
+    var fnMode by rememberSaveable { mutableStateOf(false) }
+    var ctrlState by remember { mutableStateOf(TerminalModifier.OFF) }
+    var altState by remember { mutableStateOf(TerminalModifier.OFF) }
+
     val listState = rememberLazyListState()
     val inputFocus = remember { FocusRequester() }
-    val keyboard = LocalSoftwareKeyboardController.current
 
+    val lineHeight = (fontSize * 1.2f).sp
     val measurer = rememberTextMeasurer()
-    val monoStyle = TextStyle(fontFamily = FontFamily.Monospace, fontSize = 12.sp, lineHeight = 14.sp)
-    val cellWidth = remember { measurer.measure(AnnotatedString("M"), monoStyle).size.width.toFloat().coerceAtLeast(1f) }
-    val cellHeight = remember { measurer.measure(AnnotatedString("M"), monoStyle).size.height.toFloat().coerceAtLeast(1f) }
+    val monoStyle = TextStyle(fontFamily = FontFamily.Monospace, fontSize = fontSize.sp, lineHeight = lineHeight)
+    val cellWidth = remember(fontSize) { measurer.measure(AnnotatedString("M"), monoStyle).size.width.toFloat().coerceAtLeast(1f) }
+    val cellHeight = remember(fontSize) { measurer.measure(AnnotatedString("M"), monoStyle).size.height.toFloat().coerceAtLeast(1f) }
+
+    val ctrlActive = TerminalKeyMapper.isModifierActive(ctrlState)
+    val altActive = TerminalKeyMapper.isModifierActive(altState)
+
+    val sendKey: (TerminalKey) -> Unit = { key ->
+        viewModel.sendSshTerminalInput(TerminalKeyMapper.sequence(key, ctrlActive, altActive))
+        ctrlState = TerminalKeyMapper.consumeOneShot(ctrlState)
+        altState = TerminalKeyMapper.consumeOneShot(altState)
+    }
+    val sendChar: (Char) -> Unit = { ch ->
+        viewModel.sendSshTerminalInput(TerminalKeyMapper.charSequence(ch, ctrlActive, altActive))
+        ctrlState = TerminalKeyMapper.consumeOneShot(ctrlState)
+        altState = TerminalKeyMapper.consumeOneShot(altState)
+    }
 
     LaunchedEffect(profile.id) { viewModel.openSshTerminal(profile.id, 80, 24) }
     LaunchedEffect(cols, rows) {
@@ -170,6 +262,36 @@ fun SshTerminalScreen(
     val sendLine = {
         viewModel.sendSshTerminalInput(input + "\r")
         input = ""
+    }
+
+    fun handleHardwareKey(event: KeyEvent): Boolean {
+        if (event.type != KeyEventType.KeyDown) return false
+        val ctrl = event.isCtrlPressed
+        val alt = event.isAltPressed
+        val shift = event.isShiftPressed
+
+        if (ctrl && shift) {
+            when (event.key) {
+                Key.V -> { viewModel.pasteSshTerminal(); return true }
+                Key.C -> { viewModel.copySshTerminal(); return true }
+                else -> Unit
+            }
+        }
+
+        hardwareTerminalKey(event.key)?.let { key ->
+            viewModel.sendSshTerminalInput(TerminalKeyMapper.sequence(key, ctrl, alt))
+            return true
+        }
+
+        keyToLetterChar(event.key)?.let { letter ->
+            if (ctrl || alt) {
+                val ch = if (shift && !ctrl) letter.uppercaseChar() else letter
+                viewModel.sendSshTerminalInput(TerminalKeyMapper.charSequence(ch, ctrl, alt))
+                return true
+            }
+        }
+
+        return false
     }
 
     BackHandler(onBack = {
@@ -227,7 +349,8 @@ fun SshTerminalScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
-                .imePadding(),
+                .imePadding()
+                .onPreviewKeyEvent { handleHardwareKey(it) },
         ) {
             Box(
                 modifier = Modifier
@@ -239,6 +362,27 @@ fun SshTerminalScreen(
                         val r = (size.height / cellHeight).toInt().coerceAtLeast(1)
                         if (c != cols) cols = c
                         if (r != rows) rows = r
+                    }
+                    .pointerInput(Unit) {
+                        // Two-finger pinch only; a single-finger drag is left to the LazyColumn
+                        // scroll below, so zoom never steals scrolling.
+                        awaitEachGesture {
+                            awaitFirstDown(requireUnconsumed = false)
+                            do {
+                                val event = awaitPointerEvent()
+                                val pressed = event.changes.filter { it.pressed }
+                                if (pressed.size >= 2) {
+                                    val zoom = event.calculateZoom()
+                                    if (!zoom.isNaN() && zoom > 0f && zoom != 1f) {
+                                        fontSize = (fontSize * zoom).coerceIn(MinFontSizeSp, MaxFontSizeSp)
+                                        pressed.forEach { it.consume() }
+                                    }
+                                }
+                            } while (event.changes.any { it.pressed })
+                        }
+                    }
+                    .pointerInput(Unit) {
+                        detectTapGestures(onLongPress = { viewModel.pasteSshTerminal() })
                     }
                     .border(1.dp, Color(0xFF30363D), RoundedCornerShape(8.dp))
                     .background(Color(0xFF010409), RoundedCornerShape(8.dp)),
@@ -257,8 +401,8 @@ fun SshTerminalScreen(
                             Text(
                                 text = renderTerminalLine(row),
                                 fontFamily = FontFamily.Monospace,
-                                fontSize = 12.sp,
-                                lineHeight = 14.sp,
+                                fontSize = fontSize.sp,
+                                lineHeight = lineHeight,
                                 softWrap = false,
                                 maxLines = 1,
                                 overflow = TextOverflow.Clip,
@@ -268,22 +412,75 @@ fun SshTerminalScreen(
                 }
             }
 
-            // Quick control keys — the soft keyboard cannot produce these.
+            // Extra keys — a compact two-row terminal keyboard (Fn toggles the function row).
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .horizontalScroll(rememberScrollState())
                     .padding(horizontal = 8.dp, vertical = 4.dp),
-                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                verticalAlignment = Alignment.CenterVertically,
             ) {
-                SshTerminalKeyButton("Ctrl+C") { viewModel.sendSshTerminalControl(SshControlKey.CTRL_C) }
-                SshTerminalKeyButton("Ctrl+D") { viewModel.sendSshTerminalControl(SshControlKey.CTRL_D) }
-                SshTerminalKeyButton("Esc") { viewModel.sendSshTerminalControl(SshControlKey.ESC) }
-                SshTerminalKeyButton("Tab") { viewModel.sendSshTerminalControl(SshControlKey.TAB) }
-                SshTerminalKeyButton("↑") { viewModel.sendSshTerminalControl(SshControlKey.ARROW_UP) }
-                SshTerminalKeyButton("↓") { viewModel.sendSshTerminalControl(SshControlKey.ARROW_DOWN) }
-                SshTerminalKeyButton("←") { viewModel.sendSshTerminalControl(SshControlKey.ARROW_LEFT) }
-                SshTerminalKeyButton("→") { viewModel.sendSshTerminalControl(SshControlKey.ARROW_RIGHT) }
+                SshTerminalKeyButton(
+                    label = if (fnMode) "Fn ✓" else "Fn",
+                    accent = if (fnMode) ModifierLocked else null,
+                    onClick = { fnMode = !fnMode },
+                )
+                Spacer(Modifier.width(6.dp))
+                Row(
+                    modifier = Modifier
+                        .weight(1f)
+                        .horizontalScroll(rememberScrollState()),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                ) {
+                    if (fnMode) {
+                        SshTerminalKeyButton("F1") { sendKey(TerminalKey.F1) }
+                        SshTerminalKeyButton("F2") { sendKey(TerminalKey.F2) }
+                        SshTerminalKeyButton("F3") { sendKey(TerminalKey.F3) }
+                        SshTerminalKeyButton("F4") { sendKey(TerminalKey.F4) }
+                        SshTerminalKeyButton("F5") { sendKey(TerminalKey.F5) }
+                        SshTerminalKeyButton("F6") { sendKey(TerminalKey.F6) }
+                        SshTerminalKeyButton("F7") { sendKey(TerminalKey.F7) }
+                        SshTerminalKeyButton("F8") { sendKey(TerminalKey.F8) }
+                        SshTerminalKeyButton("F9") { sendKey(TerminalKey.F9) }
+                        SshTerminalKeyButton("F10") { sendKey(TerminalKey.F10) }
+                        SshTerminalKeyButton("F11") { sendKey(TerminalKey.F11) }
+                        SshTerminalKeyButton("F12") { sendKey(TerminalKey.F12) }
+                        SshTerminalKeyButton("Ins") { sendKey(TerminalKey.INSERT) }
+                        SshTerminalKeyButton("Del", repeatable = true) { sendKey(TerminalKey.DELETE) }
+                        SshTerminalKeyButton("|") { sendChar('|') }
+                        SshTerminalKeyButton("~") { sendChar('~') }
+                        SshTerminalKeyButton("\\") { sendChar('\\') }
+                        SshTerminalKeyButton("{") { sendChar('{') }
+                        SshTerminalKeyButton("}") { sendChar('}') }
+                        SshTerminalKeyButton("[") { sendChar('[') }
+                        SshTerminalKeyButton("]") { sendChar(']') }
+                    } else {
+                        SshTerminalKeyButton("Esc") { sendKey(TerminalKey.ESC) }
+                        SshTerminalKeyButton(
+                            label = modifierLabel("Ctrl", ctrlState),
+                            accent = modifierAccent(ctrlState),
+                            onClick = { ctrlState = TerminalKeyMapper.nextModifier(ctrlState) },
+                        )
+                        SshTerminalKeyButton(
+                            label = modifierLabel("Alt", altState),
+                            accent = modifierAccent(altState),
+                            onClick = { altState = TerminalKeyMapper.nextModifier(altState) },
+                        )
+                        SshTerminalKeyButton("Tab") { sendKey(TerminalKey.TAB) }
+                        SshTerminalKeyButton("Home") { sendKey(TerminalKey.HOME) }
+                        SshTerminalKeyButton("End") { sendKey(TerminalKey.END) }
+                        SshTerminalKeyButton("PgUp") { sendKey(TerminalKey.PAGE_UP) }
+                        SshTerminalKeyButton("PgDn") { sendKey(TerminalKey.PAGE_DOWN) }
+                        SshTerminalKeyButton("←", repeatable = true) { sendKey(TerminalKey.ARROW_LEFT) }
+                        SshTerminalKeyButton("↓", repeatable = true) { sendKey(TerminalKey.ARROW_DOWN) }
+                        SshTerminalKeyButton("↑", repeatable = true) { sendKey(TerminalKey.ARROW_UP) }
+                        SshTerminalKeyButton("→", repeatable = true) { sendKey(TerminalKey.ARROW_RIGHT) }
+                        SshTerminalKeyButton("/") { sendChar('/') }
+                        SshTerminalKeyButton("-") { sendChar('-') }
+                        SshTerminalKeyButton("Ctrl+C") {
+                            viewModel.sendSshTerminalInput(TerminalKeyMapper.charSequence('c', ctrl = true))
+                        }
+                    }
+                }
             }
 
             // Input bar.
@@ -328,14 +525,57 @@ fun SshTerminalScreen(
     }
 }
 
+/**
+ * A compact Material-3 terminal key. [accent] (nullable) paints the border/label/background for
+ * highlighted states (one-shot / locked modifiers, active Fn). [repeatable] enables auto-repeat
+ * while the key is held (arrows, Delete, …): a quick tap fires once, a hold repeats at ~55 ms.
+ */
 @Composable
-private fun SshTerminalKeyButton(label: String, onClick: () -> Unit) {
-    OutlinedButton(
-        onClick = onClick,
-        contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 10.dp, vertical = 0.dp),
-        modifier = Modifier.height(32.dp),
-        border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF30363D)),
+private fun SshTerminalKeyButton(
+    label: String,
+    repeatable: Boolean = false,
+    accent: Color? = null,
+    onClick: () -> Unit,
+) {
+    val currentOnClick by rememberUpdatedState(onClick)
+    val shape = RoundedCornerShape(6.dp)
+    val borderColor = accent ?: Color(0xFF30363D)
+    val bg = if (accent != null) accent.copy(alpha = 0.18f) else Color(0xFF161B22)
+    val press = if (repeatable) {
+        Modifier.pointerInput(Unit) {
+            detectTapGestures(
+                onPress = {
+                    currentOnClick()
+                    var delayMillis = 450L
+                    while (true) {
+                        when (val released = withTimeoutOrNull(delayMillis) { tryAwaitRelease() }) {
+                            null -> { currentOnClick(); delayMillis = 55L }
+                            true -> break
+                            false -> break // cancelled (e.g. parent scroll took over)
+                        }
+                    }
+                },
+            )
+        }
+    } else {
+        Modifier.clickable(onClick = currentOnClick)
+    }
+    Box(
+        modifier = Modifier
+            .height(34.dp)
+            .clip(shape)
+            .background(bg, shape)
+            .border(1.dp, borderColor, shape)
+            .then(press),
+        contentAlignment = Alignment.Center,
     ) {
-        Text(label, fontFamily = FontFamily.Monospace, fontSize = 11.sp, color = TerminalDefaultFg, maxLines = 1)
+        Text(
+            label,
+            fontFamily = FontFamily.Monospace,
+            fontSize = 11.sp,
+            color = accent ?: TerminalDefaultFg,
+            maxLines = 1,
+            modifier = Modifier.padding(horizontal = 9.dp),
+        )
     }
 }

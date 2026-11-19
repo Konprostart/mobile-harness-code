@@ -1390,6 +1390,29 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         sshShellSession?.resize(sshTerminalCols, sshTerminalRows)
     }
 
+    /** Pastes the current clipboard text directly into the remote shell (no newline appended). */
+    fun pasteSshTerminal() {
+        val app = getApplication<Application>()
+        val clipboard = app.getSystemService(android.content.ClipboardManager::class.java)
+        val text = clipboard.primaryClip
+            ?.takeIf { it.itemCount > 0 }
+            ?.getItemAt(0)
+            ?.coerceToText(app)
+            ?.toString()
+            .orEmpty()
+        if (text.isEmpty()) return
+        sshShellSession?.sendInput(text)
+    }
+
+    /** Copies the current visible terminal screen to the clipboard (rows joined with newlines). */
+    fun copySshTerminal() {
+        val text = _sshTerminalLines.value.joinToString("\n") { row ->
+            row.map { it.char }.joinToString("").trimEnd()
+        }
+        copyToClipboard("Terminal", text)
+        _state.update { it.copy(toastMessage = str(R.string.ssh_terminal_copied)) }
+    }
+
     // --- Release pipeline (Build → Sign → Verify → Checksum) -------------------------------
 
     private fun releaseKeystoreDir(): File =
