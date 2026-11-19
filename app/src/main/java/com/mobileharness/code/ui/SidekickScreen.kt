@@ -71,6 +71,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
 import com.mobileharness.code.R
+import com.mobileharness.code.data.AppPreferences
 import com.mobileharness.code.sidekick.SidekickAttachmentIO
 import com.mobileharness.code.sidekick.SidekickEngine
 import com.mobileharness.code.sidekick.SidekickFile
@@ -108,6 +109,7 @@ fun SidekickScreen(onClose: () -> Unit) {
     val context = LocalContext.current
     val resolver = remember { context.contentResolver }
     val engine = remember { SidekickEngine(context) }
+    val preferences = remember { AppPreferences(context) }
     val scope = rememberCoroutineScope()
     val messages = remember { mutableStateListOf<SidekickMessage>() }
     val attachments = remember { mutableStateListOf<PendingAttachment>() }
@@ -117,9 +119,10 @@ fun SidekickScreen(onClose: () -> Unit) {
     var errorMessage by remember { mutableStateOf<String?>(null) }
     val listState = rememberLazyListState()
 
-    // Voice input.
+    // Voice input. The language choice is persisted so an explicit pick (e.g. Serbian) survives
+    // screen reopen/app restart instead of silently resetting to "auto".
     val speech = rememberSpeechRecognizerState(context)
-    var languageChoice by remember { mutableStateOf(SpeechLanguage.AUTO) }
+    var languageChoice by remember { mutableStateOf(preferences.sidekickLanguage) }
     val systemLocales = remember {
         val config = context.resources.configuration
         val locales = config.locales
@@ -384,7 +387,10 @@ fun SidekickScreen(onClose: () -> Unit) {
                         isListening = speech.isListening,
                         resolvedLanguage = resolvedLanguage,
                         languageChoice = languageChoice,
-                        onLanguageChoice = { languageChoice = it },
+                        onLanguageChoice = {
+                            languageChoice = it
+                            preferences.sidekickLanguage = it
+                        },
                         onToggle = {
                             if (speech.isListening) {
                                 speech.stop()

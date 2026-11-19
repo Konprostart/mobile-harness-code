@@ -65,7 +65,7 @@ class SidekickEngine(context: Context) {
         files: List<SidekickFile> = emptyList(),
     ): SidekickResult {
         val userMessage = SidekickInput.buildUserMessage(question, files)
-        val basePrompt = augmentedSystemPrompt(question)
+        val basePrompt = withLanguageInstruction(augmentedSystemPrompt(question), question)
         val mcpServers = preferences.loadMcpServers().filter { it.enabled }
         val tools = enabledTools(mcpServers)
         return if (tools.isEmpty()) {
@@ -89,6 +89,17 @@ class SidekickEngine(context: Context) {
         return if (context.isBlank()) SYSTEM_PROMPT else "$SYSTEM_PROMPT\n\n$context"
     }
 
+    /**
+     * Appends the persisted language choice as a system-prompt instruction. The assistant then
+     * replies in the selected language (or, in Auto mode, follows the detected user language).
+     * Fail-closed: an unknown/corrupt stored value normalizes to Auto, so it can never produce a
+     * malformed instruction.
+     */
+    private fun withLanguageInstruction(prompt: String, userText: String? = null): String {
+        val instruction = SidekickLanguage.responseInstruction(preferences.sidekickLanguage, userText)
+        return if (instruction.isBlank()) prompt else "$prompt\n\n$instruction"
+    }
+
     /** Retrieves a bounded, relevance-ranked context string from the saved document base. */
     private fun ragContext(question: String): String {
         if (!preferences.ragEnabled) return ""
@@ -105,7 +116,10 @@ class SidekickEngine(context: Context) {
     }
 
     suspend fun optimizePrompt(draft: String): SidekickResult =
-        complete(systemPrompt = PROMPT_ADVISOR_PROMPT, userMessage = draft.trim())
+        complete(
+            systemPrompt = withLanguageInstruction(PROMPT_ADVISOR_PROMPT, draft),
+            userMessage = draft.trim(),
+        )
 
     suspend fun research(question: String): SidekickResult {
         val rawSources = preferences.sidekickResearchSources
@@ -129,7 +143,7 @@ class SidekickEngine(context: Context) {
             ).append('\n')
             append("Context found:\n").append(context.ifBlank { "(nothing readable was found)" })
         }
-        return complete(systemPrompt = RESEARCH_PROMPT, userMessage = userMessage)
+        return complete(systemPrompt = withLanguageInstruction(RESEARCH_PROMPT, question), userMessage = userMessage)
     }
 
     /** Resolves the local model config from preferences, applying the default model name when blank. */

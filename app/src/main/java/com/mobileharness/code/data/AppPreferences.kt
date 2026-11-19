@@ -201,6 +201,15 @@ class AppPreferences(private val context: Context) {
         get() = preferences.getBoolean("sidekick_bg_research", false)
         set(value) { preferences.edit().putBoolean("sidekick_bg_research", value).apply() }
 
+    /**
+     * Language preference for the Sidekick assistant ("auto" or a BCP-47 tag such as "sr-RS").
+     * Persisted so an explicit choice survives screen reopen and app restart instead of resetting
+     * to "auto". Not sensitive, so it is intentionally excluded from [DEVICE_ONLY_KEYS].
+     */
+    var sidekickLanguage: String
+        get() = preferences.getString("sidekick_language", "auto") ?: "auto"
+        set(value) { preferences.edit().putString("sidekick_language", value.trim()).apply() }
+
     /** When true the assistant falls back to [sidekickFallbackModel] on transient provider errors. */
     var sidekickFallbackEnabled: Boolean
         get() = preferences.getBoolean("sidekick_fallback_enabled", false)
