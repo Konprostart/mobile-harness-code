@@ -1,12 +1,12 @@
 {
-  "versionCode": 16,
-  "versionName": "1.3.2",
-  "notes": "Mobile Harness Code — independent fork of Mobile Harness. New: on-device document base (RAG) — save text documents in Settings → Document base and the Sidekick assistant retrieves the most relevant passages when answering (local keyword index, no embedding service or external call; Eco Mode-aware). Also adds multilingual voice input directly in the coding agent's chat input bar (Auto / Serbian / English / Swedish), alongside the existing Sidekick voice typing. Keeps the MCP client, local model (Ollama/llama.cpp) fallback, AI router fallback chain, Material 3 dynamic color, in-app update, Telegram bot, multimodal Sidekick, Eco Mode (Token Saver), Developer Tools, session auto-recovery, release & signing, optional server sync, reproducible build + SBOM. This APK is SIGNED (V1+V2+V3); install mobile-harness-online.apk.",
+  "versionCode": 17,
+  "versionName": "1.3.3",
+  "notes": "Mobile Harness Code — independent fork of Mobile Harness. New: SSH client (Apache-2.0 sshj) with password or Ed25519/RSA private-key auth, Trust-On-First-Use host-key verification (fail-closed on key change), a loopback-only SSH tunnel (local port forwarding) to reach server-side services such as Ollama/MCP/OpenCode/Claude/Antigravity over an encrypted channel, and a quick remote command runner — all in Settings → SSH Servers with a credential-free SSH log in Developer Tools. Secrets are stored in an opaque Android-Keystore AES-GCM store (multiline keys and passphrases preserved exactly) and are never backed up. Keeps the MCP client, local model fallback, AI router, document base (RAG), Material 3 dynamic color, in-app update, Telegram bot, multimodal Sidekick, Eco Mode, Developer Tools, session auto-recovery, release & signing, optional server sync, reproducible build + SBOM. This APK is SIGNED (V1+V2+V3); install mobile-harness-online.apk.",
   "artifacts": {
     "online": {
-      "url": "https://github.com/Konprostart/mobile-harness-code/releases/download/v1.3.2/mobile-harness-online.apk",
-      "sha256": "ee9a599846d527414ab5ad4a4f427d44131f7be8c4fdd461b33bb4e00e0b0c37",
-      "sizeBytes": 90778611
+      "url": "https://github.com/Konprostart/mobile-harness-code/releases/download/v1.3.3/mobile-harness-online.apk",
+      "sha256": "25687726fff135330fa623d74cead0f60d3f3c211b1bfea124edf6ba604f3085",
+      "sizeBytes": 98439005
     }
   }
 }
