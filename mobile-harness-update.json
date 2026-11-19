@@ -1,12 +1,12 @@
 {
-  "versionCode": 17,
-  "versionName": "1.3.3",
-  "notes": "Mobile Harness Code — independent fork of Mobile Harness. New: SSH client (Apache-2.0 sshj) with password or Ed25519/RSA private-key auth, Trust-On-First-Use host-key verification (fail-closed on key change), a loopback-only SSH tunnel (local port forwarding) to reach server-side services such as Ollama/MCP/OpenCode/Claude/Antigravity over an encrypted channel, and a quick remote command runner — all in Settings → SSH Servers with a credential-free SSH log in Developer Tools. Secrets are stored in an opaque Android-Keystore AES-GCM store (multiline keys and passphrases preserved exactly) and are never backed up. Keeps the MCP client, local model fallback, AI router, document base (RAG), Material 3 dynamic color, in-app update, Telegram bot, multimodal Sidekick, Eco Mode, Developer Tools, session auto-recovery, release & signing, optional server sync, reproducible build + SBOM. This APK is SIGNED (V1+V2+V3); install mobile-harness-online.apk.",
+  "versionCode": 18,
+  "versionName": "1.3.4",
+  "notes": "Mobile Harness Code — independent fork of Mobile Harness. New: an interactive SSH terminal with a full VT100/ANSI emulator — open a shell on your server directly in the app (Settings → SSH Servers → Open terminal) and run TUI tools like opencode, claude, antigravity or work in your workspace folders, with monospace rendering, ANSI colors/styles, scrollback, live window resize and quick keys (Ctrl+C/D, Esc, Tab, arrows). It reuses the existing sshj client, TOFU host-key verification and the encrypted SshSecretStore (fail-closed on a changed key; no secrets in logs). Keeps the SSH tunnel + remote command runner, MCP client, local model fallback, AI router, document base (RAG), Material 3 dynamic color, in-app update, Telegram bot, multimodal Sidekick, Eco Mode, Developer Tools, session auto-recovery, release & signing, optional server sync, reproducible build + SBOM. This APK is SIGNED (V1+V2+V3); install mobile-harness-online.apk.",
   "artifacts": {
     "online": {
-      "url": "https://github.com/Konprostart/mobile-harness-code/releases/download/v1.3.3/mobile-harness-online.apk",
-      "sha256": "25687726fff135330fa623d74cead0f60d3f3c211b1bfea124edf6ba604f3085",
-      "sizeBytes": 98439005
+      "url": "https://github.com/Konprostart/mobile-harness-code/releases/download/v1.3.4/mobile-harness-online.apk",
+      "sha256": "f775ec6048bb0bd0ab6b9c7e5e519a3a158253abc333219191726be08885d543",
+      "sizeBytes": 98533213
     }
   }
 }
