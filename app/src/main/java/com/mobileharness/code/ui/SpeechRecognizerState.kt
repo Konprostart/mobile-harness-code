@@ -89,14 +89,16 @@ class SpeechRecognizerState(context: Context) : AutoCloseable {
 
     override fun close() {
         stopInternal()
-        recognizer?.destroy()
-        recognizer = null
     }
 
+    /**
+     * Ends the current recognition and releases the recognizer. Called from the listener's
+     * terminal callbacks ([onResults]/[onError]) and from [stop]; reuses [stopInternal] so the
+     * recognizer is stopped, destroyed and detached in one place instead of being held open after
+     * the user has finished speaking.
+     */
     private fun finish() {
-        if (recognizer == null) return
-        isListening = false
-        runCatching { recognizer?.stopListening() }
+        stopInternal()
     }
 
     private fun stopInternal() {

@@ -21,6 +21,7 @@ import android.webkit.WebViewClient
 import android.webkit.WebChromeClient
 import android.widget.Toast
 import com.mobileharness.code.BuildConfig
+import com.mobileharness.code.data.AppPreferences
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -6552,7 +6553,8 @@ private fun ChatTab(
 
     // Voice input (multilingual speech-to-text), reusing the Sidekick recognizer wrapper.
     val speech = rememberSpeechRecognizerState(context)
-    var voiceLanguage by rememberSaveable { mutableStateOf(SpeechLanguage.AUTO) }
+    val preferences = remember { AppPreferences(context) }
+    var voiceLanguage by rememberSaveable { mutableStateOf(preferences.sidekickLanguage) }
     val systemLocales = remember {
         val config = context.resources.configuration
         val locales = config.locales
@@ -6799,7 +6801,7 @@ private fun ChatTab(
                         AgentChatMicButton(
                             isListening = speech.isListening,
                             languageChoice = voiceLanguage,
-                            onLanguageChoice = { voiceLanguage = it },
+                            onLanguageChoice = { voiceLanguage = it; preferences.sidekickLanguage = it },
                             onToggle = {
                                 if (speech.isListening) {
                                     speech.stop()

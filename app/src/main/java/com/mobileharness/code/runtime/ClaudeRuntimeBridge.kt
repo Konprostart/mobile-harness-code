@@ -1,8 +1,8 @@
 package com.mobileharness.code.runtime
 
 import android.content.Context
-import android.util.Log
 import androidx.core.content.ContextCompat
+import com.mobileharness.code.devtools.DebugLog
 import com.mobileharness.code.R
 import com.mobileharness.code.ui.AppStrings
 import com.mobileharness.code.model.ChatMessage
@@ -264,8 +264,8 @@ class ClaudeRuntimeBridge(
                 authToken = formatGateway?.sessionToken ?: secret,
                 localGatewayUrl = formatGateway?.url ?: openRouterGateway?.url,
             )
-            Log.d("ClaudeBridge", "Provider: ${provider.kind}, Model: ${provider.model}, BaseUrl: ${provider.baseUrl}")
-            Log.d("ClaudeBridge", "Launch environment keys: ${launch.environment.keys}")
+            DebugLog.d("ClaudeBridge", "Provider: ${provider.kind}, Model: ${provider.model}, BaseUrl: ${provider.baseUrl}")
+            DebugLog.d("ClaudeBridge", "Launch environment keys: ${launch.environment.keys}")
 
             // Build a context-aware prompt that includes conversation history
             val guestWorkspacePath = "/workspace/$projectSlug"
@@ -286,7 +286,7 @@ class ClaudeRuntimeBridge(
                 add("--max-turns")
                 add("25")
             }
-            Log.d("ClaudeBridge", "Launching command: $command")
+            DebugLog.d("ClaudeBridge", "Launching command: $command")
             val process = installer.process(
                 installed.proot,
                 installed.rootfs,
@@ -323,7 +323,7 @@ class ClaudeRuntimeBridge(
                             val line = pendingOutput.substring(0, newline).trimEnd('\r')
                             pendingOutput.delete(0, newline + 1)
                             if (line.isNotBlank()) {
-                                Log.d("ClaudeBridge", "OUTPUT: $line")
+                                DebugLog.d("ClaudeBridge", "OUTPUT: $line")
                                 ProviderRuntimeErrorDetector.detect(line)?.let { reason ->
                                     process.destroyForcibly()
                                     throw ProviderSessionException(reason)
@@ -340,11 +340,11 @@ class ClaudeRuntimeBridge(
                     }
                 }
                 pendingOutput.toString().trim().takeIf(String::isNotBlank)?.let { line ->
-                    Log.d("ClaudeBridge", "TRAILING OUTPUT: $line")
+                    DebugLog.d("ClaudeBridge", "TRAILING OUTPUT: $line")
                     if (!consumeClaudeEvent(sessionId, line)) lastDiagnostic = line.takeLast(500)
                 }
                 val exit = process.waitFor()
-                Log.d("ClaudeBridge", "Process exited with code $exit")
+                DebugLog.d("ClaudeBridge", "Process exited with code $exit")
                 permissionWatcher.cancelAndJoin()
                 pending.values.filter { it.request.sessionId == sessionId }.forEach { permission ->
                     permission.response.writeText("deny")
@@ -352,7 +352,7 @@ class ClaudeRuntimeBridge(
                 }
                 val changed = changedFiles(workspace, before)
                 if (changed.isNotEmpty()) {
-                    Log.d("ClaudeBridge", "Changed files: $changed")
+                    DebugLog.d("ClaudeBridge", "Changed files: $changed")
                     saveChangedPaths(projectId, changed)
                     val details = loadPendingChanges(projectId)
                     eventBus.emit(RuntimeEvent.FilesChanged(sessionId, details))
@@ -372,7 +372,7 @@ class ClaudeRuntimeBridge(
                 }
             }
         }.onFailure { error ->
-            Log.e("ClaudeBridge", "Session failed", error)
+            DebugLog.e("ClaudeBridge", "Session failed", error)
             val message = friendlyError(error)
             emitFailureOnce(sessionId, message)
             if (userStopRequested) {
@@ -447,7 +447,7 @@ class ClaudeRuntimeBridge(
             runCatching { if (process.isAlive) process.destroyForcibly() }
             runCatching { outputFile.delete() }
             runCatching { probeDir.deleteRecursively() }
-            Log.d("ClaudeBridge", "Connection test took ${android.os.SystemClock.elapsedRealtime() - startedAt} ms")
+            DebugLog.d("ClaudeBridge", "Connection test took ${android.os.SystemClock.elapsedRealtime() - startedAt} ms")
         }
     }
 
@@ -559,7 +559,7 @@ class ClaudeRuntimeBridge(
                         .ifBlank { command.orEmpty() }
                         .ifBlank { "$toolName running in project" }
 
-                    Log.d("ClaudeBridge", "Auto-approving permission request $approvalId for $toolName ($paths)")
+                    DebugLog.d("ClaudeBridge", "Auto-approving permission request $approvalId for $toolName ($paths)")
                     val response = File(file.parentFile, "$approvalId.response")
                     response.writeText("allow")
 
@@ -1215,7 +1215,7 @@ class ClaudeRuntimeBridge(
                     .putExtra(RuntimeExecutionService.EXTRA_DETAIL, detail),
             )
         }.onFailure { error ->
-            Log.w("ClaudeBridge", "Could not post task result notification", error)
+            DebugLog.w("ClaudeBridge", "Could not post task result notification", error)
             context.stopService(android.content.Intent(context, RuntimeExecutionService::class.java))
         }
     }

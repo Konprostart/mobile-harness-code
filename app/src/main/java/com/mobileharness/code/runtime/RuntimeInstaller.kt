@@ -6,6 +6,7 @@ import android.system.Os
 import com.mobileharness.code.BuildConfig
 import com.mobileharness.code.R
 import com.mobileharness.code.data.AppPreferences
+import com.mobileharness.code.devtools.DebugLog
 import com.mobileharness.code.ui.AppStrings
 import com.mobileharness.code.ui.localizedLabel
 import com.mobileharness.code.ui.localizedTitle
@@ -994,7 +995,7 @@ class RuntimeInstaller(private val context: Context) {
             }
         }
         if (removed > 0) {
-            android.util.Log.i("RuntimeInstaller", "Stripped $removed macOS metadata artifacts")
+            DebugLog.i("RuntimeInstaller", "Stripped $removed macOS metadata artifacts")
         }
     }
 
@@ -1498,7 +1499,7 @@ class RuntimeInstaller(private val context: Context) {
                 File(targetRootfs, "usr/bin/bash").canExecute() &&
                 File(targetRootfs, "lib/ld-linux-aarch64.so.1").exists()
         }.onFailure {
-            android.util.Log.e("RuntimeInstaller", "Could not repair Linux compatibility links", it)
+            DebugLog.e("RuntimeInstaller", "Could not repair Linux compatibility links", it)
         }.getOrDefault(false)
     }
 
@@ -1524,7 +1525,7 @@ class RuntimeInstaller(private val context: Context) {
     private fun readProcessOutputSafely(file: File): String = runCatching {
         file.readTailText(MAX_PROCESS_OUTPUT_BYTES)
     }.getOrElse { error ->
-        android.util.Log.w("RuntimeInstaller", "Could not decode process output as UTF-8: ${error.message}")
+        DebugLog.w("RuntimeInstaller", "Could not decode process output as UTF-8: ${error.message}")
         ""
     }
 

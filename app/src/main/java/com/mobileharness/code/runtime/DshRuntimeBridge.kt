@@ -1,8 +1,8 @@
 package com.mobileharness.code.runtime
 
 import android.content.Context
-import android.util.Log
 import androidx.core.content.ContextCompat
+import com.mobileharness.code.devtools.DebugLog
 import com.mobileharness.code.R
 import com.mobileharness.code.ui.AppStrings
 import com.mobileharness.code.model.ChangeItem
@@ -217,7 +217,7 @@ class DshRuntimeBridge(
             val guestWorkspacePath = "/workspace/$projectSlug"
             val contextPrompt = buildContextPrompt(prompt, conversationHistory, guestWorkspacePath, projectKind)
             val command = listOf("/usr/local/bin/dsh", "--profile", "sdk")
-            Log.d("DshBridge", "Route: ${route.name}, Model: ${provider.model}")
+            DebugLog.d("DshBridge", "Route: ${route.name}, Model: ${provider.model}")
             val process = installer.process(
                 installed.proot,
                 installed.rootfs,
@@ -241,10 +241,10 @@ class DshRuntimeBridge(
                 prompt = contextPrompt,
             )
             val exit = process.waitFor()
-            Log.d("DshBridge", "SDK process exited with code $exit")
+            DebugLog.d("DshBridge", "SDK process exited with code $exit")
             val changed = checkpoints.changedFiles(workspace, before)
             if (changed.isNotEmpty()) {
-                Log.d("DshBridge", "Changed files: $changed")
+                DebugLog.d("DshBridge", "Changed files: $changed")
                 checkpoints.saveChangedPaths(projectId, changed)
                 val details = checkpoints.buildChangeDetails(projectId, workspace, checkpoints.readChangedPaths(projectId))
                 eventBus.emit(RuntimeEvent.FilesChanged(sessionId, details))
@@ -266,7 +266,7 @@ class DshRuntimeBridge(
                 error(sdkResult.failure.ifBlank { "DeepSeek Harness stopped with exit code $exit" })
             }
         }.onFailure { error ->
-            Log.e("DshBridge", "Session failed", error)
+            DebugLog.e("DshBridge", "Session failed", error)
             val message = friendlyError(error)
             // An ordinary unexpected exit (no outstanding continuation) must still
             // carry side-effect facts so the manual retry card can warn. Only a user
@@ -419,7 +419,7 @@ class DshRuntimeBridge(
                 // The nudge write failed (e.g. Broken pipe on a dying session).
                 // Close with the localized fallback instead of letting the IO
                 // error escape runSdkSession and mask the turn's real failure.
-                Log.w("DshBridge", "Nudge write failed; closing with localized fallback")
+                DebugLog.w("DshBridge", "Nudge write failed; closing with localized fallback")
                 emitNoFinalAnswerThenFinish()
             }
         }
@@ -469,7 +469,7 @@ class DshRuntimeBridge(
                     // its own: the 60 s continuation watchdog below takes over and
                     // ends the turn in a terminal failure path rather than spinning.
                     if (!shutdownSent) {
-                        Log.w("DshBridge", "Continuation rejected: ${protocolEvent.message}")
+                        DebugLog.w("DshBridge", "Continuation rejected: ${protocolEvent.message}")
                     }
                 }
                 is DshSdkProtocolEvent.Status -> {
@@ -687,7 +687,7 @@ class DshRuntimeBridge(
                 } else {
                     // The continuation write failed (e.g. broken pipe on a dying
                     // session). Fail terminally with recovery info.
-                    Log.w("DshBridge", "Continuation write failed; failing the turn")
+                    DebugLog.w("DshBridge", "Continuation write failed; failing the turn")
                     failContinuation(continuationMessage.ifBlank { "DeepSeek Harness could not be resumed after a transport error" })
                 }
             }
@@ -699,7 +699,7 @@ class DshRuntimeBridge(
             ) {
                 closeInput()
                 forcedShutdown = true
-                Log.w("DshBridge", "SDK acknowledged completion but did not exit; stopping its runtime wrapper")
+                DebugLog.w("DshBridge", "SDK acknowledged completion but did not exit; stopping its runtime wrapper")
                 process.destroyForcibly()
             }
             val available = nativeProcess.outputFile.length() - outputOffset
@@ -1057,7 +1057,7 @@ class DshRuntimeBridge(
                     .putExtra(RuntimeExecutionService.EXTRA_DETAIL, detail),
             )
         }.onFailure { error ->
-            Log.w("DshBridge", "Could not post task result notification", error)
+            DebugLog.w("DshBridge", "Could not post task result notification", error)
             context.stopService(android.content.Intent(context, RuntimeExecutionService::class.java))
         }
     }

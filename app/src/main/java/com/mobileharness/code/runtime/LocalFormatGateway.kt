@@ -1,7 +1,7 @@
 package com.mobileharness.code.runtime
 
 import com.mobileharness.code.model.ProviderProfile
-import android.util.Log
+import com.mobileharness.code.devtools.DebugLog
 import java.io.BufferedInputStream
 import java.io.BufferedOutputStream
 import java.net.HttpURLConnection
@@ -85,7 +85,7 @@ internal class LocalFormatGateway(
             val anthropic = JSONObject(bodyBytes.decodeToString())
             val upstream = callProvider(toOpenAi(anthropic))
             if (upstream.first !in 200..299) {
-                Log.w("FormatGateway", "Provider returned HTTP ${upstream.first}: ${providerError(upstream.second)}")
+                DebugLog.w("FormatGateway", "Provider returned HTTP ${upstream.first}: ${providerError(upstream.second)}")
                 writeJson(output, upstream.first, errorJson("api_error", providerError(upstream.second)))
             } else {
                 val translated = fromOpenAi(JSONObject(upstream.second), anthropic.optString("model", profile.model))
