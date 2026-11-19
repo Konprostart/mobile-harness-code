@@ -16,10 +16,12 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Build
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.PlayArrow
@@ -64,6 +66,8 @@ import com.mobileharness.code.model.ProviderProfile
 import com.mobileharness.code.network.ServerSyncConfig
 import com.mobileharness.code.network.ServerSyncMode
 import com.mobileharness.code.runtime.ReleasePipelineStage
+import com.mobileharness.code.sidekick.RagDocument
+import com.mobileharness.code.sidekick.RagIndex
 
 @Composable
 internal fun releaseStageLabel(stage: ReleasePipelineStage): String = when (stage) {
@@ -806,6 +810,188 @@ private fun McpServerEditor(
                 }
                 TextButton(onClick = onDismiss) { Text(stringResource(R.string.mcp_cancel)) }
             }
+        },
+    )
+}
+
+/**
+ * Document base (RAG) management: the user saves small text documents and the Sidekick assistant
+ * retrieves the most relevant passages at question time. Everything is on-device and opt-in; the
+ * store is a keyword index (no embedding service, no external call) and is never sent anywhere
+ * except the relevant passages injected into the user's own configured provider.
+ */
+@Composable
+fun RagSettings(
+    enabled: Boolean,
+    documents: List<RagDocument>,
+    onSetEnabled: (Boolean) -> Unit,
+    onSaveDocument: (RagDocument) -> Unit,
+    onDeleteDocument: (String) -> Unit,
+) {
+    var editingDocumentId by rememberSaveable { mutableStateOf<String?>(null) }
+    val editingDocument = documents.firstOrNull { it.id == editingDocumentId }
+
+    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+            Column(Modifier.weight(1f)) {
+                Text(stringResource(R.string.rag_enabled), fontWeight = FontWeight.SemiBold)
+                Text(stringResource(R.string.rag_enabled_subtitle), fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+            Switch(checked = enabled, onCheckedChange = onSetEnabled)
+        }
+
+        if (documents.isEmpty()) {
+            Text(
+                stringResource(R.string.rag_empty),
+                fontSize = 12.sp,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        } else {
+            documents.forEach { document ->
+                RagDocumentRow(
+                    document = document,
+                    onEdit = { editingDocumentId = document.id },
+                    onDelete = { onDeleteDocument(document.id) },
+                )
+            }
+        }
+
+        OutlinedButton(
+            onClick = { editingDocumentId = "__new__" },
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            Icon(Icons.Default.Add, null, Modifier.size(17.dp))
+            Spacer(Modifier.width(7.dp))
+            Text(stringResource(R.string.rag_add_document))
+        }
+
+        Text(
+            stringResource(R.string.rag_note),
+            fontSize = 11.sp,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
+
+    if (editingDocumentId != null) {
+        RagDocumentEditor(
+            document = editingDocument,
+            onDismiss = { editingDocumentId = null },
+            onSave = { document ->
+                onSaveDocument(document)
+                editingDocumentId = null
+            },
+        )
+    }
+}
+
+@Composable
+private fun RagDocumentRow(
+    document: RagDocument,
+    onEdit: () -> Unit,
+    onDelete: () -> Unit,
+) {
+    Surface(
+        shape = RoundedCornerShape(12.dp),
+        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f),
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        Row(
+            Modifier.padding(start = 12.dp, top = 8.dp, bottom = 8.dp, end = 4.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Icon(Icons.Default.Description, null, Modifier.size(16.dp), tint = MaterialTheme.colorScheme.primary)
+            Spacer(Modifier.width(8.dp))
+            Column(Modifier.weight(1f)) {
+                Text(
+                    document.title.ifBlank { stringResource(R.string.rag_untitled) },
+                    fontWeight = FontWeight.SemiBold,
+                    fontSize = 13.sp,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                val charCount = stringResource(R.string.rag_char_count, document.text.length)
+                Text(
+                    if (document.source.isNotBlank()) "$charCount · ${document.source}" else charCount,
+                    fontSize = 11.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+            IconButton(onClick = onEdit, modifier = Modifier.size(36.dp)) {
+                Icon(Icons.Default.Edit, stringResource(R.string.rag_edit_document), Modifier.size(17.dp))
+            }
+            IconButton(onClick = onDelete, modifier = Modifier.size(36.dp)) {
+                Icon(Icons.Default.Delete, stringResource(R.string.rag_delete_document), Modifier.size(17.dp), tint = MaterialTheme.colorScheme.error)
+            }
+        }
+    }
+}
+
+@Composable
+private fun RagDocumentEditor(
+    document: RagDocument?,
+    onDismiss: () -> Unit,
+    onSave: (RagDocument) -> Unit,
+) {
+    var title by rememberSaveable { mutableStateOf(document?.title.orEmpty()) }
+    var source by rememberSaveable { mutableStateOf(document?.source.orEmpty()) }
+    var text by rememberSaveable { mutableStateOf(document?.text.orEmpty()) }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(if (document == null) R.string.rag_add_document else R.string.rag_edit_document)) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedTextField(
+                    title,
+                    { title = it },
+                    label = { Text(stringResource(R.string.rag_title_label)) },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                OutlinedTextField(
+                    source,
+                    { source = it },
+                    label = { Text(stringResource(R.string.rag_source_label)) },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                OutlinedTextField(
+                    text,
+                    { text = it.take(RagIndex.MAX_DOC_TEXT_CHARS) },
+                    label = { Text(stringResource(R.string.rag_text_label)) },
+                    placeholder = { Text(stringResource(R.string.rag_text_hint), fontSize = 12.sp) },
+                    minLines = 4,
+                    maxLines = 9,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                Text(
+                    stringResource(R.string.rag_char_count, text.length),
+                    fontSize = 11.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(
+                onClick = {
+                    onSave(
+                        RagDocument(
+                            id = document?.id ?: java.util.UUID.randomUUID().toString(),
+                            title = title.trim().ifBlank { text.trim().take(42).ifBlank { "Document" } },
+                            text = text.trim(),
+                            source = source.trim(),
+                        ),
+                    )
+                },
+                enabled = text.isNotBlank(),
+            ) {
+                Text(stringResource(R.string.rag_save))
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text(stringResource(R.string.rag_cancel)) }
         },
     )
 }

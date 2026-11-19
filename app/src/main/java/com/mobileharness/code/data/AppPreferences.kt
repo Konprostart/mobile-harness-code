@@ -16,6 +16,9 @@ import com.mobileharness.code.model.projectSlug
 import com.mobileharness.code.model.providersForAgent
 import com.mobileharness.code.mcp.McpServerCodec
 import com.mobileharness.code.mcp.McpServerConfig
+import com.mobileharness.code.sidekick.RagCodec
+import com.mobileharness.code.sidekick.RagDocument
+import com.mobileharness.code.sidekick.RagIndex
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
@@ -241,6 +244,34 @@ class AppPreferences(private val context: Context) {
     var sidekickResearchSources: String
         get() = preferences.getString("sidekick_research_sources", "") ?: ""
         set(value) { preferences.edit().putString("sidekick_research_sources", value).apply() }
+
+    // --- Document base (RAG, Faza 4) --------------------------------------------------------
+    /** When true the assistant augments answers with relevant passages from the saved documents. */
+    var ragEnabled: Boolean
+        get() = preferences.getBoolean("rag_enabled", false)
+        set(value) { preferences.edit().putBoolean("rag_enabled", value).apply() }
+
+    private val ragDir = File(context.filesDir, "rag").also { it.mkdirs() }
+
+    /** Persists the assistant's document base to a private file (never backed up, device-only). */
+    fun saveRagDocuments(documents: List<RagDocument>) {
+        val file = File(ragDir, "documents.json")
+        val temporary = File(ragDir, "documents.json.tmp")
+        runCatching {
+            temporary.writeText(RagCodec.toJson(documents.take(RagIndex.MAX_DOCUMENTS)))
+            if (!temporary.renameTo(file)) {
+                temporary.copyTo(file, overwrite = true)
+                temporary.delete()
+            }
+        }
+    }
+
+    /** Loads the assistant's document base, tolerating malformed or truncated entries. */
+    fun loadRagDocuments(): List<RagDocument> {
+        val file = File(ragDir, "documents.json")
+        if (!file.exists()) return emptyList()
+        return RagCodec.fromJson(runCatching { file.readText() }.getOrDefault(""))
+    }
 
     /** Persists the assistant's independent provider profile (the API key is reused from the vault). */
     fun saveSidekickProvider(profile: ProviderProfile) {

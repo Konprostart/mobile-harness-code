@@ -43,6 +43,7 @@ import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Code
 import androidx.compose.material.icons.filled.DarkMode
 import androidx.compose.material.icons.filled.DeleteSweep
+import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.Dns
 import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.Extension
@@ -116,6 +117,7 @@ import com.mobileharness.code.model.ProviderKind
 import com.mobileharness.code.model.ProviderProfile
 import com.mobileharness.code.model.providersForAgent
 import com.mobileharness.code.mcp.McpServerConfig
+import com.mobileharness.code.sidekick.RagDocument
 import com.mobileharness.code.network.ConnectionValidation
 import com.mobileharness.code.network.DiscoveredModel
 import com.mobileharness.code.network.ModelDiscoveryResult
@@ -129,7 +131,7 @@ import com.mobileharness.code.ui.theme.AppThemeMode
 import com.mobileharness.code.ui.theme.PocketOrange
 import kotlinx.coroutines.launch
 
-private enum class SettingsSection { APPEARANCE, LANGUAGE, TOOLS, RUNTIME, DIAGNOSTICS, DEVELOPER_TOOLS, BACKUP, UPDATE_CHANNEL, UPDATES, GRADLE_MEMORY, RELEASE_SIGNING, SERVER_SYNC, TELEGRAM, SIDEKICK, MCP_SERVERS, ECO_MODE }
+private enum class SettingsSection { APPEARANCE, LANGUAGE, TOOLS, RUNTIME, DIAGNOSTICS, DEVELOPER_TOOLS, BACKUP, UPDATE_CHANNEL, UPDATES, GRADLE_MEMORY, RELEASE_SIGNING, SERVER_SYNC, TELEGRAM, SIDEKICK, MCP_SERVERS, ECO_MODE, RAG }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -199,6 +201,9 @@ fun SettingsScreen(
     onDeleteMcpServer: (String) -> Unit = {},
     onSetMcpServerEnabled: (String, Boolean) -> Unit = { _, _ -> },
     onTestMcpServer: (String) -> Unit = {},
+    onSetRagEnabled: (Boolean) -> Unit = {},
+    onSaveRagDocument: (RagDocument) -> Unit = {},
+    onDeleteRagDocument: (String) -> Unit = {},
 ) {
     val context = LocalContext.current
     val installPermissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) {
@@ -622,6 +627,28 @@ fun SettingsScreen(
                         onDelete = onDeleteMcpServer,
                         onSetEnabled = onSetMcpServerEnabled,
                         onTest = onTestMcpServer,
+                    )
+                }
+            }
+
+            item {
+                SettingsAccordion(
+                    title = stringResource(R.string.rag_title),
+                    subtitle = if (state.ragEnabled) {
+                        stringResource(R.string.rag_subtitle_on, state.ragDocuments.size)
+                    } else {
+                        stringResource(R.string.rag_subtitle)
+                    },
+                    icon = Icons.Default.Description,
+                    expanded = expanded == SettingsSection.RAG,
+                    onClick = { toggle(SettingsSection.RAG) },
+                ) {
+                    RagSettings(
+                        enabled = state.ragEnabled,
+                        documents = state.ragDocuments,
+                        onSetEnabled = onSetRagEnabled,
+                        onSaveDocument = onSaveRagDocument,
+                        onDeleteDocument = onDeleteRagDocument,
                     )
                 }
             }

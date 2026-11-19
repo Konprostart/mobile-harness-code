@@ -119,6 +119,7 @@ import androidx.compose.material.icons.filled.Language
 import androidx.compose.material.icons.filled.LightMode
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Memory
+import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.CreateNewFolder
 import androidx.compose.material.icons.filled.DriveFileRenameOutline
@@ -239,6 +240,7 @@ import com.mobileharness.code.model.providersForAgent
 import com.mobileharness.code.model.ToolRequest
 import com.mobileharness.code.model.WorkspaceEntry
 import com.mobileharness.code.model.projectSlug
+import com.mobileharness.code.sidekick.SpeechLanguage
 import com.mobileharness.code.runtime.RuntimeExecutionService
 import com.mobileharness.code.runtime.RuntimeSetupService
 import com.mobileharness.code.runtime.supportsArm64Runtime
@@ -2659,6 +2661,9 @@ private fun RootScreenHost(
                     onDeleteMcpServer = viewModel::deleteMcpServer,
                     onSetMcpServerEnabled = viewModel::setMcpServerEnabled,
                     onTestMcpServer = viewModel::testMcpServer,
+                    onSetRagEnabled = viewModel::setRagEnabled,
+                    onSaveRagDocument = viewModel::saveRagDocument,
+                    onDeleteRagDocument = viewModel::deleteRagDocument,
                 )
             }
         }
@@ -6508,6 +6513,7 @@ private fun ChatTab(
     onContinueHere: () -> Unit = {},
 ) {
     val view = LocalView.current
+    val context = LocalContext.current
     // Keep the screen on while the selected agent is working in this chat. Released automatically
     // when the task finishes or the user leaves the chat tab.
     DisposableEffect(isRunning) {
@@ -6516,6 +6522,29 @@ private fun ChatTab(
     }
     var prompt by rememberSaveable { mutableStateOf("") }
     val chatScope = rememberCoroutineScope()
+
+    // Voice input (multilingual speech-to-text), reusing the Sidekick recognizer wrapper.
+    val speech = rememberSpeechRecognizerState(context)
+    var voiceLanguage by rememberSaveable { mutableStateOf(SpeechLanguage.AUTO) }
+    val systemLocales = remember {
+        val config = context.resources.configuration
+        val locales = config.locales
+        (0 until locales.size()).map { locales[it].toLanguageTag() }
+    }
+    LaunchedEffect(speech) {
+        speech.onPartialResult = { partial -> prompt = partial }
+        speech.onFinalResult = { final -> prompt = final }
+        speech.onError = { message -> Toast.makeText(context, message, Toast.LENGTH_SHORT).show() }
+    }
+    val micPermissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission(),
+    ) { granted ->
+        if (granted) {
+            speech.start(SpeechLanguage.resolve(voiceLanguage, systemLocales))
+        } else {
+            Toast.makeText(context, context.getString(R.string.sidekick_mic_permission), Toast.LENGTH_SHORT).show()
+        }
+    }
     // True while the newest item (message, live panel, or approval card) is on screen.
     val readerAtBottom by remember {
         derivedStateOf {
@@ -6740,7 +6769,26 @@ private fun ChatTab(
                             },
                         )
 
-                        Spacer(Modifier.width(4.dp))
+                        AgentChatMicButton(
+                            isListening = speech.isListening,
+                            languageChoice = voiceLanguage,
+                            onLanguageChoice = { voiceLanguage = it },
+                            onToggle = {
+                                if (speech.isListening) {
+                                    speech.stop()
+                                } else if (androidx.core.content.ContextCompat.checkSelfPermission(
+                                        context,
+                                        Manifest.permission.RECORD_AUDIO,
+                                    ) == PackageManager.PERMISSION_GRANTED
+                                ) {
+                                    speech.start(SpeechLanguage.resolve(voiceLanguage, systemLocales))
+                                } else {
+                                    micPermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
+                                }
+                            },
+                        )
+
+                        Spacer(Modifier.width(2.dp))
 
                         if (isRunning) {
                             Box(
@@ -6790,6 +6838,52 @@ private fun ChatTab(
                             }
                         }
                     }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun AgentChatMicButton(
+    isListening: Boolean,
+    languageChoice: String,
+    onLanguageChoice: (String) -> Unit,
+    onToggle: () -> Unit,
+) {
+    val languages = listOf(
+        SpeechLanguage.AUTO to stringResource(R.string.sidekick_speech_auto),
+        "sr-RS" to "Srpski",
+        "en-US" to "English (US)",
+        "en-GB" to "English (UK)",
+        "sv-SE" to "Svenska",
+    )
+    var open by remember { mutableStateOf(false) }
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        IconButton(onClick = onToggle, modifier = Modifier.size(38.dp)) {
+            Icon(
+                imageVector = if (isListening) Icons.Default.Stop else Icons.Default.Mic,
+                contentDescription = stringResource(if (isListening) R.string.sidekick_mic_stop else R.string.sidekick_mic),
+                tint = if (isListening) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.size(20.dp),
+            )
+        }
+        Box {
+            IconButton(onClick = { open = true }, modifier = Modifier.size(28.dp)) {
+                Icon(
+                    imageVector = Icons.Default.Language,
+                    contentDescription = stringResource(R.string.sidekick_speech_language),
+                    modifier = Modifier.size(15.dp),
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
+                languages.forEach { (tag, label) ->
+                    DropdownMenuItem(
+                        text = { Text(label) },
+                        onClick = { onLanguageChoice(tag); open = false },
+                        trailingIcon = { if (tag == languageChoice) Icon(Icons.Default.AutoAwesome, null, Modifier.size(14.dp)) },
+                    )
                 }
             }
         }

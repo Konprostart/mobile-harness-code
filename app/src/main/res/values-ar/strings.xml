@@ -456,4 +456,24 @@
     <string name="devtools_mcp_stage_confirm">confirm</string>
     <string name="devtools_mcp_stage_error">error</string>
     <string name="devtools_mcp_stage_success">success</string>
+
+    <!-- Document base (RAG) -->
+    <string name="rag_title">Document base (RAG)</string>
+    <string name="rag_subtitle">Let the assistant search your saved documents</string>
+    <string name="rag_subtitle_on">On — %1$d documents</string>
+    <string name="rag_enabled">Use document base</string>
+    <string name="rag_enabled_subtitle">Add relevant passages from your documents to answers</string>
+    <string name="rag_empty">No documents yet. Add text to give the assistant reference material.</string>
+    <string name="rag_add_document">Add document</string>
+    <string name="rag_edit_document">Edit document</string>
+    <string name="rag_delete_document">Delete document</string>
+    <string name="rag_untitled">Untitled document</string>
+    <string name="rag_char_count">%1$d characters</string>
+    <string name="rag_title_label">Title</string>
+    <string name="rag_source_label">Source (optional)</string>
+    <string name="rag_text_label">Text</string>
+    <string name="rag_text_hint">Paste the document text…</string>
+    <string name="rag_save">Save</string>
+    <string name="rag_cancel">Cancel</string>
+    <string name="rag_note">Documents stay on this device only. At question time the assistant chunks them locally and sends only the most relevant passages to your configured provider — no embedding service or external index is used.</string>
 </resources>

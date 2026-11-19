@@ -65,17 +65,43 @@ class SidekickEngine(context: Context) {
         files: List<SidekickFile> = emptyList(),
     ): SidekickResult {
         val userMessage = SidekickInput.buildUserMessage(question, files)
+        val basePrompt = augmentedSystemPrompt(question)
         val mcpServers = preferences.loadMcpServers().filter { it.enabled }
         val tools = enabledTools(mcpServers)
         return if (tools.isEmpty()) {
             complete(
-                systemPrompt = SYSTEM_PROMPT,
+                systemPrompt = basePrompt,
                 userMessage = userMessage,
                 images = images,
             )
         } else {
-            askWithTools(userMessage, images, tools, mcpServers)
+            askWithTools(basePrompt, userMessage, images, tools, mcpServers)
         }
+    }
+
+    /**
+     * The assistant's base system prompt, optionally augmented with the most relevant passages
+     * from the user's document base (Faza 4 RAG). Retrieval is local, keyword-based and fail-closed:
+     * an empty or disabled document base leaves the prompt unchanged.
+     */
+    private fun augmentedSystemPrompt(question: String): String {
+        val context = ragContext(question)
+        return if (context.isBlank()) SYSTEM_PROMPT else "$SYSTEM_PROMPT\n\n$context"
+    }
+
+    /** Retrieves a bounded, relevance-ranked context string from the saved document base. */
+    private fun ragContext(question: String): String {
+        if (!preferences.ragEnabled) return ""
+        val documents = preferences.loadRagDocuments()
+        if (documents.isEmpty()) return ""
+        val eco = preferences.ecoModeEnabled
+        val chunks = RagIndex.retrieve(
+            query = question,
+            documents = documents,
+            topK = if (eco) 2 else RagIndex.DEFAULT_TOP_K,
+            maxChars = if (eco) 2_000 else RagIndex.MAX_RETRIEVED_CHARS,
+        )
+        return RagIndex.buildContext(chunks)
     }
 
     suspend fun optimizePrompt(draft: String): SidekickResult =
@@ -132,13 +158,14 @@ class SidekickEngine(context: Context) {
      * tools are held for confirmation (fail-closed) and never auto-run.
      */
     private suspend fun askWithTools(
+        baseSystemPrompt: String,
         userMessage: String,
         images: List<SidekickImage>,
         tools: List<McpTool>,
         servers: List<McpServerConfig>,
     ): SidekickResult {
         val ecoEnabled = preferences.ecoModeEnabled
-        val systemPrompt = toolAwareSystemPrompt(tools)
+        val systemPrompt = toolAwareSystemPrompt(baseSystemPrompt, tools)
 
         repeat(McpPolicy.MAX_TOOL_ROUNDS) {
             val result = complete(systemPrompt, userMessage, images)
@@ -187,8 +214,8 @@ class SidekickEngine(context: Context) {
         return SidekickResult(AppStrings.get(appContext, R.string.sidekick_mcp_tool_limit))
     }
 
-    private fun toolAwareSystemPrompt(tools: List<McpTool>): String = buildString {
-        append(SYSTEM_PROMPT)
+    private fun toolAwareSystemPrompt(baseSystemPrompt: String, tools: List<McpTool>): String = buildString {
+        append(baseSystemPrompt)
         append("\n\nYou may optionally use one of these MCP tools. To invoke a tool, reply with ONLY a fenced block:\n")
         append("```tool\n{\"tool\":\"<name>\",\"arguments\":{...}}\n```\n")
         append("You will receive the tool result and then write the final answer.\n")

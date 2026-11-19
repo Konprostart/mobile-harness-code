@@ -60,6 +60,7 @@ import com.mobileharness.code.mcp.McpToolLog
 import com.mobileharness.code.mcp.McpToolLogEntry
 import com.mobileharness.code.mcp.McpToolRegistry
 import com.mobileharness.code.mcp.McpToolStage
+import com.mobileharness.code.sidekick.RagDocument
 import com.mobileharness.code.network.ConnectionValidation
 import com.mobileharness.code.network.ModelDiscoveryResult
 import com.mobileharness.code.network.ProviderApiClient
@@ -675,6 +676,8 @@ data class AppUiState(
     val mcpServers: List<McpServerConfig> = emptyList(),
     val mcpToolCatalog: Map<String, List<McpTool>> = emptyMap(),
     val mcpTestingServerId: String? = null,
+    val ragEnabled: Boolean = false,
+    val ragDocuments: List<RagDocument> = emptyList(),
 )
 
 class MainViewModel(application: Application) : AndroidViewModel(application) {
@@ -809,6 +812,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             localModelName = preferences.localModelName,
             ecoModeEnabled = preferences.ecoModeEnabled,
             mcpServers = preferences.loadMcpServers(),
+            ragEnabled = preferences.ragEnabled,
+            ragDocuments = preferences.loadRagDocuments(),
         ),
     ).also {
         if (!preferences.onboardingComplete) preferences.whatsNewSeenVersionCode = BuildConfig.VERSION_CODE
@@ -973,6 +978,27 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     fun setEcoMode(enabled: Boolean) {
         preferences.ecoModeEnabled = enabled
         _state.update { it.copy(ecoModeEnabled = enabled) }
+    }
+
+    // --- Document base (RAG, Faza 4) -------------------------------------------------------
+    fun setRagEnabled(enabled: Boolean) {
+        preferences.ragEnabled = enabled
+        _state.update { it.copy(ragEnabled = enabled) }
+    }
+
+    /** Adds or replaces a document in the assistant's document base, then reloads the list. */
+    fun saveRagDocument(document: RagDocument) {
+        val updated = _state.value.ragDocuments
+            .filterNot { it.id == document.id }
+            .plus(document)
+        preferences.saveRagDocuments(updated)
+        _state.update { it.copy(ragDocuments = preferences.loadRagDocuments()) }
+    }
+
+    fun deleteRagDocument(id: String) {
+        val updated = _state.value.ragDocuments.filterNot { it.id == id }
+        preferences.saveRagDocuments(updated)
+        _state.update { it.copy(ragDocuments = updated) }
     }
 
     // --- MCP servers (Faza 3) --------------------------------------------------------------
