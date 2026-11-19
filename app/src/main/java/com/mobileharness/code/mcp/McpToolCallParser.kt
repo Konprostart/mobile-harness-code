@@ -34,7 +34,7 @@ object McpToolCallParser {
         val trimmed = text.trim()
         val fenced = FENCE.find(trimmed)
         if (fenced != null) {
-            return fenced.groupValues[2].trim()
+            return fenced.groupValues[1].trim()
         }
         // A whole-message JSON object is accepted when it has a "tool" member.
         if (trimmed.startsWith("{") && trimmed.endsWith("}")) {
@@ -44,5 +44,5 @@ object McpToolCallParser {
         return null
     }
 
-    private val FENCE = Regex("(?s)```(?:tool|json)\\s*\\n?(.*?)```")
+    private val FENCE = Regex("(?s)```(?:tool|json)\\s*(.*?)```")
 }
