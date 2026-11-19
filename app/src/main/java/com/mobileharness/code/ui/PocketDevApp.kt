@@ -2490,6 +2490,7 @@ private fun RootScreenHost(
 ) {
     var screen by rememberSaveable { mutableStateOf(RootScreen.PROJECTS) }
     var showQuickTerminal by rememberSaveable { mutableStateOf(false) }
+    var sshTerminalProfileId by rememberSaveable { mutableStateOf<String?>(null) }
     var openBackup by rememberSaveable { mutableStateOf(false) }
 
     if (state.showWhatsNew) {
@@ -2674,9 +2675,18 @@ private fun RootScreenHost(
                     onRunSshCommand = viewModel::runSshCommand,
                     onDismissSshCommandResult = viewModel::clearSshCommandResult,
                     onClearDevToolsSshLog = viewModel::clearDevToolsSshLog,
+                    onOpenSshTerminal = { sshTerminalProfileId = it },
                 )
             }
         }
+    }
+    val sshTerminalProfile = state.sshProfiles.firstOrNull { it.id == sshTerminalProfileId }
+    if (sshTerminalProfile != null) {
+        SshTerminalScreen(
+            profile = sshTerminalProfile,
+            viewModel = viewModel,
+            onClose = { sshTerminalProfileId = null },
+        )
     }
     if (showQuickTerminal) {
         QuickTerminalSheet(

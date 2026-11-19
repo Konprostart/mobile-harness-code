@@ -30,6 +30,7 @@ import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Terminal
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
@@ -1026,6 +1027,7 @@ fun SshSettings(
     onResetFingerprint: (String) -> Unit,
     onRunCommand: (String, String) -> Unit,
     onDismissCommandResult: () -> Unit,
+    onOpenTerminal: (String) -> Unit,
 ) {
     var editingProfileId by rememberSaveable { mutableStateOf<String?>(null) }
     val editingProfile = profiles.firstOrNull { it.id == editingProfileId }
@@ -1050,6 +1052,7 @@ fun SshSettings(
                     onDelete = { onDelete(profile.id) },
                     onTest = { onTest(profile.id) },
                     onRunCommand = { runningCommandFor = profile.id },
+                    onOpenTerminal = { onOpenTerminal(profile.id) },
                 )
             }
         }
@@ -1123,6 +1126,7 @@ private fun SshProfileRow(
     onDelete: () -> Unit,
     onTest: () -> Unit,
     onRunCommand: () -> Unit,
+    onOpenTerminal: () -> Unit,
 ) {
     Surface(
         shape = RoundedCornerShape(12.dp),
@@ -1174,6 +1178,11 @@ private fun SshProfileRow(
                     Icon(Icons.Default.Build, null, Modifier.size(16.dp))
                     Spacer(Modifier.width(6.dp))
                     Text(stringResource(R.string.ssh_run_command), fontSize = 12.sp)
+                }
+                OutlinedButton(onClick = onOpenTerminal) {
+                    Icon(Icons.Default.Terminal, null, Modifier.size(16.dp))
+                    Spacer(Modifier.width(6.dp))
+                    Text(stringResource(R.string.ssh_open_terminal), fontSize = 12.sp)
                 }
                 IconButton(onClick = onEdit, modifier = Modifier.size(36.dp)) {
                     Icon(Icons.Default.Edit, stringResource(R.string.ssh_edit_server), Modifier.size(18.dp))

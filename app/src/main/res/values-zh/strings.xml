@@ -527,4 +527,15 @@
     <string name="devtools_ssh_stage_success">success</string>
     <string name="ssh_tofu_reset">Pinned key cleared — reconnect to re-pin</string>
     <string name="ssh_reset_pin">Reset pinned key</string>
+    <string name="ssh_open_terminal">Open terminal</string>
+    <string name="ssh_terminal_back">Back</string>
+    <string name="ssh_terminal_connecting">Connecting…</string>
+    <string name="ssh_terminal_connected">Connected</string>
+    <string name="ssh_terminal_disconnected">Disconnected</string>
+    <string name="ssh_terminal_disconnect">Disconnect</string>
+    <string name="ssh_terminal_input_hint">Type a command and press Send…</string>
+    <string name="ssh_terminal_send">Send</string>
+    <string name="ssh_terminal_failed">SSH terminal error: %1$s</string>
+    <string name="devtools_ssh_stage_shell_open">shell-open</string>
+    <string name="devtools_ssh_stage_shell_close">shell-close</string>
 </resources>

@@ -61,12 +61,17 @@ import com.mobileharness.code.mcp.McpToolLogEntry
 import com.mobileharness.code.mcp.McpToolRegistry
 import com.mobileharness.code.mcp.McpToolStage
 import com.mobileharness.code.network.ssh.SshController
+import com.mobileharness.code.network.ssh.SshControlKey
 import com.mobileharness.code.network.ssh.SshExecResult
 import com.mobileharness.code.network.ssh.SshLog
+import com.mobileharness.code.network.ssh.SshLogEntry
 import com.mobileharness.code.network.ssh.SshProfile
 import com.mobileharness.code.network.ssh.SshSecretStore
+import com.mobileharness.code.network.ssh.SshShellSession
+import com.mobileharness.code.network.ssh.SshStage
 import com.mobileharness.code.network.ssh.sshSecretStore
 import com.mobileharness.code.sidekick.RagDocument
+import com.mobileharness.code.terminal.TerminalCell
 import com.mobileharness.code.network.ConnectionValidation
 import com.mobileharness.code.network.ModelDiscoveryResult
 import com.mobileharness.code.network.ProviderApiClient
@@ -1252,6 +1257,93 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    // --- Interactive SSH terminal (Faza 2: PTY + VT100) --------------------------------------
+
+    /** Opens a TOFU-gated interactive shell for [profileId] at [cols]×[rows]. */
+    fun openSshTerminal(profileId: String, cols: Int, rows: Int) {
+        if (_sshTerminalConnecting.value || _sshTerminalConnected.value) return
+        val profile = _state.value.sshProfiles.firstOrNull { it.id == profileId } ?: return
+        closeSshTerminal()
+        sshTerminalCols = cols.coerceAtLeast(1)
+        sshTerminalRows = rows.coerceAtLeast(1)
+        _sshTerminalConnecting.value = true
+        _sshTerminalError.value = null
+        _sshTerminalLines.value = emptyList()
+        viewModelScope.launch {
+            val outcome = withContext(Dispatchers.IO) { sshController.openShell(profile, sshTerminalCols, sshTerminalRows) }
+            when (outcome) {
+                is SshController.ShellOpenOutcome.Failed -> {
+                    _sshTerminalConnecting.value = false
+                    _sshTerminalError.value = outcome.message
+                    _state.update { it.copy(toastMessage = str(R.string.ssh_terminal_failed, outcome.message)) }
+                }
+                is SshController.ShellOpenOutcome.Connected -> {
+                    val session = outcome.session
+                    sshShellSession = session
+                    // Apply the latest measured size if the UI measured after the connect started.
+                    session.resize(sshTerminalCols, sshTerminalRows)
+                    session.onOutput = { _sshTerminalLines.value = session.screen.visibleLines() }
+                    session.onClosed = { reason ->
+                        viewModelScope.launch {
+                            sshShellSession = null
+                            _sshTerminalConnected.value = false
+                            _sshTerminalConnecting.value = false
+                            SshLog.record(
+                                SshLogEntry(
+                                    timestampMillis = System.currentTimeMillis(),
+                                    profileName = profile.name.ifBlank { profile.endpointLabel() },
+                                    stage = SshStage.SHELL_CLOSE,
+                                    detail = reason,
+                                ),
+                            )
+                            if (!reason.isNullOrBlank()) {
+                                _sshTerminalError.value = reason
+                            }
+                        }
+                    }
+                    if (session.state == SshShellSession.State.CLOSED) {
+                        // The remote ended before we finished wiring callbacks (fail-closed).
+                        sshShellSession = null
+                        _sshTerminalConnecting.value = false
+                        _sshTerminalError.value = "Shell closed immediately"
+                    } else {
+                        _sshTerminalLines.value = session.screen.visibleLines()
+                        _sshTerminalConnecting.value = false
+                        _sshTerminalConnected.value = true
+                    }
+                }
+            }
+        }
+    }
+
+    /** Closes the interactive shell and resets the terminal state (idempotent). */
+    fun closeSshTerminal() {
+        val session = sshShellSession
+        sshShellSession = null
+        session?.close()
+        _sshTerminalConnected.value = false
+        _sshTerminalConnecting.value = false
+        _sshTerminalError.value = null
+        _sshTerminalLines.value = emptyList()
+    }
+
+    /** Sends a typed line (the shell echoes it) to the remote PTY. */
+    fun sendSshTerminalInput(text: String) {
+        sshShellSession?.sendInput(text)
+    }
+
+    /** Sends a terminal control key/sequence (Enter, Ctrl+C, arrows, …). */
+    fun sendSshTerminalControl(key: SshControlKey) {
+        sshShellSession?.sendControl(key)
+    }
+
+    /** Resizes the remote PTY and the local emulator to the measured grid. */
+    fun resizeSshTerminal(cols: Int, rows: Int) {
+        sshTerminalCols = cols.coerceAtLeast(1)
+        sshTerminalRows = rows.coerceAtLeast(1)
+        sshShellSession?.resize(sshTerminalCols, sshTerminalRows)
+    }
+
     // --- Release pipeline (Build → Sign → Verify → Checksum) -------------------------------
 
     private fun releaseKeystoreDir(): File =
@@ -1543,6 +1635,23 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     private val _terminalCurrentCommand = MutableStateFlow<String?>(null)
     val terminalCurrentCommand: StateFlow<String?> = _terminalCurrentCommand.asStateFlow()
+
+    // --- Interactive SSH terminal (Faza 2: PTY + VT100) --------------------------------------
+    private var sshShellSession: SshShellSession? = null
+    private var sshTerminalCols = 80
+    private var sshTerminalRows = 24
+
+    private val _sshTerminalLines = MutableStateFlow<List<List<TerminalCell>>>(emptyList())
+    val sshTerminalLines: StateFlow<List<List<TerminalCell>>> = _sshTerminalLines.asStateFlow()
+
+    private val _sshTerminalConnected = MutableStateFlow(false)
+    val sshTerminalConnected: StateFlow<Boolean> = _sshTerminalConnected.asStateFlow()
+
+    private val _sshTerminalConnecting = MutableStateFlow(false)
+    val sshTerminalConnecting: StateFlow<Boolean> = _sshTerminalConnecting.asStateFlow()
+
+    private val _sshTerminalError = MutableStateFlow<String?>(null)
+    val sshTerminalError: StateFlow<String?> = _sshTerminalError.asStateFlow()
 
     fun runTerminalCommand(cmd: String) {
         val command = cmd.trim()

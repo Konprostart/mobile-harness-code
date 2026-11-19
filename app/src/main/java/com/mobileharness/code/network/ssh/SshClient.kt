@@ -125,6 +125,24 @@ class SshConnection internal constructor(
         SshTunnelStartResult.Success(SshTunnel(ssh, forwarder, serverSocket, thread, localPort), localPort)
     }.getOrElse { SshTunnelStartResult.Failure(it.message ?: "Could not start tunnel") }
 
+    /**
+     * Starts an interactive shell session with a PTY at [cols]×[rows] and `xterm-256color`.
+     * On success the returned [SshShellSession] owns this transport (the caller must NOT call
+     * [close] for the lifetime of that session).
+     */
+    fun startShell(cols: Int, rows: Int, ecoEnabled: Boolean): SshShellStartResult = runCatching {
+        val session = ssh.startSession()
+        try {
+            session.allocatePTY("xterm-256color", cols.coerceAtLeast(1), rows.coerceAtLeast(1), 0, 0, emptyMap())
+            val shell = session.startShell()
+            val transport = SshjPtyTransport(ssh, session, shell)
+            SshShellStartResult.Success(SshShellSession(transport, cols, rows) { ecoEnabled })
+        } catch (t: Throwable) {
+            runCatching { session.close() }
+            throw t
+        }
+    }.getOrElse { SshShellStartResult.Failure(it.message ?: "Could not start shell") }
+
     fun close() {
         runCatching { ssh.disconnect() }
     }

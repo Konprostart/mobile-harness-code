@@ -16,6 +16,8 @@ enum class SshStage {
     EXEC,
     TUNNEL_START,
     TUNNEL_STOP,
+    SHELL_OPEN,
+    SHELL_CLOSE,
     ERROR,
     SUCCESS,
 }

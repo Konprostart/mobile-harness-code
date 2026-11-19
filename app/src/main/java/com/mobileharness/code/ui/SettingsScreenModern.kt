@@ -215,6 +215,7 @@ fun SettingsScreen(
     onRunSshCommand: (String, String) -> Unit = { _, _ -> },
     onDismissSshCommandResult: () -> Unit = {},
     onClearDevToolsSshLog: () -> Unit = {},
+    onOpenSshTerminal: (String) -> Unit = {},
 ) {
     val context = LocalContext.current
     val installPermissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) {
@@ -688,6 +689,7 @@ fun SettingsScreen(
                         onResetFingerprint = onResetSshFingerprint,
                         onRunCommand = onRunSshCommand,
                         onDismissCommandResult = onDismissSshCommandResult,
+                        onOpenTerminal = onOpenSshTerminal,
                     )
                 }
             }

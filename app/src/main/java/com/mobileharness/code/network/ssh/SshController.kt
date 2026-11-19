@@ -29,6 +29,11 @@ class SshController(
         data class Failed(val message: String) : TestOutcome
     }
 
+    sealed interface ShellOpenOutcome {
+        data class Connected(val session: SshShellSession) : ShellOpenOutcome
+        data class Failed(val message: String) : ShellOpenOutcome
+    }
+
     /** Captures the server fingerprint without authenticating. Returns null on transport failure. */
     fun captureFingerprint(profile: SshProfile): String? {
         val result = client.connectTransport(profile)
@@ -137,6 +142,35 @@ class SshController(
         tunnels.remove(profile.id)?.let { tunnel ->
             tunnel.close()
             log(profile, SshStage.TUNNEL_STOP, "127.0.0.1:${tunnel.localPort}")
+        }
+    }
+
+    /**
+     * Opens an interactive PTY shell for [profile] at [cols]×[rows]. Enforces the exact same
+     * TOFU gate as every other SSH operation: an unknown or changed fingerprint fails closed
+     * before any password/key is sent, and only then does authentication and the shell start.
+     */
+    fun openShell(profile: SshProfile, cols: Int, rows: Int): ShellOpenOutcome {
+        val connection = connectVerified(profile)
+            ?: return ShellOpenOutcome.Failed("Server not verified. Run \"Test connection\" first.")
+        return authenticate(profile, connection).let { auth ->
+            if (auth is SshAuthResult.Failure) {
+                connection.close()
+                log(profile, SshStage.AUTH, auth.message)
+                ShellOpenOutcome.Failed(auth.message)
+            } else {
+                when (val started = connection.startShell(cols, rows, ecoEnabled())) {
+                    is SshShellStartResult.Success -> {
+                        log(profile, SshStage.SHELL_OPEN, "${cols}x$rows")
+                        ShellOpenOutcome.Connected(started.session)
+                    }
+                    is SshShellStartResult.Failure -> {
+                        connection.close()
+                        log(profile, SshStage.ERROR, started.message)
+                        ShellOpenOutcome.Failed(started.message)
+                    }
+                }
+            }
         }
     }
 

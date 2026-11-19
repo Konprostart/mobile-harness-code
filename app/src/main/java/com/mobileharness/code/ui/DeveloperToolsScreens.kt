@@ -381,6 +381,8 @@ private fun SshLogEntryRow(entry: SshLogEntry) {
         SshStage.EXEC -> stringResource(R.string.devtools_ssh_stage_exec)
         SshStage.TUNNEL_START -> stringResource(R.string.devtools_ssh_stage_tunnel_start)
         SshStage.TUNNEL_STOP -> stringResource(R.string.devtools_ssh_stage_tunnel_stop)
+        SshStage.SHELL_OPEN -> stringResource(R.string.devtools_ssh_stage_shell_open)
+        SshStage.SHELL_CLOSE -> stringResource(R.string.devtools_ssh_stage_shell_close)
         SshStage.ERROR -> stringResource(R.string.devtools_ssh_stage_error)
         SshStage.SUCCESS -> stringResource(R.string.devtools_ssh_stage_success)
     }
