@@ -1,12 +1,12 @@
 {
-  "versionCode": 13,
-  "versionName": "1.2.9",
-  "notes": "Mobile Harness Code — independent fork of Mobile Harness. AI router fallback chain: the Sidekick assistant automatically retries a user-configured backup model on rate limits (429), server errors (5xx) and timeouts, with fail-closed auth handling (401/403 never cascade) and a token budget, all visible in Developer Tools → Routing log. Also keeps Material 3 dynamic color (Monet), a draggable floating Sidekick button, in-app update, Telegram bot, Sidekick assistant with background research, Eco Mode (Token Saver), Developer Tools, session auto-recovery, release & signing, optional server sync, reproducible build + SBOM. This APK is SIGNED (V1+V2+V3); install mobile-harness-online.apk.",
+  "versionCode": 14,
+  "versionName": "1.3.0",
+  "notes": "Mobile Harness Code — independent fork of Mobile Harness. New: local model (Ollama/llama.cpp) fallback — the Sidekick assistant can fall back to an on-device/LAN OpenAI-compatible model server on rate limits (429), server errors (5xx) and timeouts, alongside the user-configured backup model, all with fail-closed auth handling (401/403 never cascade) and a token budget visible in Developer Tools → Routing log. Also keeps Material 3 dynamic color (Monet), a draggable floating Sidekick button, in-app update, Telegram bot, Sidekick assistant with background research, Eco Mode (Token Saver), Developer Tools, session auto-recovery, release & signing, optional server sync, reproducible build + SBOM. This APK is SIGNED (V1+V2+V3); install mobile-harness-online.apk.",
   "artifacts": {
     "online": {
-      "url": "https://github.com/Konprostart/mobile-harness-code/releases/download/v1.2.9/mobile-harness-online.apk",
-      "sha256": "9e63a622c803b57a812512b6f55d1598417d33f8d0f04880dcda86541376c75f",
-      "sizeBytes": 90467315
+      "url": "https://github.com/Konprostart/mobile-harness-code/releases/download/v1.3.0/mobile-harness-online.apk",
+      "sha256": "3b8c7ab962e082772d71062649a04d8c80a051cdbd6fbe4f5c933841f75f8b66",
+      "sizeBytes": 90500083
     }
   }
 }
