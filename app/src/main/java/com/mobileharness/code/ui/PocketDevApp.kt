@@ -2664,6 +2664,16 @@ private fun RootScreenHost(
                     onSetRagEnabled = viewModel::setRagEnabled,
                     onSaveRagDocument = viewModel::saveRagDocument,
                     onDeleteRagDocument = viewModel::deleteRagDocument,
+                    onSaveSshProfile = viewModel::saveSshProfile,
+                    onDeleteSshProfile = viewModel::deleteSshProfile,
+                    onTestSshProfile = viewModel::testSshProfile,
+                    onSetSshTunnel = viewModel::setSshTunnel,
+                    onConfirmSshTofu = viewModel::confirmSshTofu,
+                    onDismissSshTofu = viewModel::dismissSshTofu,
+                    onResetSshFingerprint = viewModel::resetSshFingerprint,
+                    onRunSshCommand = viewModel::runSshCommand,
+                    onDismissSshCommandResult = viewModel::clearSshCommandResult,
+                    onClearDevToolsSshLog = viewModel::clearDevToolsSshLog,
                 )
             }
         }

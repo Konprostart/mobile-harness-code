@@ -89,8 +89,8 @@ android {
         targetSdk = if (playBuild) 36 else 28
         // Keep literal defaults so F-Droid's static manifest parser can detect
         // the tagged release. Gradle properties may still override Play builds.
-        versionCode = 16
-        versionName = "1.3.2"
+        versionCode = 17
+        versionName = "1.3.3"
         providers.gradleProperty("appVersionCode").orNull?.toIntOrNull()?.let { versionCode = it }
         providers.gradleProperty("appVersionName").orNull?.let { versionName = it }
 
@@ -211,6 +211,7 @@ dependencies {
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.9.0")
     implementation("org.apache.commons:commons-compress:1.27.1")
     implementation("com.github.luben:zstd-jni:1.5.7-12@aar")
+    implementation("com.hierynomus:sshj:0.40.0")
 
     testImplementation("junit:junit:4.13.2")
     testImplementation("org.json:json:20250107")
@@ -251,6 +252,7 @@ val directDependencyLicenses = mapOf(
     "org.jetbrains:annotations" to "Apache-2.0",
     "org.apache.commons:commons-compress" to "Apache-2.0",
     "com.github.luben:zstd-jni" to "BSD-2-Clause",
+    "com.hierynomus:sshj" to "Apache-2.0",
 )
 
 val allowedSpdxLicenses = setOf(
@@ -291,7 +293,7 @@ val generateSbom = tasks.register("generateSbom") {
             appendLine("  \"specVersion\": \"1.4\",")
             appendLine("  \"serialNumber\": \"urn:uuid:${UUID.randomUUID()}\",")
             appendLine("  \"version\": 1,")
-            appendLine("  \"metadata\": { \"component\": { \"type\": \"application\", \"name\": \"Mobile Harness Code\", \"version\": \"1.1.0\" } },")
+            appendLine("  \"metadata\": { \"component\": { \"type\": \"application\", \"name\": \"Mobile Harness Code\", \"version\": \"1.3.3\" } },")
             appendLine("  \"components\": [")
             componentJsons.forEachIndexed { index, component ->
                 append("    $component")

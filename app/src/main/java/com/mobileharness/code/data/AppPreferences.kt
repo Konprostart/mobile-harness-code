@@ -16,6 +16,8 @@ import com.mobileharness.code.model.projectSlug
 import com.mobileharness.code.model.providersForAgent
 import com.mobileharness.code.mcp.McpServerCodec
 import com.mobileharness.code.mcp.McpServerConfig
+import com.mobileharness.code.network.ssh.SshProfile
+import com.mobileharness.code.network.ssh.SshProfileCodec
 import com.mobileharness.code.sidekick.RagCodec
 import com.mobileharness.code.sidekick.RagDocument
 import com.mobileharness.code.sidekick.RagIndex
@@ -271,6 +273,23 @@ class AppPreferences(private val context: Context) {
         val file = File(ragDir, "documents.json")
         if (!file.exists()) return emptyList()
         return RagCodec.fromJson(runCatching { file.readText() }.getOrDefault(""))
+    }
+
+    // --- SSH servers (Faza 1: sshj client + tunnel) ----------------------------------------
+    /**
+     * Persists the saved SSH server profiles as a single JSON document. Secrets (password,
+     * private key, passphrase, pinned fingerprint) live in the dedicated `SshSecretStore`, not
+     * here; the whole `ssh_profiles_json` key is also excluded from Backup & Restore so the
+     * host/username metadata never leaves the device either.
+     */
+    fun saveSshProfiles(profiles: List<SshProfile>) {
+        preferences.edit().putString("ssh_profiles_json", SshProfileCodec.toJson(profiles)).apply()
+    }
+
+    /** Loads the saved SSH server profiles, tolerating malformed or removed entries. */
+    fun loadSshProfiles(): List<SshProfile> {
+        val raw = preferences.getString("ssh_profiles_json", null) ?: return emptyList()
+        return SshProfileCodec.fromJson(raw)
     }
 
     /** Persists the assistant's independent provider profile (the API key is reused from the vault). */
@@ -731,6 +750,7 @@ class AppPreferences(private val context: Context) {
             "whats_new_seen_code",
             "backup_feature_seen",
             "mcp_servers_json",
+            "ssh_profiles_json",
         )
     }
 }

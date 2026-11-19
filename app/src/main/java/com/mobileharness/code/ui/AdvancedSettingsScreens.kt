@@ -3,6 +3,8 @@ package com.mobileharness.code.ui
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -10,11 +12,14 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Build
@@ -65,6 +70,8 @@ import com.mobileharness.code.model.ProviderKind
 import com.mobileharness.code.model.ProviderProfile
 import com.mobileharness.code.network.ServerSyncConfig
 import com.mobileharness.code.network.ServerSyncMode
+import com.mobileharness.code.network.ssh.SshAuthType
+import com.mobileharness.code.network.ssh.SshProfile
 import com.mobileharness.code.runtime.ReleasePipelineStage
 import com.mobileharness.code.sidekick.RagDocument
 import com.mobileharness.code.sidekick.RagIndex
@@ -996,3 +1003,426 @@ private fun RagDocumentEditor(
     )
 }
 
+
+/**
+ * SSH Servers management: add/edit/delete profiles, choose password or private-key auth, run a
+ * TOFU-gated "Test connection", toggle the SSH tunnel, and run a single remote command. Secrets
+ * are passed up through [onSave] and never displayed after entry; the pinned host-key fingerprint
+ * is confirmed through a dedicated trust dialog on first use.
+ */
+@Composable
+fun SshSettings(
+    profiles: List<SshProfile>,
+    testingProfileId: String?,
+    runningTunnelIds: Set<String>,
+    pendingTofu: SshTofuPrompt?,
+    commandResult: SshCommandResult?,
+    onSave: (SshProfile, String?, String?, String?) -> Unit,
+    onDelete: (String) -> Unit,
+    onTest: (String) -> Unit,
+    onToggleTunnel: (String, Boolean) -> Unit,
+    onConfirmTofu: () -> Unit,
+    onDismissTofu: () -> Unit,
+    onResetFingerprint: (String) -> Unit,
+    onRunCommand: (String, String) -> Unit,
+    onDismissCommandResult: () -> Unit,
+) {
+    var editingProfileId by rememberSaveable { mutableStateOf<String?>(null) }
+    val editingProfile = profiles.firstOrNull { it.id == editingProfileId }
+    var runningCommandFor by rememberSaveable { mutableStateOf<String?>(null) }
+    var commandText by rememberSaveable { mutableStateOf("") }
+
+    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        if (profiles.isEmpty()) {
+            Text(
+                stringResource(R.string.ssh_empty),
+                fontSize = 12.sp,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        } else {
+            profiles.forEach { profile ->
+                SshProfileRow(
+                    profile = profile,
+                    testing = testingProfileId == profile.id,
+                    tunnelRunning = profile.id in runningTunnelIds,
+                    onToggleTunnel = { onToggleTunnel(profile.id, it) },
+                    onEdit = { editingProfileId = profile.id },
+                    onDelete = { onDelete(profile.id) },
+                    onTest = { onTest(profile.id) },
+                    onRunCommand = { runningCommandFor = profile.id },
+                )
+            }
+        }
+
+        OutlinedButton(
+            onClick = { editingProfileId = "__new__" },
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            Icon(Icons.Default.Add, null, Modifier.size(17.dp))
+            Spacer(Modifier.width(7.dp))
+            Text(stringResource(R.string.ssh_add_server))
+        }
+
+        Text(
+            stringResource(R.string.ssh_note),
+            fontSize = 11.sp,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
+
+    if (editingProfileId != null) {
+        SshProfileEditor(
+            profile = editingProfile,
+            onDismiss = { editingProfileId = null },
+            onSave = { profile, password, key, passphrase ->
+                onSave(profile, password, key, passphrase)
+                editingProfileId = null
+            },
+            onDelete = editingProfile?.let { existing ->
+                {
+                    onDelete(existing.id)
+                    editingProfileId = null
+                }
+            },
+            onResetFingerprint = editingProfile?.let { existing ->
+                { onResetFingerprint(existing.id) }
+            },
+        )
+    }
+
+    pendingTofu?.let { prompt ->
+        SshTofuDialog(prompt = prompt, onConfirm = onConfirmTofu, onDismiss = onDismissTofu)
+    }
+
+    runningCommandFor?.let { profileId ->
+        val profile = profiles.firstOrNull { it.id == profileId }
+        if (profile != null) {
+            SshRunCommandDialog(
+                profile = profile,
+                command = commandText,
+                onCommandChange = { commandText = it },
+                result = commandResult?.takeIf { it.profileId == profile.id },
+                onRun = { onRunCommand(profile.id, commandText) },
+                onDismiss = {
+                    runningCommandFor = null
+                    commandText = ""
+                    onDismissCommandResult()
+                },
+            )
+        }
+    }
+}
+
+@Composable
+private fun SshProfileRow(
+    profile: SshProfile,
+    testing: Boolean,
+    tunnelRunning: Boolean,
+    onToggleTunnel: (Boolean) -> Unit,
+    onEdit: () -> Unit,
+    onDelete: () -> Unit,
+    onTest: () -> Unit,
+    onRunCommand: () -> Unit,
+) {
+    Surface(
+        shape = RoundedCornerShape(12.dp),
+        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f),
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        Column(Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Text(profile.name, fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
+                    Text(
+                        "${profile.username}@${profile.endpointLabel()} · " +
+                            stringResource(if (profile.authType == SshAuthType.PASSWORD) R.string.ssh_auth_password else R.string.ssh_auth_key),
+                        fontSize = 11.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
+            }
+            if (profile.tunnelEnabled) {
+                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+                    Text(
+                        if (tunnelRunning) {
+                            stringResource(R.string.ssh_tunnel_running) + ":${profile.tunnelLocalPort}"
+                        } else {
+                            "127.0.0.1:${profile.tunnelLocalPort} → ${profile.tunnelRemoteHost}:${profile.tunnelRemotePort}"
+                        },
+                        fontSize = 11.sp,
+                        color = if (tunnelRunning) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.weight(1f),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                    Switch(checked = tunnelRunning, onCheckedChange = onToggleTunnel)
+                }
+            }
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                OutlinedButton(onClick = onTest, enabled = !testing) {
+                    if (testing) {
+                        CircularProgressIndicator(Modifier.size(14.dp), strokeWidth = 2.dp)
+                    } else {
+                        Icon(Icons.Default.PlayArrow, null, Modifier.size(16.dp))
+                    }
+                    Spacer(Modifier.width(6.dp))
+                    Text(stringResource(R.string.ssh_test_connection), fontSize = 12.sp)
+                }
+                OutlinedButton(onClick = onRunCommand) {
+                    Icon(Icons.Default.Build, null, Modifier.size(16.dp))
+                    Spacer(Modifier.width(6.dp))
+                    Text(stringResource(R.string.ssh_run_command), fontSize = 12.sp)
+                }
+                IconButton(onClick = onEdit, modifier = Modifier.size(36.dp)) {
+                    Icon(Icons.Default.Edit, stringResource(R.string.ssh_edit_server), Modifier.size(18.dp))
+                }
+                IconButton(onClick = onDelete, modifier = Modifier.size(36.dp)) {
+                    Icon(Icons.Default.Delete, stringResource(R.string.ssh_delete_server), Modifier.size(18.dp), tint = MaterialTheme.colorScheme.error)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun SshProfileEditor(
+    profile: SshProfile?,
+    onDismiss: () -> Unit,
+    onSave: (SshProfile, String?, String?, String?) -> Unit,
+    onDelete: (() -> Unit)?,
+    onResetFingerprint: (() -> Unit)?,
+) {
+    var name by rememberSaveable { mutableStateOf(profile?.name.orEmpty()) }
+    var host by rememberSaveable { mutableStateOf(profile?.host.orEmpty()) }
+    var port by rememberSaveable { mutableStateOf((profile?.port ?: 22).toString()) }
+    var username by rememberSaveable { mutableStateOf(profile?.username ?: "root") }
+    var authType by rememberSaveable { mutableStateOf((profile?.authType ?: SshAuthType.PASSWORD).name) }
+    var password by rememberSaveable { mutableStateOf("") }
+    var privateKey by rememberSaveable { mutableStateOf("") }
+    var passphrase by rememberSaveable { mutableStateOf("") }
+    var passphraseRequired by rememberSaveable { mutableStateOf(profile?.passphraseRequired ?: false) }
+    var tunnelEnabled by rememberSaveable { mutableStateOf(profile?.tunnelEnabled ?: false) }
+    var localPort by rememberSaveable { mutableStateOf((profile?.tunnelLocalPort ?: 11434).toString()) }
+    var remoteHost by rememberSaveable { mutableStateOf(profile?.tunnelRemoteHost ?: "127.0.0.1") }
+    var remotePort by rememberSaveable { mutableStateOf((profile?.tunnelRemotePort ?: 11434).toString()) }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(if (profile == null) R.string.ssh_add_server else R.string.ssh_edit_server)) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+                OutlinedTextField(name, { name = it }, label = { Text(stringResource(R.string.ssh_name_label)) }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                OutlinedTextField(host, { host = it }, label = { Text(stringResource(R.string.ssh_host_label)) }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                OutlinedTextField(
+                    port,
+                    { port = it.filter(Char::isDigit) },
+                    label = { Text(stringResource(R.string.ssh_port_label)) },
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                OutlinedTextField(username, { username = it }, label = { Text(stringResource(R.string.ssh_username_label)) }, singleLine = true, modifier = Modifier.fillMaxWidth())
+
+                Text(stringResource(R.string.ssh_auth_label), fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    TextButton(onClick = { authType = SshAuthType.PASSWORD.name }, modifier = Modifier.weight(1f)) {
+                        Text(stringResource(R.string.ssh_auth_password), color = if (authType == SshAuthType.PASSWORD.name) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                    TextButton(onClick = { authType = SshAuthType.PRIVATE_KEY.name }, modifier = Modifier.weight(1f)) {
+                        Text(stringResource(R.string.ssh_auth_key), color = if (authType == SshAuthType.PRIVATE_KEY.name) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                }
+
+                if (authType == SshAuthType.PASSWORD.name) {
+                    OutlinedTextField(
+                        password,
+                        { password = it },
+                        label = { Text(stringResource(R.string.ssh_password_label)) },
+                        singleLine = true,
+                        visualTransformation = PasswordVisualTransformation(),
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                } else {
+                    OutlinedTextField(
+                        privateKey,
+                        { privateKey = it },
+                        label = { Text(stringResource(R.string.ssh_private_key_label)) },
+                        placeholder = { Text(stringResource(R.string.ssh_private_key_hint), fontSize = 12.sp) },
+                        minLines = 4,
+                        maxLines = 9,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Switch(checked = passphraseRequired, onCheckedChange = { passphraseRequired = it })
+                        Text(stringResource(R.string.ssh_passphrase_required), fontSize = 12.sp)
+                    }
+                    if (passphraseRequired) {
+                        OutlinedTextField(
+                            passphrase,
+                            { passphrase = it },
+                            label = { Text(stringResource(R.string.ssh_passphrase_label)) },
+                            singleLine = true,
+                            visualTransformation = PasswordVisualTransformation(),
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+                            modifier = Modifier.fillMaxWidth(),
+                        )
+                    }
+                }
+
+                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+                    Text(stringResource(R.string.ssh_tunnel_label), fontSize = 12.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
+                    Switch(checked = tunnelEnabled, onCheckedChange = { tunnelEnabled = it })
+                }
+                if (tunnelEnabled) {
+                    OutlinedTextField(
+                        localPort,
+                        { localPort = it.filter(Char::isDigit) },
+                        label = { Text(stringResource(R.string.ssh_tunnel_local_port)) },
+                        singleLine = true,
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                    OutlinedTextField(remoteHost, { remoteHost = it }, label = { Text(stringResource(R.string.ssh_tunnel_remote_host)) }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                    OutlinedTextField(
+                        remotePort,
+                        { remotePort = it.filter(Char::isDigit) },
+                        label = { Text(stringResource(R.string.ssh_tunnel_remote_port)) },
+                        singleLine = true,
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(
+                onClick = {
+                    val existingId = profile?.id ?: java.util.UUID.randomUUID().toString()
+                    val auth = runCatching { SshAuthType.valueOf(authType) }.getOrDefault(SshAuthType.PASSWORD)
+                    onSave(
+                        SshProfile(
+                            id = existingId,
+                            name = name.trim(),
+                            host = host.trim(),
+                            port = port.toIntOrNull()?.takeIf { it in 1..65535 } ?: 22,
+                            username = username.trim().ifBlank { "root" },
+                            authType = auth,
+                            passphraseRequired = passphraseRequired,
+                            tunnelEnabled = tunnelEnabled,
+                            tunnelLocalPort = localPort.toIntOrNull()?.takeIf { it in 1..65535 } ?: 11434,
+                            tunnelRemoteHost = remoteHost.trim().ifBlank { "127.0.0.1" },
+                            tunnelRemotePort = remotePort.toIntOrNull()?.takeIf { it in 1..65535 } ?: 11434,
+                        ),
+                        password?.trim()?.takeIf(String::isNotEmpty),
+                        privateKey?.trim()?.takeIf(String::isNotEmpty),
+                        passphrase?.trim()?.takeIf(String::isNotEmpty),
+                    )
+                },
+                enabled = name.isNotBlank() && host.isNotBlank() && username.isNotBlank(),
+            ) {
+                Text(stringResource(R.string.ssh_save))
+            }
+        },
+        dismissButton = {
+            Row {
+                if (onResetFingerprint != null) {
+                    TextButton(onClick = onResetFingerprint) {
+                        Text(stringResource(R.string.ssh_reset_pin))
+                    }
+                }
+                if (onDelete != null) {
+                    TextButton(onClick = onDelete) {
+                        Text(stringResource(R.string.ssh_delete_server), color = MaterialTheme.colorScheme.error)
+                    }
+                }
+                TextButton(onClick = onDismiss) { Text(stringResource(R.string.ssh_cancel)) }
+            }
+        },
+    )
+}
+
+@Composable
+private fun SshTofuDialog(
+    prompt: SshTofuPrompt,
+    onConfirm: () -> Unit,
+    onDismiss: () -> Unit,
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.ssh_tofu_title)) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(stringResource(R.string.ssh_tofu_message, prompt.profileName, prompt.fingerprint), fontSize = 13.sp)
+                Text(
+                    prompt.fingerprint,
+                    fontSize = 12.sp,
+                    fontFamily = FontFamily.Monospace,
+                    color = MaterialTheme.colorScheme.primary,
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onConfirm) { Text(stringResource(R.string.ssh_tofu_confirm)) }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text(stringResource(R.string.ssh_tofu_cancel)) }
+        },
+    )
+}
+
+@Composable
+private fun SshRunCommandDialog(
+    profile: SshProfile,
+    command: String,
+    onCommandChange: (String) -> Unit,
+    result: SshCommandResult?,
+    onRun: () -> Unit,
+    onDismiss: () -> Unit,
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.ssh_run_command) + " · ${profile.name}") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+                OutlinedTextField(
+                    command,
+                    onCommandChange,
+                    label = { Text(stringResource(R.string.ssh_run_command)) },
+                    placeholder = { Text(stringResource(R.string.ssh_command_hint), fontSize = 12.sp) },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                if (result != null) {
+                    Text(stringResource(R.string.ssh_command_result), fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                    Text(
+                        result.exitStatus?.let { stringResource(R.string.ssh_command_exit, it) } ?: "",
+                        fontSize = 11.sp,
+                        color = if (result.isError) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    Text(
+                        result.output.ifBlank { stringResource(R.string.ssh_command_no_output) },
+                        fontSize = 11.sp,
+                        fontFamily = FontFamily.Monospace,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .heightIn(max = 220.dp)
+                            .background(MaterialTheme.colorScheme.surface, RoundedCornerShape(8.dp))
+                            .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(8.dp))
+                            .padding(8.dp)
+                            .verticalScroll(rememberScrollState()),
+                    )
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onRun, enabled = command.isNotBlank()) { Text(stringResource(R.string.ssh_run_command)) }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text(stringResource(R.string.ssh_cancel)) }
+        },
+    )
+}

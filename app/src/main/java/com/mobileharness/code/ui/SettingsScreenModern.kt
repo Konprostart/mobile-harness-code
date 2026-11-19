@@ -122,6 +122,7 @@ import com.mobileharness.code.network.ConnectionValidation
 import com.mobileharness.code.network.DiscoveredModel
 import com.mobileharness.code.network.ModelDiscoveryResult
 import com.mobileharness.code.network.ServerSyncConfig
+import com.mobileharness.code.network.ssh.SshProfile
 import androidx.compose.material.icons.filled.Language
 import androidx.compose.ui.res.stringResource
 import com.mobileharness.code.R
@@ -131,7 +132,7 @@ import com.mobileharness.code.ui.theme.AppThemeMode
 import com.mobileharness.code.ui.theme.PocketOrange
 import kotlinx.coroutines.launch
 
-private enum class SettingsSection { APPEARANCE, LANGUAGE, TOOLS, RUNTIME, DIAGNOSTICS, DEVELOPER_TOOLS, BACKUP, UPDATE_CHANNEL, UPDATES, GRADLE_MEMORY, RELEASE_SIGNING, SERVER_SYNC, TELEGRAM, SIDEKICK, MCP_SERVERS, ECO_MODE, RAG }
+private enum class SettingsSection { APPEARANCE, LANGUAGE, TOOLS, RUNTIME, DIAGNOSTICS, DEVELOPER_TOOLS, BACKUP, UPDATE_CHANNEL, UPDATES, GRADLE_MEMORY, RELEASE_SIGNING, SERVER_SYNC, TELEGRAM, SIDEKICK, MCP_SERVERS, ECO_MODE, RAG, SSH }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -204,6 +205,16 @@ fun SettingsScreen(
     onSetRagEnabled: (Boolean) -> Unit = {},
     onSaveRagDocument: (RagDocument) -> Unit = {},
     onDeleteRagDocument: (String) -> Unit = {},
+    onSaveSshProfile: (SshProfile, String?, String?, String?) -> Unit = { _, _, _, _ -> },
+    onDeleteSshProfile: (String) -> Unit = {},
+    onTestSshProfile: (String) -> Unit = {},
+    onSetSshTunnel: (String, Boolean) -> Unit = { _, _ -> },
+    onConfirmSshTofu: () -> Unit = {},
+    onDismissSshTofu: () -> Unit = {},
+    onResetSshFingerprint: (String) -> Unit = {},
+    onRunSshCommand: (String, String) -> Unit = { _, _ -> },
+    onDismissSshCommandResult: () -> Unit = {},
+    onClearDevToolsSshLog: () -> Unit = {},
 ) {
     val context = LocalContext.current
     val installPermissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) {
@@ -489,6 +500,7 @@ fun SettingsScreen(
                         onClearCrashLogs = onClearDevToolsCrashLogs,
                         onClearRoutingLog = onClearDevToolsRoutingLog,
                         onClearMcpToolLog = onClearDevToolsMcpToolLog,
+                        onClearSshLog = onClearDevToolsSshLog,
                     )
                 }
             }
@@ -649,6 +661,33 @@ fun SettingsScreen(
                         onSetEnabled = onSetRagEnabled,
                         onSaveDocument = onSaveRagDocument,
                         onDeleteDocument = onDeleteRagDocument,
+                    )
+                }
+            }
+
+            item {
+                SettingsAccordion(
+                    title = stringResource(R.string.ssh_title),
+                    subtitle = stringResource(R.string.ssh_subtitle),
+                    icon = Icons.Default.Terminal,
+                    expanded = expanded == SettingsSection.SSH,
+                    onClick = { toggle(SettingsSection.SSH) },
+                ) {
+                    SshSettings(
+                        profiles = state.sshProfiles,
+                        testingProfileId = state.sshTestingProfileId,
+                        runningTunnelIds = state.sshRunningTunnelIds,
+                        pendingTofu = state.sshPendingTofu,
+                        commandResult = state.sshCommandResult,
+                        onSave = onSaveSshProfile,
+                        onDelete = onDeleteSshProfile,
+                        onTest = onTestSshProfile,
+                        onToggleTunnel = onSetSshTunnel,
+                        onConfirmTofu = onConfirmSshTofu,
+                        onDismissTofu = onDismissSshTofu,
+                        onResetFingerprint = onResetSshFingerprint,
+                        onRunCommand = onRunSshCommand,
+                        onDismissCommandResult = onDismissSshCommandResult,
                     )
                 }
             }

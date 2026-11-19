@@ -60,6 +60,12 @@ import com.mobileharness.code.mcp.McpToolLog
 import com.mobileharness.code.mcp.McpToolLogEntry
 import com.mobileharness.code.mcp.McpToolRegistry
 import com.mobileharness.code.mcp.McpToolStage
+import com.mobileharness.code.network.ssh.SshController
+import com.mobileharness.code.network.ssh.SshExecResult
+import com.mobileharness.code.network.ssh.SshLog
+import com.mobileharness.code.network.ssh.SshProfile
+import com.mobileharness.code.network.ssh.SshSecretStore
+import com.mobileharness.code.network.ssh.sshSecretStore
 import com.mobileharness.code.sidekick.RagDocument
 import com.mobileharness.code.network.ConnectionValidation
 import com.mobileharness.code.network.ModelDiscoveryResult
@@ -678,6 +684,23 @@ data class AppUiState(
     val mcpTestingServerId: String? = null,
     val ragEnabled: Boolean = false,
     val ragDocuments: List<RagDocument> = emptyList(),
+    val sshProfiles: List<SshProfile> = emptyList(),
+    val sshTestingProfileId: String? = null,
+    val sshRunningTunnelIds: Set<String> = emptySet(),
+    val sshPendingTofu: SshTofuPrompt? = null,
+    val sshCommandResult: SshCommandResult? = null,
+)
+
+/** A first-use server fingerprint awaiting explicit user confirmation (TOFU). */
+data class SshTofuPrompt(val profileId: String, val profileName: String, val fingerprint: String)
+
+/** Result of a quick remote command, shown in the SSH settings section. */
+data class SshCommandResult(
+    val profileId: String,
+    val profileName: String,
+    val exitStatus: Int?,
+    val output: String,
+    val isError: Boolean,
 )
 
 class MainViewModel(application: Application) : AndroidViewModel(application) {
@@ -690,6 +713,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     private val vault = ApiKeyVault(application)
     private val preferences = AppPreferences(application)
+    private val sshSecrets = sshSecretStore(application)
+    private val sshController = SshController(sshSecrets) { preferences.ecoModeEnabled }
     private val claudeRuntime = ClaudeRuntimeBridge(application) { profile -> vault.get(profile.kind.name) }
     private val dshRuntime = DshRuntimeBridge(application) { profile -> vault.get(profile.kind.name) }
     private val installer = RuntimeInstaller(application)
@@ -814,6 +839,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             mcpServers = preferences.loadMcpServers(),
             ragEnabled = preferences.ragEnabled,
             ragDocuments = preferences.loadRagDocuments(),
+            sshProfiles = preferences.loadSshProfiles(),
         ),
     ).also {
         if (!preferences.onboardingComplete) preferences.whatsNewSeenVersionCode = BuildConfig.VERSION_CODE
@@ -1080,6 +1106,149 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     }
                 }
             }
+        }
+    }
+
+    // --- SSH servers (Faza 1: sshj client + tunnel) ----------------------------------------
+
+    /** Adds or replaces an SSH profile, storing any newly-entered secrets in the opaque store. */
+    fun saveSshProfile(profile: SshProfile, password: String?, privateKey: String?, passphrase: String?) {
+        val current = _state.value.sshProfiles
+        val updated = if (current.any { it.id == profile.id }) {
+            current.map { if (it.id == profile.id) profile else it }
+        } else {
+            current + profile
+        }
+        preferences.saveSshProfiles(updated)
+        if (!password.isNullOrEmpty()) {
+            sshSecrets.put(profile.id, SshSecretStore.Slot.PASSWORD, password)
+        }
+        if (!privateKey.isNullOrEmpty()) {
+            sshSecrets.put(profile.id, SshSecretStore.Slot.PRIVATE_KEY, privateKey)
+        }
+        if (!passphrase.isNullOrEmpty()) {
+            sshSecrets.put(profile.id, SshSecretStore.Slot.PASSPHRASE, passphrase)
+        }
+        _state.update { it.copy(sshProfiles = updated) }
+    }
+
+    /** Removes an SSH profile, its secrets, and any live tunnel. */
+    fun deleteSshProfile(profileId: String) {
+        sshController.stopTunnel(_state.value.sshProfiles.firstOrNull { it.id == profileId } ?: return)
+        sshSecrets.remove(profileId)
+        val updated = _state.value.sshProfiles.filterNot { it.id == profileId }
+        preferences.saveSshProfiles(updated)
+        _state.update { it.copy(sshProfiles = updated) }
+    }
+
+    /** Runs the TOFU-gated connection test; on first use it surfaces the fingerprint for confirmation. */
+    fun testSshProfile(profileId: String) {
+        val profile = _state.value.sshProfiles.firstOrNull { it.id == profileId } ?: return
+        _state.update { it.copy(sshTestingProfileId = profileId, sshCommandResult = null) }
+        viewModelScope.launch {
+            val outcome = withContext(Dispatchers.IO) { sshController.testConnection(profile) }
+            when (outcome) {
+                is SshController.TestOutcome.Connected -> _state.update {
+                    it.copy(
+                        sshTestingProfileId = null,
+                        toastMessage = str(R.string.ssh_test_success, outcome.fingerprint),
+                    )
+                }
+                is SshController.TestOutcome.NeedsConfirmation -> _state.update {
+                    it.copy(
+                        sshTestingProfileId = null,
+                        sshPendingTofu = SshTofuPrompt(profile.id, profile.name, outcome.fingerprint),
+                    )
+                }
+                is SshController.TestOutcome.Failed -> _state.update {
+                    it.copy(
+                        sshTestingProfileId = null,
+                        toastMessage = str(R.string.ssh_test_failed, outcome.message),
+                    )
+                }
+            }
+        }
+    }
+
+    /** Stores the confirmed fingerprint and re-runs the test so it can authenticate. */
+    fun confirmSshTofu() {
+        val prompt = _state.value.sshPendingTofu ?: return
+        val profile = _state.value.sshProfiles.firstOrNull { it.id == prompt.profileId }
+        _state.update { it.copy(sshPendingTofu = null) }
+        if (profile == null) return
+        sshController.confirmFingerprint(profile, prompt.fingerprint)
+        testSshProfile(profile.id)
+    }
+
+    fun dismissSshTofu() {
+        _state.update { it.copy(sshPendingTofu = null) }
+    }
+
+    /** Manually clears a pinned fingerprint after a key-change warning (re-pins on next test). */
+    fun resetSshFingerprint(profileId: String) {
+        val profile = _state.value.sshProfiles.firstOrNull { it.id == profileId } ?: return
+        sshController.resetFingerprint(profile)
+        _state.update { it.copy(toastMessage = str(R.string.ssh_tofu_reset)) }
+    }
+
+    /** Starts or stops the configured tunnel for a profile. */
+    fun setSshTunnel(profileId: String, enabled: Boolean) {
+        val profile = _state.value.sshProfiles.firstOrNull { it.id == profileId } ?: return
+        viewModelScope.launch {
+            val outcome = withContext(Dispatchers.IO) {
+                if (enabled) sshController.startTunnel(profile) else {
+                    sshController.stopTunnel(profile)
+                    null
+                }
+            }
+            val running = sshController.isTunnelRunning(profileId)
+            _state.update { state ->
+                val ids = if (running) state.sshRunningTunnelIds + profileId else state.sshRunningTunnelIds - profileId
+                state.copy(sshRunningTunnelIds = ids)
+            }
+            if (enabled && outcome is com.mobileharness.code.network.ssh.SshTunnelStartResult.Failure) {
+                _state.update { it.copy(toastMessage = str(R.string.ssh_tunnel_failed, outcome.message)) }
+            } else if (!enabled) {
+                _state.update { it.copy(toastMessage = str(R.string.ssh_tunnel_stopped)) }
+            }
+        }
+    }
+
+    /** Executes a single sanitized remote command and surfaces the bounded result. */
+    fun runSshCommand(profileId: String, command: String) {
+        val profile = _state.value.sshProfiles.firstOrNull { it.id == profileId } ?: return
+        viewModelScope.launch {
+            val result = withContext(Dispatchers.IO) { sshController.runCommand(profile, command) }
+            _state.update { state ->
+                when (result) {
+                    is SshExecResult.Success -> state.copy(
+                        sshCommandResult = SshCommandResult(
+                            profileId = profile.id,
+                            profileName = profile.name,
+                            exitStatus = result.exitStatus,
+                            output = (result.stdout + if (result.stderr.isNotBlank()) "\n[stderr]\n" + result.stderr else "").trim(),
+                            isError = result.exitStatus != 0,
+                        ),
+                    )
+                    is SshExecResult.Failure -> state.copy(
+                        sshCommandResult = SshCommandResult(profile.id, profile.name, null, result.message, isError = true),
+                    )
+                }
+            }
+        }
+    }
+
+    fun clearSshCommandResult() {
+        _state.update { it.copy(sshCommandResult = null) }
+    }
+
+    fun clearDevToolsSshLog() {
+        SshLog.clear()
+        _state.update {
+            it.copy(
+                devTools = it.devTools.copy(sshLog = emptyList()),
+                toastMessage = str(R.string.devtools_ssh_log_cleared),
+            )
         }
     }
 
@@ -1633,6 +1802,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             crashLogs = crashLogs,
             routingLog = RouteLog.snapshot(),
             mcpToolLog = McpToolLog.snapshot(),
+            sshLog = SshLog.snapshot(),
             refreshedAtMillis = System.currentTimeMillis(),
         )
     }

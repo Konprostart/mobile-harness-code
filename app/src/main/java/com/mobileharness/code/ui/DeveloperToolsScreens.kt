@@ -51,6 +51,8 @@ import com.mobileharness.code.mcp.McpToolLogEntry
 import com.mobileharness.code.mcp.McpToolStage
 import com.mobileharness.code.network.RouteLogEntry
 import com.mobileharness.code.network.RouteStage
+import com.mobileharness.code.network.ssh.SshLogEntry
+import com.mobileharness.code.network.ssh.SshStage
 import com.mobileharness.code.ui.theme.PocketOrange
 import java.text.DateFormat
 import java.util.Date
@@ -66,6 +68,7 @@ data class DevToolsState(
     val crashLogs: List<CrashRecord> = emptyList(),
     val routingLog: List<RouteLogEntry> = emptyList(),
     val mcpToolLog: List<McpToolLogEntry> = emptyList(),
+    val sshLog: List<SshLogEntry> = emptyList(),
     val refreshedAtMillis: Long? = null,
 )
 
@@ -76,6 +79,7 @@ fun DeveloperToolsContent(
     onClearCrashLogs: () -> Unit,
     onClearRoutingLog: () -> Unit = {},
     onClearMcpToolLog: () -> Unit = {},
+    onClearSshLog: () -> Unit = {},
 ) {
     Column {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
@@ -167,6 +171,24 @@ fun DeveloperToolsContent(
                 Icon(Icons.Default.DeleteSweep, null, Modifier.size(17.dp))
                 Spacer(Modifier.width(7.dp))
                 Text(stringResource(R.string.devtools_clear_mcp_tool_log))
+            }
+        }
+
+        DevToolsCard(stringResource(R.string.devtools_ssh_log)) {
+            if (state.sshLog.isEmpty()) {
+                DevToolsHint(stringResource(R.string.devtools_no_ssh_events))
+            } else {
+                state.sshLog.forEach { entry -> SshLogEntryRow(entry) }
+            }
+            Spacer(Modifier.height(10.dp))
+            OutlinedButton(
+                onClick = onClearSshLog,
+                enabled = state.sshLog.isNotEmpty(),
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Icon(Icons.Default.DeleteSweep, null, Modifier.size(17.dp))
+                Spacer(Modifier.width(7.dp))
+                Text(stringResource(R.string.devtools_clear_ssh_log))
             }
         }
     }
@@ -334,6 +356,54 @@ private fun McpToolLogEntryRow(entry: McpToolLogEntry) {
                     } else {
                         MaterialTheme.colorScheme.onSurfaceVariant
                     },
+                )
+            }
+            entry.detail?.let { detail ->
+                Text(
+                    detail,
+                    fontSize = 11.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun SshLogEntryRow(entry: SshLogEntry) {
+    val stageLabel = when (entry.stage) {
+        SshStage.CONNECT -> stringResource(R.string.devtools_ssh_stage_connect)
+        SshStage.TOFU_ACCEPT -> stringResource(R.string.devtools_ssh_stage_tofu_accept)
+        SshStage.TOFU_MISMATCH -> stringResource(R.string.devtools_ssh_stage_tofu_mismatch)
+        SshStage.AUTH -> stringResource(R.string.devtools_ssh_stage_auth)
+        SshStage.EXEC -> stringResource(R.string.devtools_ssh_stage_exec)
+        SshStage.TUNNEL_START -> stringResource(R.string.devtools_ssh_stage_tunnel_start)
+        SshStage.TUNNEL_STOP -> stringResource(R.string.devtools_ssh_stage_tunnel_stop)
+        SshStage.ERROR -> stringResource(R.string.devtools_ssh_stage_error)
+        SshStage.SUCCESS -> stringResource(R.string.devtools_ssh_stage_success)
+    }
+    val isError = entry.stage == SshStage.ERROR || entry.stage == SshStage.TOFU_MISMATCH
+    Surface(
+        modifier = Modifier.fillMaxWidth().padding(vertical = 3.dp),
+        shape = RoundedCornerShape(10.dp),
+        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f),
+    ) {
+        Column(Modifier.padding(horizontal = 10.dp, vertical = 7.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    entry.profileName,
+                    fontWeight = FontWeight.SemiBold,
+                    fontSize = 12.sp,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f),
+                )
+                Text(
+                    stageLabel,
+                    fontSize = 11.sp,
+                    color = if (isError) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
             entry.detail?.let { detail ->
