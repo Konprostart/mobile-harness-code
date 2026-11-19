@@ -72,6 +72,11 @@ import com.mobileharness.code.network.ssh.SshStage
 import com.mobileharness.code.network.ssh.sshSecretStore
 import com.mobileharness.code.sidekick.RagDocument
 import com.mobileharness.code.share.InviteCode
+import com.mobileharness.code.device.PrivilegeController
+import com.mobileharness.code.device.PrivilegeEventLog
+import com.mobileharness.code.device.PrivilegeOutcome
+import com.mobileharness.code.device.PrivilegeRequest
+import com.mobileharness.code.device.PrivilegeRoute
 import com.mobileharness.code.terminal.TerminalCell
 import com.mobileharness.code.network.ConnectionValidation
 import com.mobileharness.code.network.ModelDiscoveryResult
@@ -1970,6 +1975,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         val deviceInfo = DeviceInfo.collect(getApplication())
         val cpuUsage = CpuUsageReader.readUsageNow()
         val crashLogs = CrashLogStore.read(getApplication())
+        val privilegedRoutes = PrivilegeController.detect(getApplication())
+        val privilegedOptIns = PrivilegeRoute.entries.associateWith { preferences.privilegedOptIn(it) }
         return DevToolsState(
             loading = false,
             deviceInfo = deviceInfo,
@@ -1981,6 +1988,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             routingLog = RouteLog.snapshot(),
             mcpToolLog = McpToolLog.snapshot(),
             sshLog = SshLog.snapshot(),
+            privilegedRoutes = privilegedRoutes,
+            privilegedOptIns = privilegedOptIns,
+            privilegedLog = PrivilegeEventLog.snapshot(),
             refreshedAtMillis = System.currentTimeMillis(),
         )
     }
@@ -2001,6 +2011,89 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             it.copy(
                 devTools = it.devTools.copy(mcpToolLog = emptyList()),
                 toastMessage = str(R.string.devtools_mcp_tool_log_cleared),
+            )
+        }
+    }
+
+    fun togglePrivilegeRoute(route: PrivilegeRoute, enabled: Boolean) {
+        preferences.setPrivilegedOptIn(route, enabled)
+        PrivilegeController.recordOptInChange(route, enabled)
+        val optIns = PrivilegeRoute.entries.associateWith { preferences.privilegedOptIn(it) }
+        _state.update {
+            it.copy(
+                devTools = it.devTools.copy(
+                    privilegedOptIns = optIns,
+                    privilegedLog = PrivilegeEventLog.snapshot(),
+                ),
+            )
+        }
+    }
+
+    fun requestShizukuPermission() {
+        PrivilegeController.requestShizukuPermission { granted ->
+            val routes = PrivilegeController.detect(getApplication())
+            val optIns = PrivilegeRoute.entries.associateWith { preferences.privilegedOptIn(it) }
+            _state.update {
+                it.copy(
+                    devTools = it.devTools.copy(
+                        privilegedRoutes = routes,
+                        privilegedOptIns = optIns,
+                        privilegedLog = PrivilegeEventLog.snapshot(),
+                    ),
+                    toastMessage = str(
+                        if (granted) R.string.devtools_privilege_stage_permission_granted
+                        else R.string.devtools_privilege_stage_permission_denied,
+                    ),
+                )
+            }
+        }
+    }
+
+    fun runPrivilegeTest() {
+        val devTools = _state.value.devTools
+        val route = devTools.privilegedRoutes.firstOrNull { rs ->
+            devTools.privilegedOptIns[rs.route] == true && rs.usable
+        }
+        if (route == null) {
+            _state.update { it.copy(toastMessage = str(R.string.devtools_privilege_unavailable)) }
+            return
+        }
+        _state.update { it.copy(devTools = it.devTools.copy(privilegedRunning = true, privilegedTestResult = null)) }
+        viewModelScope.launch(Dispatchers.IO) {
+            val request = when (route.route) {
+                PrivilegeRoute.ROOT -> PrivilegeRequest(route.route, route.level, command = "id")
+                else -> PrivilegeRequest(route.route, route.level, argv = listOf("id"))
+            }
+            val result = PrivilegeController.execute(request, route, devTools.privilegedOptIns[route.route] == true)
+            val text = when (result.outcome) {
+                PrivilegeOutcome.SUCCESS -> result.stdout.trim().ifBlank { "exit 0" }
+                PrivilegeOutcome.TIMEOUT -> result.error ?: "timeout"
+                PrivilegeOutcome.DENIED -> result.error ?: "denied"
+                PrivilegeOutcome.ERROR -> {
+                    val base = result.error ?: "error"
+                    if (result.stderr.isNotBlank()) "$base: ${result.stderr.trim()}" else base
+                }
+            }
+            withContext(Dispatchers.Main) {
+                _state.update {
+                    it.copy(
+                        devTools = it.devTools.copy(
+                            privilegedRunning = false,
+                            privilegedTestResult = text,
+                            privilegedLog = PrivilegeEventLog.snapshot(),
+                        ),
+                    )
+                }
+            }
+        }
+    }
+
+    fun clearPrivilegedLog() {
+        PrivilegeEventLog.clear()
+        _state.update {
+            it.copy(
+                devTools = it.devTools.copy(privilegedLog = emptyList()),
+                toastMessage = str(R.string.devtools_privilege_log_cleared),
             )
         }
     }

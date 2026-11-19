@@ -28,6 +28,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -44,6 +45,11 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.mobileharness.code.R
 import androidx.compose.ui.res.stringResource
+import com.mobileharness.code.device.PrivilegeLevel
+import com.mobileharness.code.device.PrivilegeLogEntry
+import com.mobileharness.code.device.PrivilegeRoute
+import com.mobileharness.code.device.PrivilegeRouteState
+import com.mobileharness.code.device.PrivilegeStage
 import com.mobileharness.code.devtools.CrashRecord
 import com.mobileharness.code.devtools.CpuUsage
 import com.mobileharness.code.devtools.DeviceInfoSnapshot
@@ -69,6 +75,11 @@ data class DevToolsState(
     val routingLog: List<RouteLogEntry> = emptyList(),
     val mcpToolLog: List<McpToolLogEntry> = emptyList(),
     val sshLog: List<SshLogEntry> = emptyList(),
+    val privilegedRoutes: List<PrivilegeRouteState> = emptyList(),
+    val privilegedOptIns: Map<PrivilegeRoute, Boolean> = emptyMap(),
+    val privilegedLog: List<PrivilegeLogEntry> = emptyList(),
+    val privilegedTestResult: String? = null,
+    val privilegedRunning: Boolean = false,
     val refreshedAtMillis: Long? = null,
 )
 
@@ -80,6 +91,10 @@ fun DeveloperToolsContent(
     onClearRoutingLog: () -> Unit = {},
     onClearMcpToolLog: () -> Unit = {},
     onClearSshLog: () -> Unit = {},
+    onTogglePrivilegeRoute: (PrivilegeRoute, Boolean) -> Unit = { _, _ -> },
+    onRequestShizukuPermission: () -> Unit = {},
+    onRunPrivilegeTest: () -> Unit = {},
+    onClearPrivilegedLog: () -> Unit = {},
 ) {
     Column {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
@@ -189,6 +204,206 @@ fun DeveloperToolsContent(
                 Icon(Icons.Default.DeleteSweep, null, Modifier.size(17.dp))
                 Spacer(Modifier.width(7.dp))
                 Text(stringResource(R.string.devtools_clear_ssh_log))
+            }
+        }
+
+        PhoneControlCard(
+            state = state,
+            onTogglePrivilegeRoute = onTogglePrivilegeRoute,
+            onRequestShizukuPermission = onRequestShizukuPermission,
+            onRunPrivilegeTest = onRunPrivilegeTest,
+            onClearPrivilegedLog = onClearPrivilegedLog,
+        )
+    }
+}
+
+@Composable
+private fun PhoneControlCard(
+    state: DevToolsState,
+    onTogglePrivilegeRoute: (PrivilegeRoute, Boolean) -> Unit,
+    onRequestShizukuPermission: () -> Unit,
+    onRunPrivilegeTest: () -> Unit,
+    onClearPrivilegedLog: () -> Unit,
+) {
+    DevToolsCard(stringResource(R.string.devtools_phone_control)) {
+        Text(
+            stringResource(R.string.devtools_phone_control_subtitle),
+            fontSize = 12.sp,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Spacer(Modifier.height(10.dp))
+
+        if (state.privilegedRoutes.isEmpty()) {
+            DevToolsHint(stringResource(R.string.devtools_not_loaded))
+        } else {
+            state.privilegedRoutes.forEach { routeState ->
+                PrivilegeRouteRow(
+                    routeState = routeState,
+                    optIn = state.privilegedOptIns[routeState.route] == true,
+                    onToggle = { enabled -> onTogglePrivilegeRoute(routeState.route, enabled) },
+                    onRequestPermission = onRequestShizukuPermission,
+                    requestPermissionVisible = routeState.route == PrivilegeRoute.SHIZUKU &&
+                        routeState.available && !routeState.authorized,
+                )
+            }
+        }
+
+        Spacer(Modifier.height(10.dp))
+        OutlinedButton(
+            onClick = onRunPrivilegeTest,
+            enabled = !state.privilegedRunning,
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            if (state.privilegedRunning) {
+                CircularProgressIndicator(Modifier.size(16.dp), strokeWidth = 2.dp)
+            }
+            Spacer(Modifier.width(7.dp))
+            Text(
+                if (state.privilegedRunning) stringResource(R.string.devtools_privilege_running)
+                else stringResource(R.string.devtools_privilege_test),
+            )
+        }
+
+        state.privilegedTestResult?.let { result ->
+            Spacer(Modifier.height(8.dp))
+            DevToolsInfoRow(stringResource(R.string.devtools_privilege_test_result), result)
+        }
+
+        Spacer(Modifier.height(12.dp))
+        Text(
+            stringResource(R.string.devtools_privilege_log),
+            fontWeight = FontWeight.SemiBold,
+            fontSize = 13.sp,
+        )
+        Spacer(Modifier.height(6.dp))
+        if (state.privilegedLog.isEmpty()) {
+            DevToolsHint(stringResource(R.string.devtools_privilege_no_events))
+        } else {
+            state.privilegedLog.forEach { entry -> PrivilegeLogEntryRow(entry) }
+        }
+        Spacer(Modifier.height(10.dp))
+        OutlinedButton(
+            onClick = onClearPrivilegedLog,
+            enabled = state.privilegedLog.isNotEmpty(),
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            Icon(Icons.Default.DeleteSweep, null, Modifier.size(17.dp))
+            Spacer(Modifier.width(7.dp))
+            Text(stringResource(R.string.devtools_privilege_clear_log))
+        }
+    }
+}
+
+@Composable
+private fun PrivilegeRouteRow(
+    routeState: PrivilegeRouteState,
+    optIn: Boolean,
+    onToggle: (Boolean) -> Unit,
+    onRequestPermission: () -> Unit,
+    requestPermissionVisible: Boolean,
+) {
+    Column(Modifier.fillMaxWidth().padding(vertical = 6.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f)) {
+                Text(
+                    privilegeRouteLabel(routeState.route),
+                    fontWeight = FontWeight.SemiBold,
+                    fontSize = 13.sp,
+                )
+                Text(
+                    privilegeRouteStatus(routeState),
+                    fontSize = 11.sp,
+                    color = if (routeState.usable) MaterialTheme.colorScheme.primary
+                    else MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            Switch(
+                checked = optIn,
+                onCheckedChange = onToggle,
+                enabled = routeState.available,
+            )
+        }
+        if (requestPermissionVisible) {
+            TextButton(onClick = onRequestPermission) {
+                Text(stringResource(R.string.devtools_privilege_request_permission), fontSize = 12.sp)
+            }
+        }
+    }
+}
+
+@Composable
+private fun privilegeRouteLabel(route: PrivilegeRoute): String = when (route) {
+    PrivilegeRoute.SHIZUKU -> stringResource(R.string.devtools_privilege_shizuku)
+    PrivilegeRoute.WIRELESS_ADB -> stringResource(R.string.devtools_privilege_wireless_adb)
+    PrivilegeRoute.ROOT -> stringResource(R.string.devtools_privilege_root)
+}
+
+@Composable
+private fun privilegeRouteStatus(state: PrivilegeRouteState): String {
+    val availability = if (state.available) {
+        stringResource(R.string.devtools_privilege_available)
+    } else {
+        stringResource(R.string.devtools_privilege_unavailable)
+    }
+    val grant = if (state.available) {
+        if (state.authorized) stringResource(R.string.devtools_privilege_granted)
+        else stringResource(R.string.devtools_privilege_not_granted)
+    } else {
+        ""
+    }
+    val level = when (state.level) {
+        PrivilegeLevel.NONE -> stringResource(R.string.devtools_privilege_level_none)
+        PrivilegeLevel.SHELL -> stringResource(R.string.devtools_privilege_level_shell)
+        PrivilegeLevel.ROOT -> stringResource(R.string.devtools_privilege_level_root)
+    }
+    return listOf(availability, grant, level).filter { it.isNotBlank() }.joinToString(" · ")
+}
+
+@Composable
+private fun PrivilegeLogEntryRow(entry: PrivilegeLogEntry) {
+    val stageLabel = when (entry.stage) {
+        PrivilegeStage.DETECTED -> stringResource(R.string.devtools_privilege_stage_detected)
+        PrivilegeStage.OPT_IN_CHANGED -> stringResource(R.string.devtools_privilege_stage_opt_in_changed)
+        PrivilegeStage.PERMISSION_REQUESTED -> stringResource(R.string.devtools_privilege_stage_permission_requested)
+        PrivilegeStage.PERMISSION_GRANTED -> stringResource(R.string.devtools_privilege_stage_permission_granted)
+        PrivilegeStage.PERMISSION_DENIED -> stringResource(R.string.devtools_privilege_stage_permission_denied)
+        PrivilegeStage.EXEC -> stringResource(R.string.devtools_privilege_stage_exec)
+        PrivilegeStage.DENIED -> stringResource(R.string.devtools_privilege_stage_denied)
+        PrivilegeStage.TIMEOUT -> stringResource(R.string.devtools_privilege_stage_timeout)
+        PrivilegeStage.ERROR -> stringResource(R.string.devtools_privilege_stage_error)
+        PrivilegeStage.SUCCESS -> stringResource(R.string.devtools_privilege_stage_success)
+    }
+    val isError = entry.stage == PrivilegeStage.ERROR || entry.stage == PrivilegeStage.DENIED ||
+        entry.stage == PrivilegeStage.TIMEOUT || entry.stage == PrivilegeStage.PERMISSION_DENIED
+    Surface(
+        modifier = Modifier.fillMaxWidth().padding(vertical = 3.dp),
+        shape = RoundedCornerShape(10.dp),
+        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f),
+    ) {
+        Column(Modifier.padding(horizontal = 10.dp, vertical = 7.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    privilegeRouteLabel(entry.route),
+                    fontWeight = FontWeight.SemiBold,
+                    fontSize = 12.sp,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f),
+                )
+                Text(
+                    stageLabel,
+                    fontSize = 11.sp,
+                    color = if (isError) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            entry.detail?.let { detail ->
+                Text(
+                    detail,
+                    fontSize = 11.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                )
             }
         }
     }

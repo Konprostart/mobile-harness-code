@@ -749,6 +749,33 @@ class AppPreferences(private val context: Context) {
         }.getOrDefault(emptyList())
     }
 
+    /** Opt-in flags for the privileged "Phone Control" routes (all default off, fail-closed). */
+    var privilegedShizukuOptIn: Boolean
+        get() = preferences.getBoolean("privileged_shizuku_opt_in", false)
+        set(value) { preferences.edit().putBoolean("privileged_shizuku_opt_in", value).apply() }
+
+    var privilegedWirelessAdbOptIn: Boolean
+        get() = preferences.getBoolean("privileged_wireless_adb_opt_in", false)
+        set(value) { preferences.edit().putBoolean("privileged_wireless_adb_opt_in", value).apply() }
+
+    var privilegedRootOptIn: Boolean
+        get() = preferences.getBoolean("privileged_root_opt_in", false)
+        set(value) { preferences.edit().putBoolean("privileged_root_opt_in", value).apply() }
+
+    fun privilegedOptIn(route: com.mobileharness.code.device.PrivilegeRoute): Boolean = when (route) {
+        com.mobileharness.code.device.PrivilegeRoute.SHIZUKU -> privilegedShizukuOptIn
+        com.mobileharness.code.device.PrivilegeRoute.WIRELESS_ADB -> privilegedWirelessAdbOptIn
+        com.mobileharness.code.device.PrivilegeRoute.ROOT -> privilegedRootOptIn
+    }
+
+    fun setPrivilegedOptIn(route: com.mobileharness.code.device.PrivilegeRoute, enabled: Boolean) {
+        when (route) {
+            com.mobileharness.code.device.PrivilegeRoute.SHIZUKU -> privilegedShizukuOptIn = enabled
+            com.mobileharness.code.device.PrivilegeRoute.WIRELESS_ADB -> privilegedWirelessAdbOptIn = enabled
+            com.mobileharness.code.device.PrivilegeRoute.ROOT -> privilegedRootOptIn = enabled
+        }
+    }
+
     private fun String.toChatTitle(): String {
         val clean = replace(Regex("\\s+"), " ").trim()
         return if (clean.length <= 42) clean else clean.take(39).trimEnd() + "…"
@@ -770,6 +797,9 @@ class AppPreferences(private val context: Context) {
             "invite_code",
             "redeemed_invite_code",
             "invite_share_count",
+            "privileged_shizuku_opt_in",
+            "privileged_wireless_adb_opt_in",
+            "privileged_root_opt_in",
         )
     }
 }

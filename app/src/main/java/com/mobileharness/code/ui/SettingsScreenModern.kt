@@ -117,6 +117,7 @@ import com.mobileharness.code.model.ModelPresets
 import com.mobileharness.code.model.ProviderKind
 import com.mobileharness.code.model.ProviderProfile
 import com.mobileharness.code.model.providersForAgent
+import com.mobileharness.code.device.PrivilegeRoute
 import com.mobileharness.code.mcp.McpServerConfig
 import com.mobileharness.code.sidekick.RagDocument
 import com.mobileharness.code.network.ConnectionValidation
@@ -217,6 +218,10 @@ fun SettingsScreen(
     onDismissSshCommandResult: () -> Unit = {},
     onClearDevToolsSshLog: () -> Unit = {},
     onOpenSshTerminal: (String) -> Unit = {},
+    onTogglePrivilegeRoute: (PrivilegeRoute, Boolean) -> Unit = { _, _ -> },
+    onRequestShizukuPermission: () -> Unit = {},
+    onRunPrivilegeTest: () -> Unit = {},
+    onClearPrivilegedLog: () -> Unit = {},
     onRecordInviteShare: () -> Unit = {},
     onRedeemInvite: (String) -> Unit = {},
     onClearInviteRedeemMessage: () -> Unit = {},
@@ -506,6 +511,10 @@ fun SettingsScreen(
                         onClearRoutingLog = onClearDevToolsRoutingLog,
                         onClearMcpToolLog = onClearDevToolsMcpToolLog,
                         onClearSshLog = onClearDevToolsSshLog,
+                        onTogglePrivilegeRoute = onTogglePrivilegeRoute,
+                        onRequestShizukuPermission = onRequestShizukuPermission,
+                        onRunPrivilegeTest = onRunPrivilegeTest,
+                        onClearPrivilegedLog = onClearPrivilegedLog,
                     )
                 }
             }
