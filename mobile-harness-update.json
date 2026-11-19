@@ -1,12 +1,12 @@
 {
-  "versionCode": 21,
-  "versionName": "1.3.7",
-  "notes": "Mobile Harness Code — independent fork of Mobile Harness. New: Phone Control (Developer Tools) adds a strict, opt-in privileged shell layer — Shizuku (shell/root through the Shizuku service), Wireless ADB (detected; SPAKE2 pairing marked not-implemented) and root via the device su binary — with a fail-closed policy (opt-in -> available -> authorized -> level -> sanitized command), bounded output and timeouts, a no-secrets event log, and a test command. libsu (JitPack-hosted) and any LGPL/GPL code are deliberately excluded; the Shizuku API is MIT. Existing tools are untouched: providers + AI router/fallback, local model (Ollama), MCP client, RAG, SSH client/tunnel/TOFU/PTY terminal, in-app update, Telegram bot, multimodal Sidekick, Material 3 dynamic color, Eco Mode, Developer Tools, Share & Invite. This APK is SIGNED (V1+V2+V3); install mobile-harness-online.apk.",
+  "versionCode": 22,
+  "versionName": "1.3.8",
+  "notes": "Mobile Harness Code — independent fork of Mobile Harness. New: a much broader curated model catalog in the provider picker — strong, balanced and fast/cheap (and :free) models across Anthropic, DeepSeek, Kimi/Moonshot, OpenRouter (Claude/DeepSeek/OpenAI/Gemini/Llama/Qwen/Mistral/Grok/Kimi), NVIDIA NIM and OpenAI-compatible providers — so you can rotate and combine through the existing OpenRouter provider order, the Sidekick fallback chain and the local-model fallback. Every prior model is kept; no wire protocol, base URL, provider offering or saved key changed. OpenCode Zen stays unoffered (its gateway rejects third-party clients); its hosted models are reachable via the OpenRouter presets. Existing tools untouched: providers + AI router/fallback, local model (Ollama), MCP client, RAG, SSH client/tunnel/TOFU/PTY terminal, Phone Control (Shizuku/Wireless ADB/root), in-app update, Telegram bot, multimodal Sidekick, Eco Mode, Share & Invite. This APK is SIGNED (V1+V2+V3); install mobile-harness-online.apk.",
   "artifacts": {
     "online": {
-      "url": "https://github.com/Konprostart/mobile-harness-code/releases/download/v1.3.7/mobile-harness-online.apk",
-      "sha256": "04dbfe80c328a396eec8b4c08f214ca72a18efe93f17afe6ca3161f37090abc6",
-      "sizeBytes": 99315607
+      "url": "https://github.com/Konprostart/mobile-harness-code/releases/download/v1.3.8/mobile-harness-online.apk",
+      "sha256": "5e04d0fd6a7e92c176307dbad86f0671d1f1e6e79a62f399bc5fe7982d741a5a",
+      "sizeBytes": 99319703
     }
   }
 }
