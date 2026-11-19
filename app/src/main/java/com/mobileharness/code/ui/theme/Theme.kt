@@ -82,7 +82,9 @@ internal fun shouldUseDynamicColor(sdkInt: Int, dynamicColorEnabled: Boolean): B
 @Composable
 fun PocketTheme(
     themeMode: AppThemeMode = AppThemeMode.SYSTEM,
-    dynamicColor: Boolean = true,
+    // Off by default: dynamic color (Monet) follows the system wallpaper, which can make the
+    // theme appear to "change on its own". The user opts in explicitly from Settings → Appearance.
+    dynamicColor: Boolean = false,
     content: @Composable () -> Unit,
 ) {
     val isDark = when (themeMode) {

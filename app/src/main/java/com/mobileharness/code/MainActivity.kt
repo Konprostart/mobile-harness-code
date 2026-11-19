@@ -60,7 +60,7 @@ class MainActivity : ComponentActivity() {
                 LocalLayoutDirection provides layoutDirection,
                 LocalActivityResultRegistryOwner provides this,
             ) {
-                PocketTheme(themeMode = state.themeMode) {
+                PocketTheme(themeMode = state.themeMode, dynamicColor = state.dynamicColorEnabled) {
                     PocketDevApp(vm)
                 }
             }

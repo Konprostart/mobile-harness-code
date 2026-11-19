@@ -478,7 +478,11 @@ fun PocketDevApp(viewModel: MainViewModel = viewModel()) {
         )
         else -> RootScreenHost(state, viewModel, projectsListState)
         }
-        SidekickFloatingOverlay(visible = showSidekickFab)
+        SidekickFloatingOverlay(
+            visible = showSidekickFab,
+            fabOffset = state.sidekickFabOffset,
+            onFabOffsetChange = viewModel::setSidekickFabOffset,
+        )
     }
 }
 
@@ -2598,6 +2602,7 @@ private fun RootScreenHost(
                     onDiscoverModels = viewModel::discoverModels,
                     onValidateProvider = viewModel::validateProvider,
                     onSetThemeMode = viewModel::setThemeMode,
+                    onSetDynamicColor = viewModel::setDynamicColorEnabled,
                     onSetLanguage = viewModel::setLanguage,
                     onPing = viewModel::pingApi,
                     onClearTerminal = viewModel::clearTerminal,

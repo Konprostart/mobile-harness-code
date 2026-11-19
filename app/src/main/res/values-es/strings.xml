@@ -50,6 +50,8 @@
     <string name="theme_dark_subtitle">Tema oscuro</string>
     <string name="theme_light_subtitle">Tema claro</string>
     <string name="theme_system_subtitle">Seguir el sistema</string>
+    <string name="theme_dynamic_color">Color dinámico (Monet)</string>
+    <string name="theme_dynamic_color_subtitle">Seguir los colores del fondo en Android 12+</string>
 
     <!-- Language Selector -->
     <string name="language_choose_title">Seleccionar idioma</string>

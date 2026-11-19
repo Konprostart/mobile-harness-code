@@ -114,6 +114,14 @@ class AppPreferences(private val context: Context) {
         get() = preferences.getString("theme_mode", "dark") ?: "dark"
         set(value) { preferences.edit().putString("theme_mode", value).apply() }
 
+    /**
+     * Whether Material 3 dynamic color (Monet) follows the system wallpaper on Android 12+.
+     * Off by default so the theme is predictable and never shifts on its own.
+     */
+    var dynamicColorEnabled: Boolean
+        get() = preferences.getBoolean("dynamic_color_enabled", false)
+        set(value) { preferences.edit().putBoolean("dynamic_color_enabled", value).apply() }
+
     /** Whether the on-device Gradle heap follows the RAM-derived recommendation (true) or a manual override. */
     var gradleMemoryAuto: Boolean
         get() = preferences.getBoolean("gradle_memory_auto", true)
@@ -171,6 +179,11 @@ class AppPreferences(private val context: Context) {
     var sidekickFloatingButton: Boolean
         get() = preferences.getBoolean("sidekick_floating_button", false)
         set(value) { preferences.edit().putBoolean("sidekick_floating_button", value).apply() }
+
+    /** Vertical position of the floating Sidekick button, normalized 0f (top) .. 1f (bottom). */
+    var sidekickFabOffset: Float
+        get() = preferences.getFloat("sidekick_fab_offset", 0.5f)
+        set(value) { preferences.edit().putFloat("sidekick_fab_offset", value.coerceIn(0f, 1f)).apply() }
 
     /** When true the assistant uses its own provider instead of the coding agent's. */
     var sidekickUseCustomProvider: Boolean

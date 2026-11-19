@@ -526,6 +526,7 @@ data class AppUiState(
     val provider: ProviderProfile = ProviderProfile(ProviderKind.ANTHROPIC),
     val activeApiKeyName: String? = null,
     val themeMode: com.mobileharness.code.ui.theme.AppThemeMode = com.mobileharness.code.ui.theme.AppThemeMode.DARK,
+    val dynamicColorEnabled: Boolean = false,
     val languageCode: String = "system",
     val apiPingStatus: ApiPingStatus = ApiPingStatus.IDLE,
     val apiPingMessage: String? = null,
@@ -651,6 +652,7 @@ data class AppUiState(
     val serverSyncConfig: ServerSyncConfig = ServerSyncConfig(),
     val serverSyncDukoiTokenConfigured: Boolean = false,
     val sidekickFloatingButton: Boolean = false,
+    val sidekickFabOffset: Float = 0.5f,
     val sidekickUseCustomProvider: Boolean = false,
     val sidekickBackgroundResearch: Boolean = false,
     val sidekickResearchSources: String = "",
@@ -758,6 +760,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             antigravityEffort = preferences.antigravityEffort,
             themeMode = runCatching { com.mobileharness.code.ui.theme.AppThemeMode.valueOf(preferences.themeMode.uppercase()) }
                 .getOrDefault(com.mobileharness.code.ui.theme.AppThemeMode.DARK),
+            dynamicColorEnabled = preferences.dynamicColorEnabled,
             languageCode = preferences.languageCode,
             projects = preferences.loadProjects(),
             githubAuthStatus = GitHubAuthStatus.DISCONNECTED,
@@ -777,6 +780,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             serverSyncConfig = loadServerSyncConfig().copy(dukoiToken = ""),
             serverSyncDukoiTokenConfigured = loadServerSyncConfig().dukoiToken.isNotBlank(),
             sidekickFloatingButton = preferences.sidekickFloatingButton,
+            sidekickFabOffset = preferences.sidekickFabOffset,
             sidekickUseCustomProvider = preferences.sidekickUseCustomProvider,
             sidekickBackgroundResearch = preferences.sidekickBackgroundResearch,
             sidekickResearchSources = preferences.sidekickResearchSources,
@@ -2598,6 +2602,16 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     fun setThemeMode(mode: com.mobileharness.code.ui.theme.AppThemeMode) {
         preferences.themeMode = mode.name.lowercase()
         _state.update { it.copy(themeMode = mode) }
+    }
+
+    fun setDynamicColorEnabled(enabled: Boolean) {
+        preferences.dynamicColorEnabled = enabled
+        _state.update { it.copy(dynamicColorEnabled = enabled) }
+    }
+
+    fun setSidekickFabOffset(offset: Float) {
+        preferences.sidekickFabOffset = offset
+        _state.update { it.copy(sidekickFabOffset = offset.coerceIn(0f, 1f)) }
     }
 
     fun setLanguage(code: String) {

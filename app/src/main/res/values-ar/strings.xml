@@ -50,6 +50,8 @@
     <string name="theme_dark_subtitle">المظهر الداكن</string>
     <string name="theme_light_subtitle">المظهر الفاتح</string>
     <string name="theme_system_subtitle">متابعة النظام</string>
+    <string name="theme_dynamic_color">اللون الديناميكي (Monet)</string>
+    <string name="theme_dynamic_color_subtitle">مطابقة ألوان الخلفية على Android 12+</string>
 
     <!-- Language Selector -->
     <string name="language_choose_title">اختر اللغة</string>

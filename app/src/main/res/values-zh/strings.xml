@@ -50,6 +50,8 @@
     <string name="theme_dark_subtitle">深色模式</string>
     <string name="theme_light_subtitle">浅色模式</string>
     <string name="theme_system_subtitle">跟随系统</string>
+    <string name="theme_dynamic_color">动态颜色 (Monet)</string>
+    <string name="theme_dynamic_color_subtitle">在 Android 12+ 上跟随壁纸颜色</string>
 
     <!-- Language Selector -->
     <string name="language_choose_title">选择语言</string>

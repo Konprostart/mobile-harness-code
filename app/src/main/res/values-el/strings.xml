@@ -50,6 +50,8 @@
     <string name="theme_dark_subtitle">Σκούρο θέμα</string>
     <string name="theme_light_subtitle">Ανοιχτό θέμα</string>
     <string name="theme_system_subtitle">Όπως το σύστημα</string>
+    <string name="theme_dynamic_color">Δυναμικό χρώμα (Monet)</string>
+    <string name="theme_dynamic_color_subtitle">Ακολούθησε τα χρώματα ταπετσαρίας σε Android 12+</string>
 
     <!-- Language Selector -->
     <string name="language_choose_title">Επιλογή γλώσσας</string>

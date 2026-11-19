@@ -79,7 +79,7 @@ jobs:
           {
             "versionCode": ${VERSION_CODE},
             "versionName": "${VERSION_NAME}",
-            "notes": "Mobile Harness Code — independent fork of Mobile Harness. Material 3 dynamic color (Monet) themes, in-app update (download + SHA-256 verify + install), Telegram bot remote control, Sidekick assistant with floating button and background research, Eco Mode (Token Saver) with overnight throttling, Developer Tools (crash history + CPU monitor), session auto-recovery, Gradle memory tuning, release & signing pipeline, optional SSH/dukoi.com server sync, reproducible build + SBOM. This APK is SIGNED (V1+V2+V3); install mobile-harness-online.apk.",
+            "notes": "Mobile Harness Code — independent fork of Mobile Harness. Material 3 dynamic color (Monet) themes with a Light/Dark/System switch and an explicit dynamic-color toggle (off by default so the theme never changes on its own), a vertically draggable floating Sidekick button that remembers its position, in-app update (download + SHA-256 verify + install), Telegram bot remote control, Sidekick assistant with background research, Eco Mode (Token Saver) with overnight throttling, Developer Tools (crash history + CPU monitor), session auto-recovery, Gradle memory tuning, release & signing pipeline, optional SSH/dukoi.com server sync, reproducible build + SBOM. This APK is SIGNED (V1+V2+V3); install mobile-harness-online.apk.",
             "artifacts": {
               "online": {
                 "url": "${URL}",

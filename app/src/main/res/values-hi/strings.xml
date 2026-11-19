@@ -50,6 +50,8 @@
     <string name="theme_dark_subtitle">डार्क थीम</string>
     <string name="theme_light_subtitle">लाइट थीम</string>
     <string name="theme_system_subtitle">सिस्टम के अनुसार</string>
+    <string name="theme_dynamic_color">डायनामिक रंग (Monet)</string>
+    <string name="theme_dynamic_color_subtitle">Android 12+ पर वॉलपेपर के रंगों का पालन करें</string>
 
     <!-- Language Selector -->
     <string name="language_choose_title">भाषा चुनें</string>

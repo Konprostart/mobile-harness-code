@@ -50,6 +50,8 @@
     <string name="theme_dark_subtitle">Темная тема</string>
     <string name="theme_light_subtitle">Светлая тема</string>
     <string name="theme_system_subtitle">Как в системе</string>
+    <string name="theme_dynamic_color">Динамический цвет (Monet)</string>
+    <string name="theme_dynamic_color_subtitle">Следовать цветам обоев на Android 12+</string>
 
     <!-- Language Selector -->
     <string name="language_choose_title">Выберите язык</string>
