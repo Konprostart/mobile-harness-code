@@ -292,6 +292,22 @@ class AppPreferences(private val context: Context) {
         return SshProfileCodec.fromJson(raw)
     }
 
+    // --- Share & Invite (local scaffolding for the "soon" crypto rewards) ---------------
+    /** Personal invite code (e.g. `MHC-XXXXXX`), generated once and kept on this device. */
+    var inviteCode: String
+        get() = preferences.getString("invite_code", "") ?: ""
+        set(value) { preferences.edit().putString("invite_code", value).apply() }
+
+    /** Friend's invite code bound to this install (one-time); blank until redeemed. */
+    var redeemedInviteCode: String
+        get() = preferences.getString("redeemed_invite_code", "") ?: ""
+        set(value) { preferences.edit().putString("redeemed_invite_code", value).apply() }
+
+    /** Local count of share/copy actions for the referral status card. */
+    var inviteShareCount: Int
+        get() = preferences.getInt("invite_share_count", 0)
+        set(value) { preferences.edit().putInt("invite_share_count", value).apply() }
+
     /** Persists the assistant's independent provider profile (the API key is reused from the vault). */
     fun saveSidekickProvider(profile: ProviderProfile) {
         preferences.edit()
@@ -751,6 +767,9 @@ class AppPreferences(private val context: Context) {
             "backup_feature_seen",
             "mcp_servers_json",
             "ssh_profiles_json",
+            "invite_code",
+            "redeemed_invite_code",
+            "invite_share_count",
         )
     }
 }

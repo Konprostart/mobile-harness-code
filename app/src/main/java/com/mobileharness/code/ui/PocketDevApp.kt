@@ -2676,6 +2676,9 @@ private fun RootScreenHost(
                     onDismissSshCommandResult = viewModel::clearSshCommandResult,
                     onClearDevToolsSshLog = viewModel::clearDevToolsSshLog,
                     onOpenSshTerminal = { sshTerminalProfileId = it },
+                    onRecordInviteShare = viewModel::recordInviteShare,
+                    onRedeemInvite = viewModel::redeemInviteCode,
+                    onClearInviteRedeemMessage = viewModel::clearInviteRedeemMessage,
                 )
             }
         }

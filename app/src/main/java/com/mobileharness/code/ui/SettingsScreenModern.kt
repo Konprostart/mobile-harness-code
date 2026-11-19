@@ -56,6 +56,7 @@ import androidx.compose.material.icons.filled.PrivacyTip
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.SmartToy
 import androidx.compose.material.icons.filled.Terminal
 import androidx.compose.material.icons.filled.Tune
@@ -132,7 +133,7 @@ import com.mobileharness.code.ui.theme.AppThemeMode
 import com.mobileharness.code.ui.theme.PocketOrange
 import kotlinx.coroutines.launch
 
-private enum class SettingsSection { APPEARANCE, LANGUAGE, TOOLS, RUNTIME, DIAGNOSTICS, DEVELOPER_TOOLS, BACKUP, UPDATE_CHANNEL, UPDATES, GRADLE_MEMORY, RELEASE_SIGNING, SERVER_SYNC, TELEGRAM, SIDEKICK, MCP_SERVERS, ECO_MODE, RAG, SSH }
+private enum class SettingsSection { APPEARANCE, LANGUAGE, TOOLS, RUNTIME, DIAGNOSTICS, DEVELOPER_TOOLS, BACKUP, UPDATE_CHANNEL, UPDATES, GRADLE_MEMORY, RELEASE_SIGNING, SERVER_SYNC, TELEGRAM, SIDEKICK, MCP_SERVERS, ECO_MODE, RAG, SSH, SHARE_INVITE }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -216,6 +217,9 @@ fun SettingsScreen(
     onDismissSshCommandResult: () -> Unit = {},
     onClearDevToolsSshLog: () -> Unit = {},
     onOpenSshTerminal: (String) -> Unit = {},
+    onRecordInviteShare: () -> Unit = {},
+    onRedeemInvite: (String) -> Unit = {},
+    onClearInviteRedeemMessage: () -> Unit = {},
 ) {
     val context = LocalContext.current
     val installPermissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) {
@@ -690,6 +694,26 @@ fun SettingsScreen(
                         onRunCommand = onRunSshCommand,
                         onDismissCommandResult = onDismissSshCommandResult,
                         onOpenTerminal = onOpenSshTerminal,
+                    )
+                }
+            }
+
+            item {
+                SettingsAccordion(
+                    title = stringResource(R.string.share_invite_title),
+                    subtitle = stringResource(R.string.share_invite_subtitle),
+                    icon = Icons.Default.Share,
+                    expanded = expanded == SettingsSection.SHARE_INVITE,
+                    onClick = { toggle(SettingsSection.SHARE_INVITE) },
+                ) {
+                    ShareInviteSettings(
+                        inviteCode = state.inviteCode,
+                        redeemedInviteCode = state.redeemedInviteCode,
+                        inviteShareCount = state.inviteShareCount,
+                        inviteRedeemMessage = state.inviteRedeemMessage,
+                        onRecordShare = onRecordInviteShare,
+                        onRedeemInvite = onRedeemInvite,
+                        onClearRedeemMessage = onClearInviteRedeemMessage,
                     )
                 }
             }

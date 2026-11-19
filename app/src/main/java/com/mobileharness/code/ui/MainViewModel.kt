@@ -71,6 +71,7 @@ import com.mobileharness.code.network.ssh.SshShellSession
 import com.mobileharness.code.network.ssh.SshStage
 import com.mobileharness.code.network.ssh.sshSecretStore
 import com.mobileharness.code.sidekick.RagDocument
+import com.mobileharness.code.share.InviteCode
 import com.mobileharness.code.terminal.TerminalCell
 import com.mobileharness.code.network.ConnectionValidation
 import com.mobileharness.code.network.ModelDiscoveryResult
@@ -694,6 +695,10 @@ data class AppUiState(
     val sshRunningTunnelIds: Set<String> = emptySet(),
     val sshPendingTofu: SshTofuPrompt? = null,
     val sshCommandResult: SshCommandResult? = null,
+    val inviteCode: String = "",
+    val redeemedInviteCode: String = "",
+    val inviteShareCount: Int = 0,
+    val inviteRedeemMessage: String? = null,
 )
 
 /** A first-use server fingerprint awaiting explicit user confirmation (TOFU). */
@@ -845,6 +850,11 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             ragEnabled = preferences.ragEnabled,
             ragDocuments = preferences.loadRagDocuments(),
             sshProfiles = preferences.loadSshProfiles(),
+            inviteCode = preferences.inviteCode.ifBlank {
+                InviteCode.generate().also { preferences.inviteCode = it }
+            },
+            redeemedInviteCode = preferences.redeemedInviteCode,
+            inviteShareCount = preferences.inviteShareCount,
         ),
     ).also {
         if (!preferences.onboardingComplete) preferences.whatsNewSeenVersionCode = BuildConfig.VERSION_CODE
@@ -1009,6 +1019,42 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     fun setEcoMode(enabled: Boolean) {
         preferences.ecoModeEnabled = enabled
         _state.update { it.copy(ecoModeEnabled = enabled) }
+    }
+
+    // --- Share & Invite (local scaffolding for the "soon" crypto rewards) ----------------
+    /** Records a share/copy action in the local referral counter. */
+    fun recordInviteShare() {
+        val next = preferences.inviteShareCount + 1
+        preferences.inviteShareCount = next
+        _state.update { it.copy(inviteShareCount = next) }
+    }
+
+    /** Validates and binds a friend's invite code (one-time, local-only). */
+    fun redeemInviteCode(raw: String) {
+        if (_state.value.redeemedInviteCode.isNotBlank()) {
+            _state.update { it.copy(inviteRedeemMessage = str(R.string.invite_redeem_already)) }
+            return
+        }
+        if (!InviteCode.isValid(raw)) {
+            _state.update { it.copy(inviteRedeemMessage = str(R.string.invite_redeem_invalid)) }
+            return
+        }
+        if (InviteCode.isSelfReferral(raw, _state.value.inviteCode)) {
+            _state.update { it.copy(inviteRedeemMessage = str(R.string.invite_redeem_self)) }
+            return
+        }
+        val normalized = InviteCode.normalize(raw)
+        preferences.redeemedInviteCode = normalized
+        _state.update {
+            it.copy(
+                redeemedInviteCode = normalized,
+                inviteRedeemMessage = str(R.string.invite_redeem_success),
+            )
+        }
+    }
+
+    fun clearInviteRedeemMessage() {
+        _state.update { it.copy(inviteRedeemMessage = null) }
     }
 
     // --- Document base (RAG, Faza 4) -------------------------------------------------------
