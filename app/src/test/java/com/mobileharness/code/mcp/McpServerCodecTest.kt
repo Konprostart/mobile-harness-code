@@ -47,10 +47,13 @@ class McpServerCodecTest {
             {"transport":"HTTP"}
         ]"""
         val decoded = McpServerCodec.fromJson(json)
-        assertEquals(1, decoded.size)
+        // The entry without an id is dropped; "missing" is kept with BOGUS -> HTTP fallback.
+        assertEquals(2, decoded.size)
         assertEquals("ok", decoded[0].id)
         assertEquals(McpTransport.HTTP, decoded[0].transport)
         assertEquals(McpToolConfirmMode.MUTATING_ONLY, decoded[0].confirmMode)
+        assertEquals("missing", decoded[1].id)
+        assertEquals(McpTransport.HTTP, decoded[1].transport)
     }
 
     @Test

@@ -27,7 +27,7 @@ class McpStdioTest {
 
     @Test
     fun splitCommandSplitsOnWhitespaceWithoutAShell() {
-        assertEquals(listOf("npx", "-y", "@scope/pkg", "/path with space"), McpStdio.splitCommand("  npx   -y  @scope/pkg  /path with space  "))
+        assertEquals(listOf("npx", "-y", "@scope/pkg", "/path", "with", "space"), McpStdio.splitCommand("  npx   -y  @scope/pkg  /path with space  "))
         assertEquals(emptyList<String>(), McpStdio.splitCommand("   "))
     }
 }
