@@ -683,4 +683,41 @@
     <string name="local_model_name_label">Model</string>
     <string name="local_model_name_hint">e.g. qwen2.5-coder:7b</string>
     <string name="local_model_note">The local model is tried only after the primary and fallback models fail with a transient error (rate limit, server error or timeout). The URL must be a local or private address — no API key is sent to it. Pull the model first, e.g. ollama pull qwen2.5-coder:7b.</string>
+    <!-- MCP (Model Context Protocol) servers -->
+    <string name="mcp_servers_title">MCP Servers</string>
+    <string name="mcp_servers_subtitle">Connect external or local tools the Sidekick assistant can call</string>
+    <string name="mcp_servers_empty">No MCP servers yet. Add one to give the assistant tools.</string>
+    <string name="mcp_add_server">Add MCP server</string>
+    <string name="mcp_servers_note">A server is only contacted when you tap Test or when the assistant invokes a tool. HTTPS is used for external servers; plain HTTP is allowed only for local or private addresses. The assistant never sends your provider API key to a server — only the optional per-server token below.</string>
+    <string name="mcp_test_list_tools">Test &amp; List Tools</string>
+    <string name="mcp_edit_server">Edit MCP server</string>
+    <string name="mcp_delete_server">Delete server</string>
+    <string name="mcp_name_label">Name</string>
+    <string name="mcp_transport_label">Transport</string>
+    <string name="mcp_url_label">Server URL</string>
+    <string name="mcp_command_label">Command</string>
+    <string name="mcp_command_hint">e.g. npx -y @modelcontextprotocol/server-filesystem /sdcard</string>
+    <string name="mcp_token_label">Bearer token (optional)</string>
+    <string name="mcp_token_hint">Server-specific token, never your provider API key</string>
+    <string name="mcp_confirm_label">Tool confirmation</string>
+    <string name="mcp_confirm_always">Always</string>
+    <string name="mcp_confirm_mutating">Mutating only</string>
+    <string name="mcp_confirm_never">Never</string>
+    <string name="mcp_token_note">The token is stored on this device only and is never sent to another server or included in backups.</string>
+    <string name="mcp_save">Save</string>
+    <string name="mcp_cancel">Cancel</string>
+    <string name="mcp_test_success">Connected — %1$d tools discovered.</string>
+    <string name="mcp_test_failed">MCP error: %1$s</string>
+    <string name="sidekick_mcp_tool_limit">The assistant reached its tool-call limit for this turn.</string>
+    <!-- Developer Tools: MCP tool log -->
+    <string name="devtools_mcp_tool_log">MCP tool log</string>
+    <string name="devtools_no_mcp_tool_events">No MCP tool events recorded yet.</string>
+    <string name="devtools_clear_mcp_tool_log">Clear MCP tool log</string>
+    <string name="devtools_mcp_tool_log_cleared">MCP tool log cleared</string>
+    <string name="devtools_mcp_stage_list">list</string>
+    <string name="devtools_mcp_stage_call">call</string>
+    <string name="devtools_mcp_stage_blocked">blocked</string>
+    <string name="devtools_mcp_stage_confirm">confirm</string>
+    <string name="devtools_mcp_stage_error">error</string>
+    <string name="devtools_mcp_stage_success">success</string>
 </resources>

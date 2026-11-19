@@ -52,6 +52,14 @@ import com.mobileharness.code.model.WorkspaceEntry
 import com.mobileharness.code.model.projectSlug
 import com.mobileharness.code.model.generateQuickChatIdentity
 import com.mobileharness.code.model.providerProtocolForAgent
+import com.mobileharness.code.mcp.McpClient
+import com.mobileharness.code.mcp.McpListResult
+import com.mobileharness.code.mcp.McpServerConfig
+import com.mobileharness.code.mcp.McpTool
+import com.mobileharness.code.mcp.McpToolLog
+import com.mobileharness.code.mcp.McpToolLogEntry
+import com.mobileharness.code.mcp.McpToolRegistry
+import com.mobileharness.code.mcp.McpToolStage
 import com.mobileharness.code.network.ConnectionValidation
 import com.mobileharness.code.network.ModelDiscoveryResult
 import com.mobileharness.code.network.ProviderApiClient
@@ -664,6 +672,9 @@ data class AppUiState(
     val localModelBaseUrl: String = "",
     val localModelName: String = "",
     val ecoModeEnabled: Boolean = false,
+    val mcpServers: List<McpServerConfig> = emptyList(),
+    val mcpToolCatalog: Map<String, List<McpTool>> = emptyMap(),
+    val mcpTestingServerId: String? = null,
 )
 
 class MainViewModel(application: Application) : AndroidViewModel(application) {
@@ -797,6 +808,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             localModelBaseUrl = preferences.localModelBaseUrl,
             localModelName = preferences.localModelName,
             ecoModeEnabled = preferences.ecoModeEnabled,
+            mcpServers = preferences.loadMcpServers(),
         ),
     ).also {
         if (!preferences.onboardingComplete) preferences.whatsNewSeenVersionCode = BuildConfig.VERSION_CODE
@@ -961,6 +973,88 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     fun setEcoMode(enabled: Boolean) {
         preferences.ecoModeEnabled = enabled
         _state.update { it.copy(ecoModeEnabled = enabled) }
+    }
+
+    // --- MCP servers (Faza 3) --------------------------------------------------------------
+
+    /** Adds or replaces a registered MCP server, then persists the full list. */
+    fun saveMcpServer(server: McpServerConfig) {
+        val current = _state.value.mcpServers
+        val updated = if (current.any { it.id == server.id }) {
+            current.map { if (it.id == server.id) server else it }
+        } else {
+            current + server
+        }
+        preferences.saveMcpServers(updated)
+        _state.update { it.copy(mcpServers = updated) }
+    }
+
+    /** Removes an MCP server and its cached tool list. */
+    fun deleteMcpServer(serverId: String) {
+        val updated = _state.value.mcpServers.filterNot { it.id == serverId }
+        preferences.saveMcpServers(updated)
+        McpToolRegistry.remove(serverId)
+        _state.update {
+            it.copy(mcpServers = updated, mcpToolCatalog = McpToolRegistry.all())
+        }
+    }
+
+    /** Toggles an MCP server without changing its stored configuration. */
+    fun setMcpServerEnabled(serverId: String, enabled: Boolean) {
+        val updated = _state.value.mcpServers.map { if (it.id == serverId) it.copy(enabled = enabled) else it }
+        preferences.saveMcpServers(updated)
+        if (!enabled) McpToolRegistry.remove(serverId)
+        _state.update { it.copy(mcpServers = updated, mcpToolCatalog = McpToolRegistry.all()) }
+    }
+
+    /** Runs initialize → tools/list for one server, caching the discovered tools. */
+    fun testMcpServer(serverId: String) {
+        val server = _state.value.mcpServers.firstOrNull { it.id == serverId } ?: return
+        _state.update { it.copy(mcpTestingServerId = serverId) }
+        viewModelScope.launch {
+            val client = McpClient(BuildConfig.VERSION_NAME)
+            val result = withContext(Dispatchers.IO) {
+                client.initializeAndListTools(server, preferences.ecoModeEnabled)
+            }
+            when (result) {
+                is McpListResult.Success -> {
+                    McpToolRegistry.put(serverId, result.tools)
+                    McpToolLog.record(
+                        McpToolLogEntry(
+                            timestampMillis = System.currentTimeMillis(),
+                            serverName = server.name,
+                            toolName = "",
+                            stage = McpToolStage.LIST,
+                            detail = "${result.tools.size} tools discovered",
+                        ),
+                    )
+                    _state.update {
+                        it.copy(
+                            mcpTestingServerId = null,
+                            mcpToolCatalog = McpToolRegistry.all(),
+                            toastMessage = str(R.string.mcp_test_success, result.tools.size),
+                        )
+                    }
+                }
+                is McpListResult.Failure -> {
+                    McpToolLog.record(
+                        McpToolLogEntry(
+                            timestampMillis = System.currentTimeMillis(),
+                            serverName = server.name,
+                            toolName = "",
+                            stage = McpToolStage.ERROR,
+                            detail = result.message,
+                        ),
+                    )
+                    _state.update {
+                        it.copy(
+                            mcpTestingServerId = null,
+                            toastMessage = str(R.string.mcp_test_failed, result.message),
+                        )
+                    }
+                }
+            }
+        }
     }
 
     // --- Release pipeline (Build → Sign → Verify → Checksum) -------------------------------
@@ -1512,6 +1606,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             cpuUsage = cpuUsage,
             crashLogs = crashLogs,
             routingLog = RouteLog.snapshot(),
+            mcpToolLog = McpToolLog.snapshot(),
             refreshedAtMillis = System.currentTimeMillis(),
         )
     }
@@ -1522,6 +1617,16 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             it.copy(
                 devTools = it.devTools.copy(routingLog = emptyList()),
                 toastMessage = str(R.string.devtools_routing_log_cleared),
+            )
+        }
+    }
+
+    fun clearDevToolsMcpToolLog() {
+        McpToolLog.clear()
+        _state.update {
+            it.copy(
+                devTools = it.devTools.copy(mcpToolLog = emptyList()),
+                toastMessage = str(R.string.devtools_mcp_tool_log_cleared),
             )
         }
     }

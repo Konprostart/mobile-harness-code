@@ -47,6 +47,8 @@ import androidx.compose.ui.res.stringResource
 import com.mobileharness.code.devtools.CrashRecord
 import com.mobileharness.code.devtools.CpuUsage
 import com.mobileharness.code.devtools.DeviceInfoSnapshot
+import com.mobileharness.code.mcp.McpToolLogEntry
+import com.mobileharness.code.mcp.McpToolStage
 import com.mobileharness.code.network.RouteLogEntry
 import com.mobileharness.code.network.RouteStage
 import com.mobileharness.code.ui.theme.PocketOrange
@@ -63,6 +65,7 @@ data class DevToolsState(
     val cpuUsage: CpuUsage? = null,
     val crashLogs: List<CrashRecord> = emptyList(),
     val routingLog: List<RouteLogEntry> = emptyList(),
+    val mcpToolLog: List<McpToolLogEntry> = emptyList(),
     val refreshedAtMillis: Long? = null,
 )
 
@@ -72,6 +75,7 @@ fun DeveloperToolsContent(
     onRefresh: () -> Unit,
     onClearCrashLogs: () -> Unit,
     onClearRoutingLog: () -> Unit = {},
+    onClearMcpToolLog: () -> Unit = {},
 ) {
     Column {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
@@ -145,6 +149,24 @@ fun DeveloperToolsContent(
                 Icon(Icons.Default.DeleteSweep, null, Modifier.size(17.dp))
                 Spacer(Modifier.width(7.dp))
                 Text(stringResource(R.string.devtools_clear_routing_log))
+            }
+        }
+
+        DevToolsCard(stringResource(R.string.devtools_mcp_tool_log)) {
+            if (state.mcpToolLog.isEmpty()) {
+                DevToolsHint(stringResource(R.string.devtools_no_mcp_tool_events))
+            } else {
+                state.mcpToolLog.forEach { entry -> McpToolLogEntryRow(entry) }
+            }
+            Spacer(Modifier.height(10.dp))
+            OutlinedButton(
+                onClick = onClearMcpToolLog,
+                enabled = state.mcpToolLog.isNotEmpty(),
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Icon(Icons.Default.DeleteSweep, null, Modifier.size(17.dp))
+                Spacer(Modifier.width(7.dp))
+                Text(stringResource(R.string.devtools_clear_mcp_tool_log))
             }
         }
     }
@@ -264,6 +286,54 @@ private fun RoutingLogEntryRow(entry: RouteLogEntry) {
                     stageLabel,
                     fontSize = 11.sp,
                     color = if (entry.stage == RouteStage.FALLBACK) PocketOrange else MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            entry.detail?.let { detail ->
+                Text(
+                    detail,
+                    fontSize = 11.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun McpToolLogEntryRow(entry: McpToolLogEntry) {
+    val stageLabel = when (entry.stage) {
+        McpToolStage.LIST -> stringResource(R.string.devtools_mcp_stage_list)
+        McpToolStage.CALL -> stringResource(R.string.devtools_mcp_stage_call)
+        McpToolStage.BLOCKED -> stringResource(R.string.devtools_mcp_stage_blocked)
+        McpToolStage.NEEDS_CONFIRMATION -> stringResource(R.string.devtools_mcp_stage_confirm)
+        McpToolStage.ERROR -> stringResource(R.string.devtools_mcp_stage_error)
+        McpToolStage.SUCCESS -> stringResource(R.string.devtools_mcp_stage_success)
+    }
+    Surface(
+        modifier = Modifier.fillMaxWidth().padding(vertical = 3.dp),
+        shape = RoundedCornerShape(10.dp),
+        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f),
+    ) {
+        Column(Modifier.padding(horizontal = 10.dp, vertical = 7.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    if (entry.toolName.isBlank()) entry.serverName else "${entry.serverName} · ${entry.toolName}",
+                    fontWeight = FontWeight.SemiBold,
+                    fontSize = 12.sp,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f),
+                )
+                Text(
+                    stageLabel,
+                    fontSize = 11.sp,
+                    color = if (entry.stage == McpToolStage.BLOCKED || entry.stage == McpToolStage.ERROR) {
+                        MaterialTheme.colorScheme.error
+                    } else {
+                        MaterialTheme.colorScheme.onSurfaceVariant
+                    },
                 )
             }
             entry.detail?.let { detail ->

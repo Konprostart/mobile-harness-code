@@ -2654,6 +2654,11 @@ private fun RootScreenHost(
                     onRefreshDevTools = viewModel::refreshDevTools,
                     onClearDevToolsCrashLogs = viewModel::clearDevToolsCrashLogs,
                     onClearDevToolsRoutingLog = viewModel::clearDevToolsRoutingLog,
+                    onClearDevToolsMcpToolLog = viewModel::clearDevToolsMcpToolLog,
+                    onSaveMcpServer = viewModel::saveMcpServer,
+                    onDeleteMcpServer = viewModel::deleteMcpServer,
+                    onSetMcpServerEnabled = viewModel::setMcpServerEnabled,
+                    onTestMcpServer = viewModel::testMcpServer,
                 )
             }
         }

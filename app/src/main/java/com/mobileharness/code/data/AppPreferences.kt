@@ -14,6 +14,8 @@ import com.mobileharness.code.model.ProviderProfile
 import com.mobileharness.code.model.defaultDshApiForProvider
 import com.mobileharness.code.model.projectSlug
 import com.mobileharness.code.model.providersForAgent
+import com.mobileharness.code.mcp.McpServerCodec
+import com.mobileharness.code.mcp.McpServerConfig
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
@@ -218,6 +220,22 @@ class AppPreferences(private val context: Context) {
     var localModelName: String
         get() = preferences.getString("local_model_name", "") ?: ""
         set(value) { preferences.edit().putString("local_model_name", value.trim()).apply() }
+
+    // --- MCP servers (Faza 3) -------------------------------------------------------------
+    /**
+     * Persists the registered MCP servers as a single JSON document. The per-server bearer token
+     * is stored here too, but the whole key is excluded from backup (see DEVICE_ONLY_KEYS) so a
+     * server-specific credential never leaves the device through Backup & Restore.
+     */
+    fun saveMcpServers(servers: List<McpServerConfig>) {
+        preferences.edit().putString("mcp_servers_json", McpServerCodec.toJson(servers)).apply()
+    }
+
+    /** Loads the registered MCP servers, tolerating malformed or removed entries. */
+    fun loadMcpServers(): List<McpServerConfig> {
+        val raw = preferences.getString("mcp_servers_json", null) ?: return emptyList()
+        return McpServerCodec.fromJson(raw)
+    }
 
     /** Newline/line-separated list of directories and https:// URLs the assistant may search. */
     var sidekickResearchSources: String
@@ -681,6 +699,7 @@ class AppPreferences(private val context: Context) {
             "dsh_version",
             "whats_new_seen_code",
             "backup_feature_seen",
+            "mcp_servers_json",
         )
     }
 }

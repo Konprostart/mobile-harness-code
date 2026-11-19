@@ -4,6 +4,17 @@ import android.content.Context
 import com.mobileharness.code.R
 import com.mobileharness.code.data.ApiKeyVault
 import com.mobileharness.code.data.AppPreferences
+import com.mobileharness.code.mcp.McpCallResult
+import com.mobileharness.code.mcp.McpClient
+import com.mobileharness.code.mcp.McpPolicy
+import com.mobileharness.code.mcp.McpServerConfig
+import com.mobileharness.code.mcp.McpTool
+import com.mobileharness.code.mcp.McpToolCallParser
+import com.mobileharness.code.mcp.McpToolGuard
+import com.mobileharness.code.mcp.McpToolLog
+import com.mobileharness.code.mcp.McpToolLogEntry
+import com.mobileharness.code.mcp.McpToolRegistry
+import com.mobileharness.code.mcp.McpToolStage
 import com.mobileharness.code.model.ProviderKind
 import com.mobileharness.code.model.ProviderProfile
 import com.mobileharness.code.network.ChatCompletion
@@ -36,6 +47,7 @@ class SidekickEngine(context: Context) {
     private val preferences = AppPreferences(appContext)
     private val vault = ApiKeyVault(appContext)
     private val client = ProviderApiClient(appContext)
+    private val mcpClient = McpClient()
 
     /** Resolves the profile the assistant should use, honoring the independent-model opt-in. */
     fun resolveProfile(): ProviderProfile {
@@ -53,11 +65,17 @@ class SidekickEngine(context: Context) {
         files: List<SidekickFile> = emptyList(),
     ): SidekickResult {
         val userMessage = SidekickInput.buildUserMessage(question, files)
-        return complete(
-            systemPrompt = SYSTEM_PROMPT,
-            userMessage = userMessage,
-            images = images,
-        )
+        val mcpServers = preferences.loadMcpServers().filter { it.enabled }
+        val tools = enabledTools(mcpServers)
+        return if (tools.isEmpty()) {
+            complete(
+                systemPrompt = SYSTEM_PROMPT,
+                userMessage = userMessage,
+                images = images,
+            )
+        } else {
+            askWithTools(userMessage, images, tools, mcpServers)
+        }
     }
 
     suspend fun optimizePrompt(draft: String): SidekickResult =
@@ -95,6 +113,93 @@ class SidekickEngine(context: Context) {
             baseUrl = preferences.localModelBaseUrl.ifBlank { LocalModelConfig.DEFAULT_BASE_URL },
             model = preferences.localModelName.ifBlank { LocalModelConfig.DEFAULT_MODEL },
         )
+
+    /** Tools discovered (and cached by "Test & List Tools") for the enabled MCP servers. */
+    private fun enabledTools(servers: List<McpServerConfig>): List<McpTool> =
+        servers.flatMap { McpToolRegistry.get(it.id) }.distinctBy { it.name }
+
+    /** Finds the enabled server that owns [tool], or null. */
+    private fun serverForTool(
+        servers: List<McpServerConfig>,
+        tool: McpTool,
+    ): McpServerConfig? = servers.firstOrNull { server ->
+        McpToolRegistry.get(server.id).any { it.name == tool.name }
+    }
+
+    /**
+     * Bounded tool loop for the Sidekick assistant. The model may emit a fenced ```tool request;
+     * a read-only tool is executed once and its result is fed back for a final answer. Mutating
+     * tools are held for confirmation (fail-closed) and never auto-run.
+     */
+    private suspend fun askWithTools(
+        userMessage: String,
+        images: List<SidekickImage>,
+        tools: List<McpTool>,
+        servers: List<McpServerConfig>,
+    ): SidekickResult {
+        val ecoEnabled = preferences.ecoModeEnabled
+        val systemPrompt = toolAwareSystemPrompt(tools)
+
+        repeat(McpPolicy.MAX_TOOL_ROUNDS) {
+            val result = complete(systemPrompt, userMessage, images)
+            val request = McpToolCallParser.parse(result.text) ?: return result
+            val tool = tools.firstOrNull { it.name == request.toolName }
+            if (tool == null) {
+                val unknown = "Tool \"${request.toolName}\" is not available. Available tools: " +
+                    tools.joinToString(", ") { it.name } + "."
+                return complete(systemPrompt, unknown)
+            }
+            val server = serverForTool(servers, tool)
+                ?: return SidekickResult("Tool \"${tool.name}\" is not available from any enabled MCP server.")
+            val argumentsJson = request.arguments.toString()
+            when (val decision = McpToolGuard.decide(tool, server, argumentsJson, McpPolicy.maxInputChars(ecoEnabled))) {
+                is McpToolGuard.Decision.Blocked -> {
+                    McpToolLog.record(McpToolLogEntry(now(), server.name, tool.name, McpToolStage.BLOCKED, decision.reason))
+                    return SidekickResult("Tool \"${tool.name}\" was blocked: ${decision.reason}")
+                }
+                is McpToolGuard.Decision.NeedsConfirmation -> {
+                    McpToolLog.record(McpToolLogEntry(now(), server.name, tool.name, McpToolStage.NEEDS_CONFIRMATION, decision.reason))
+                    return SidekickResult(
+                        "Tool \"${tool.name}\" needs your approval before it can run (${decision.reason}). " +
+                            "Adjust the confirmation mode in Settings → Assistant → MCP Servers, or use a read-only tool.",
+                    )
+                }
+                McpToolGuard.Decision.Approved -> Unit
+            }
+            McpToolLog.record(McpToolLogEntry(now(), server.name, tool.name, McpToolStage.CALL, null))
+            when (val callResult = mcpClient.callTool(server, tool, request.arguments, ecoEnabled)) {
+                is McpCallResult.Success -> {
+                    McpToolLog.record(McpToolLogEntry(now(), server.name, tool.name, McpToolStage.SUCCESS, "${callResult.text.length} chars"))
+                    val followUp = buildString {
+                        append("Tool result for ").append(tool.name).append(":\n")
+                        append(callResult.text.ifBlank { "(empty result)" })
+                        append("\n\nAnswer the user's request using the tool result above.\nOriginal request:\n")
+                        append(userMessage)
+                    }
+                    return complete(systemPrompt, followUp, images)
+                }
+                is McpCallResult.Failure -> {
+                    McpToolLog.record(McpToolLogEntry(now(), server.name, tool.name, McpToolStage.ERROR, callResult.message))
+                    return SidekickResult("Tool \"${tool.name}\" failed: ${callResult.message}")
+                }
+            }
+        }
+        return SidekickResult(AppStrings.get(appContext, R.string.sidekick_mcp_tool_limit))
+    }
+
+    private fun toolAwareSystemPrompt(tools: List<McpTool>): String = buildString {
+        append(SYSTEM_PROMPT)
+        append("\n\nYou may optionally use one of these MCP tools. To invoke a tool, reply with ONLY a fenced block:\n")
+        append("```tool\n{\"tool\":\"<name>\",\"arguments\":{...}}\n```\n")
+        append("You will receive the tool result and then write the final answer.\n")
+        tools.forEach { tool ->
+            append("- ").append(tool.name).append(": ")
+                .append(tool.description.ifBlank { "no description" }.take(200))
+                .append('\n')
+        }
+    }
+
+    private fun now(): Long = System.currentTimeMillis()
 
     private suspend fun complete(
         systemPrompt: String,

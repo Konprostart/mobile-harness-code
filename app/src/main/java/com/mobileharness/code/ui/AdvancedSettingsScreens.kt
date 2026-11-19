@@ -19,7 +19,11 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Build
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Folder
+import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
@@ -51,6 +55,10 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.mobileharness.code.R
+import com.mobileharness.code.mcp.McpServerConfig
+import com.mobileharness.code.mcp.McpTool
+import com.mobileharness.code.mcp.McpToolConfirmMode
+import com.mobileharness.code.mcp.McpTransport
 import com.mobileharness.code.model.ProviderKind
 import com.mobileharness.code.model.ProviderProfile
 import com.mobileharness.code.network.ServerSyncConfig
@@ -564,3 +572,241 @@ fun EcoModeSettings(
         )
     }
 }
+
+/**
+ * MCP Servers management: add, edit, test ("Test & List Tools"), enable/disable and delete
+ * servers that the Sidekick assistant may use for tool calls. Everything is opt-in; a server is
+ * only contacted when the user presses "Test" or when the assistant actually invokes a tool.
+ */
+@Composable
+fun McpServersSettings(
+    servers: List<McpServerConfig>,
+    toolCatalog: Map<String, List<McpTool>>,
+    testingServerId: String?,
+    onSave: (McpServerConfig) -> Unit,
+    onDelete: (String) -> Unit,
+    onSetEnabled: (String, Boolean) -> Unit,
+    onTest: (String) -> Unit,
+) {
+    var editingServerId by rememberSaveable { mutableStateOf<String?>(null) }
+    val editingServer = servers.firstOrNull { it.id == editingServerId }
+
+    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        if (servers.isEmpty()) {
+            Text(
+                stringResource(R.string.mcp_servers_empty),
+                fontSize = 12.sp,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        } else {
+            servers.forEach { server ->
+                McpServerRow(
+                    server = server,
+                    tools = toolCatalog[server.id].orEmpty(),
+                    testing = testingServerId == server.id,
+                    onToggle = { onSetEnabled(server.id, it) },
+                    onEdit = { editingServerId = server.id },
+                    onDelete = { onDelete(server.id) },
+                    onTest = { onTest(server.id) },
+                )
+            }
+        }
+
+        OutlinedButton(
+            onClick = { editingServerId = "__new__" },
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            Icon(Icons.Default.Build, null, Modifier.size(17.dp))
+            Spacer(Modifier.width(7.dp))
+            Text(stringResource(R.string.mcp_add_server))
+        }
+
+        Text(
+            stringResource(R.string.mcp_servers_note),
+            fontSize = 11.sp,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
+
+    if (editingServerId != null) {
+        McpServerEditor(
+            server = editingServer,
+            onDismiss = { editingServerId = null },
+            onSave = { config ->
+                onSave(config)
+                editingServerId = null
+            },
+            onDelete = editingServer?.let { existing ->
+                {
+                    onDelete(existing.id)
+                    editingServerId = null
+                }
+            },
+        )
+    }
+}
+
+@Composable
+private fun McpServerRow(
+    server: McpServerConfig,
+    tools: List<McpTool>,
+    testing: Boolean,
+    onToggle: (Boolean) -> Unit,
+    onEdit: () -> Unit,
+    onDelete: () -> Unit,
+    onTest: () -> Unit,
+) {
+    Surface(
+        shape = RoundedCornerShape(12.dp),
+        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f),
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        Column(Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Text(server.name, fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
+                    Text(
+                        if (server.transport == McpTransport.HTTP) server.url else server.command,
+                        fontSize = 11.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
+                Switch(checked = server.enabled, onCheckedChange = onToggle)
+            }
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                OutlinedButton(onClick = onTest, enabled = server.enabled && !testing) {
+                    if (testing) {
+                        CircularProgressIndicator(Modifier.size(14.dp), strokeWidth = 2.dp)
+                    } else {
+                        Icon(Icons.Default.PlayArrow, null, Modifier.size(16.dp))
+                    }
+                    Spacer(Modifier.width(6.dp))
+                    Text(stringResource(R.string.mcp_test_list_tools), fontSize = 12.sp)
+                }
+                IconButton(onClick = onEdit, modifier = Modifier.size(36.dp)) {
+                    Icon(Icons.Default.Edit, stringResource(R.string.mcp_edit_server), Modifier.size(18.dp))
+                }
+                IconButton(onClick = onDelete, modifier = Modifier.size(36.dp)) {
+                    Icon(Icons.Default.Delete, stringResource(R.string.mcp_delete_server), Modifier.size(18.dp), tint = MaterialTheme.colorScheme.error)
+                }
+            }
+            if (tools.isNotEmpty()) {
+                Text(
+                    tools.joinToString(" · ") { it.name },
+                    fontSize = 11.sp,
+                    color = MaterialTheme.colorScheme.primary,
+                    maxLines = 3,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun McpServerEditor(
+    server: McpServerConfig?,
+    onDismiss: () -> Unit,
+    onSave: (McpServerConfig) -> Unit,
+    onDelete: (() -> Unit)?,
+) {
+    var name by rememberSaveable { mutableStateOf(server?.name.orEmpty()) }
+    var transport by rememberSaveable { mutableStateOf((server?.transport ?: McpTransport.HTTP).name) }
+    var url by rememberSaveable { mutableStateOf(server?.url.orEmpty()) }
+    var command by rememberSaveable { mutableStateOf(server?.command.orEmpty()) }
+    var token by rememberSaveable { mutableStateOf(server?.bearerToken.orEmpty()) }
+    var confirmMode by rememberSaveable { mutableStateOf((server?.confirmMode ?: McpToolConfirmMode.MUTATING_ONLY).name) }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(if (server == null) R.string.mcp_add_server else R.string.mcp_edit_server)) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedTextField(name, { name = it }, label = { Text(stringResource(R.string.mcp_name_label)) }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                Text(stringResource(R.string.mcp_transport_label), fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    TextButton(onClick = { transport = McpTransport.HTTP.name }, modifier = Modifier.weight(1f)) {
+                        Text("HTTP", color = if (transport == McpTransport.HTTP.name) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                    TextButton(onClick = { transport = McpTransport.STDIO.name }, modifier = Modifier.weight(1f)) {
+                        Text("Stdio", color = if (transport == McpTransport.STDIO.name) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                }
+                if (transport == McpTransport.HTTP.name) {
+                    OutlinedTextField(url, { url = it }, label = { Text(stringResource(R.string.mcp_url_label)) }, placeholder = { Text("https://…", fontSize = 12.sp) }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                } else {
+                    OutlinedTextField(command, { command = it }, label = { Text(stringResource(R.string.mcp_command_label)) }, placeholder = { Text(stringResource(R.string.mcp_command_hint), fontSize = 12.sp) }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                }
+                OutlinedTextField(
+                    token,
+                    { token = it },
+                    label = { Text(stringResource(R.string.mcp_token_label)) },
+                    placeholder = { Text(stringResource(R.string.mcp_token_hint), fontSize = 12.sp) },
+                    singleLine = true,
+                    visualTransformation = PasswordVisualTransformation(),
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                Text(stringResource(R.string.mcp_confirm_label), fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                    McpToolConfirmMode.entries.forEach { mode ->
+                        TextButton(
+                            onClick = { confirmMode = mode.name },
+                            modifier = Modifier.weight(1f),
+                        ) {
+                            Text(
+                                when (mode) {
+                                    McpToolConfirmMode.ALWAYS_CONFIRM -> stringResource(R.string.mcp_confirm_always)
+                                    McpToolConfirmMode.MUTATING_ONLY -> stringResource(R.string.mcp_confirm_mutating)
+                                    McpToolConfirmMode.NEVER -> stringResource(R.string.mcp_confirm_never)
+                                },
+                                fontSize = 11.sp,
+                                color = if (confirmMode == mode.name) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                    }
+                }
+                Text(
+                    stringResource(R.string.mcp_token_note),
+                    fontSize = 11.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(
+                onClick = {
+                    val existingId = server?.id ?: java.util.UUID.randomUUID().toString()
+                    onSave(
+                        McpServerConfig(
+                            id = existingId,
+                            name = name.trim(),
+                            transport = runCatching { McpTransport.valueOf(transport) }.getOrDefault(McpTransport.HTTP),
+                            url = url.trim(),
+                            command = command.trim(),
+                            bearerToken = token.trim(),
+                            confirmMode = runCatching { McpToolConfirmMode.valueOf(confirmMode) }.getOrDefault(McpToolConfirmMode.MUTATING_ONLY),
+                            enabled = server?.enabled ?: true,
+                        ),
+                    )
+                },
+                enabled = name.isNotBlank() && (if (transport == McpTransport.HTTP.name) url.isNotBlank() else command.isNotBlank()),
+            ) {
+                Text(stringResource(R.string.mcp_save))
+            }
+        },
+        dismissButton = {
+            Row {
+                if (onDelete != null) {
+                    TextButton(onClick = onDelete) {
+                        Text(stringResource(R.string.mcp_delete_server), color = MaterialTheme.colorScheme.error)
+                    }
+                }
+                TextButton(onClick = onDismiss) { Text(stringResource(R.string.mcp_cancel)) }
+            }
+        },
+    )
+}
+

@@ -45,6 +45,7 @@ import androidx.compose.material.icons.filled.DarkMode
 import androidx.compose.material.icons.filled.DeleteSweep
 import androidx.compose.material.icons.filled.Dns
 import androidx.compose.material.icons.filled.Download
+import androidx.compose.material.icons.filled.Extension
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.LightMode
@@ -114,6 +115,7 @@ import com.mobileharness.code.model.ModelPresets
 import com.mobileharness.code.model.ProviderKind
 import com.mobileharness.code.model.ProviderProfile
 import com.mobileharness.code.model.providersForAgent
+import com.mobileharness.code.mcp.McpServerConfig
 import com.mobileharness.code.network.ConnectionValidation
 import com.mobileharness.code.network.DiscoveredModel
 import com.mobileharness.code.network.ModelDiscoveryResult
@@ -127,7 +129,7 @@ import com.mobileharness.code.ui.theme.AppThemeMode
 import com.mobileharness.code.ui.theme.PocketOrange
 import kotlinx.coroutines.launch
 
-private enum class SettingsSection { APPEARANCE, LANGUAGE, TOOLS, RUNTIME, DIAGNOSTICS, DEVELOPER_TOOLS, BACKUP, UPDATE_CHANNEL, UPDATES, GRADLE_MEMORY, RELEASE_SIGNING, SERVER_SYNC, TELEGRAM, SIDEKICK, ECO_MODE }
+private enum class SettingsSection { APPEARANCE, LANGUAGE, TOOLS, RUNTIME, DIAGNOSTICS, DEVELOPER_TOOLS, BACKUP, UPDATE_CHANNEL, UPDATES, GRADLE_MEMORY, RELEASE_SIGNING, SERVER_SYNC, TELEGRAM, SIDEKICK, MCP_SERVERS, ECO_MODE }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -192,6 +194,11 @@ fun SettingsScreen(
     onRefreshDevTools: () -> Unit = {},
     onClearDevToolsCrashLogs: () -> Unit = {},
     onClearDevToolsRoutingLog: () -> Unit = {},
+    onClearDevToolsMcpToolLog: () -> Unit = {},
+    onSaveMcpServer: (McpServerConfig) -> Unit = {},
+    onDeleteMcpServer: (String) -> Unit = {},
+    onSetMcpServerEnabled: (String, Boolean) -> Unit = { _, _ -> },
+    onTestMcpServer: (String) -> Unit = {},
 ) {
     val context = LocalContext.current
     val installPermissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) {
@@ -476,6 +483,7 @@ fun SettingsScreen(
                         onRefresh = onRefreshDevTools,
                         onClearCrashLogs = onClearDevToolsCrashLogs,
                         onClearRoutingLog = onClearDevToolsRoutingLog,
+                        onClearMcpToolLog = onClearDevToolsMcpToolLog,
                     )
                 }
             }
@@ -594,6 +602,26 @@ fun SettingsScreen(
                     EcoModeSettings(
                         enabled = state.ecoModeEnabled,
                         onSetEnabled = onSetEcoMode,
+                    )
+                }
+            }
+
+            item {
+                SettingsAccordion(
+                    title = stringResource(R.string.mcp_servers_title),
+                    subtitle = stringResource(R.string.mcp_servers_subtitle),
+                    icon = Icons.Default.Extension,
+                    expanded = expanded == SettingsSection.MCP_SERVERS,
+                    onClick = { toggle(SettingsSection.MCP_SERVERS) },
+                ) {
+                    McpServersSettings(
+                        servers = state.mcpServers,
+                        toolCatalog = state.mcpToolCatalog,
+                        testingServerId = state.mcpTestingServerId,
+                        onSave = onSaveMcpServer,
+                        onDelete = onDeleteMcpServer,
+                        onSetEnabled = onSetMcpServerEnabled,
+                        onTest = onTestMcpServer,
                     )
                 }
             }
