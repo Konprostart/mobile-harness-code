@@ -10,9 +10,6 @@
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
     <uses-permission android:name="android.permission.UPDATE_PACKAGES_WITHOUT_USER_ACTION" />
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
-    <!-- Required by the Shizuku provider: only shell/root (com.android.shell / the Shizuku
-         server) may deliver the binder to us, so normal apps cannot spoof it. -->
-    <uses-permission android:name="android.permission.INTERACT_ACROSS_USERS_FULL" />
 
     <!-- SpeechRecognizer binds to the system recognition service; declare it so the voice
          input button can resolve the service on Android 11+ (package visibility). -->
