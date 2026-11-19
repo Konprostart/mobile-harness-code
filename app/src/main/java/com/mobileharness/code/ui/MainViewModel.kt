@@ -660,6 +660,9 @@ data class AppUiState(
     val sidekickProvider: ProviderProfile = ProviderProfile(ProviderKind.ANTHROPIC),
     val sidekickFallbackEnabled: Boolean = false,
     val sidekickFallbackModel: String = "",
+    val localModelEnabled: Boolean = false,
+    val localModelBaseUrl: String = "",
+    val localModelName: String = "",
     val ecoModeEnabled: Boolean = false,
 )
 
@@ -790,6 +793,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             sidekickProvider = loadSidekickProvider(),
             sidekickFallbackEnabled = preferences.sidekickFallbackEnabled,
             sidekickFallbackModel = preferences.sidekickFallbackModel,
+            localModelEnabled = preferences.localModelEnabled,
+            localModelBaseUrl = preferences.localModelBaseUrl,
+            localModelName = preferences.localModelName,
             ecoModeEnabled = preferences.ecoModeEnabled,
         ),
     ).also {
@@ -935,6 +941,21 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     fun setSidekickFallbackModel(model: String) {
         preferences.sidekickFallbackModel = model
         _state.update { it.copy(sidekickFallbackModel = model.trim()) }
+    }
+
+    fun setLocalModelEnabled(enabled: Boolean) {
+        preferences.localModelEnabled = enabled
+        _state.update { it.copy(localModelEnabled = enabled) }
+    }
+
+    fun setLocalModelBaseUrl(baseUrl: String) {
+        preferences.localModelBaseUrl = baseUrl
+        _state.update { it.copy(localModelBaseUrl = baseUrl.trim()) }
+    }
+
+    fun setLocalModelName(model: String) {
+        preferences.localModelName = model
+        _state.update { it.copy(localModelName = model.trim()) }
     }
 
     fun setEcoMode(enabled: Boolean) {

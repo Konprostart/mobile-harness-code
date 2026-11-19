@@ -411,4 +411,12 @@
     <string name="sidekick_attachment_too_large">This image or file is too large to attach.</string>
     <string name="sidekick_attachment_unsupported">This file type is not supported.</string>
     <string name="sidekick_attachment_failed">Could not read the attachment.</string>
+    <!-- Local model (Ollama/llama.cpp) fallback provider -->
+    <string name="local_model_title">Local model (Ollama)</string>
+    <string name="local_model_subtitle">Fall back to an on-device or LAN model server (Ollama, llama.cpp, LM Studio)</string>
+    <string name="local_model_base_url_label">Base URL</string>
+    <string name="local_model_base_url_hint">e.g. http://127.0.0.1:11434/v1</string>
+    <string name="local_model_name_label">Model</string>
+    <string name="local_model_name_hint">e.g. qwen2.5-coder:7b</string>
+    <string name="local_model_note">The local model is tried only after the primary and fallback models fail with a transient error (rate limit, server error or timeout). The URL must be a local or private address — no API key is sent to it. Pull the model first, e.g. ollama pull qwen2.5-coder:7b.</string>
 </resources>

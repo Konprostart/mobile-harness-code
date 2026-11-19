@@ -10,7 +10,6 @@ import com.mobileharness.code.network.ChatCompletion
 import com.mobileharness.code.network.CompletionFailureKind
 import com.mobileharness.code.network.CompletionImage
 import com.mobileharness.code.network.FallbackChain
-import com.mobileharness.code.network.ModelRoute
 import com.mobileharness.code.network.ProviderApiClient
 import com.mobileharness.code.network.RouteAttempt
 import com.mobileharness.code.network.RouteBudget
@@ -89,6 +88,14 @@ class SidekickEngine(context: Context) {
         return complete(systemPrompt = RESEARCH_PROMPT, userMessage = userMessage)
     }
 
+    /** Resolves the local model config from preferences, applying the default model name when blank. */
+    private fun localModelConfig(): LocalModelConfig =
+        LocalModelConfig(
+            enabled = preferences.localModelEnabled,
+            baseUrl = preferences.localModelBaseUrl.ifBlank { LocalModelConfig.DEFAULT_BASE_URL },
+            model = preferences.localModelName.ifBlank { LocalModelConfig.DEFAULT_MODEL },
+        )
+
     private suspend fun complete(
         systemPrompt: String,
         userMessage: String,
@@ -105,13 +112,13 @@ class SidekickEngine(context: Context) {
 
         val ecoEnabled = preferences.ecoModeEnabled
         val maxTokensPerCall = EcoMode.recommendedMaxTokens(ecoEnabled)
-        val routes = buildList {
-            add(ModelRoute("primary", profile.model))
-            val fallback = preferences.sidekickFallbackModel
-            if (preferences.sidekickFallbackEnabled && fallback.isNotBlank() && fallback != profile.model) {
-                add(ModelRoute("fallback", fallback))
-            }
-        }
+        val local = localModelConfig()
+        val routes = buildSidekickRoutes(
+            primaryModel = profile.model,
+            fallbackEnabled = preferences.sidekickFallbackEnabled,
+            fallbackModel = preferences.sidekickFallbackModel,
+            local = local,
+        )
         // A small, self-documenting cap bounds the fallback loop: up to 4 attempts and a token
         // ceiling of four times the per-call budget. On exhaustion the chain halts fail-closed.
         val budget = RouteBudget(maxRequests = 4, maxTokens = maxTokensPerCall.toLong() * 4L)
@@ -134,11 +141,12 @@ class SidekickEngine(context: Context) {
         ).also { it.tokensPerAttempt = maxTokensPerCall.toLong() }
 
         return when (val outcome = chain.run { route ->
+            val target = resolveSidekickRoute(route, profile, key, local)
             when (val result = client.complete(
-                baseUrl = profile.resolvedBaseUrl,
+                baseUrl = target.baseUrl,
                 model = route.model,
-                apiKey = key,
-                protocol = profile.kind.protocol,
+                apiKey = target.apiKey,
+                protocol = target.protocol,
                 systemPrompt = systemPrompt,
                 userMessage = userMessage,
                 maxTokens = maxTokensPerCall,

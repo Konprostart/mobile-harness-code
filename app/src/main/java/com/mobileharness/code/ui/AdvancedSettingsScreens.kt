@@ -359,6 +359,9 @@ fun SidekickSettings(
     provider: ProviderProfile,
     fallbackEnabled: Boolean,
     fallbackModel: String,
+    localModelEnabled: Boolean,
+    localModelBaseUrl: String,
+    localModelName: String,
     onSetFloatingButton: (Boolean) -> Unit,
     onSetUseCustomProvider: (Boolean) -> Unit,
     onSetBackgroundResearch: (Boolean) -> Unit,
@@ -366,6 +369,9 @@ fun SidekickSettings(
     onSaveProvider: (ProviderProfile) -> Unit,
     onSetFallbackEnabled: (Boolean) -> Unit,
     onSetFallbackModel: (String) -> Unit,
+    onSetLocalModelEnabled: (Boolean) -> Unit,
+    onSetLocalModelBaseUrl: (String) -> Unit,
+    onSetLocalModelName: (String) -> Unit,
     onLaunch: () -> Unit,
 ) {
     var selectedKind by rememberSaveable { mutableStateOf(provider.kind.name) }
@@ -469,6 +475,38 @@ fun SidekickSettings(
             )
             Text(
                 stringResource(R.string.sidekick_fallback_note),
+                fontSize = 11.sp,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+
+        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+            Column(Modifier.weight(1f)) {
+                Text(stringResource(R.string.local_model_title), fontWeight = FontWeight.SemiBold)
+                Text(stringResource(R.string.local_model_subtitle), fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+            Switch(checked = localModelEnabled, onCheckedChange = onSetLocalModelEnabled)
+        }
+
+        if (localModelEnabled) {
+            OutlinedTextField(
+                value = localModelBaseUrl,
+                onValueChange = onSetLocalModelBaseUrl,
+                label = { Text(stringResource(R.string.local_model_base_url_label)) },
+                placeholder = { Text(stringResource(R.string.local_model_base_url_hint), fontSize = 12.sp) },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth(),
+            )
+            OutlinedTextField(
+                value = localModelName,
+                onValueChange = onSetLocalModelName,
+                label = { Text(stringResource(R.string.local_model_name_label)) },
+                placeholder = { Text(stringResource(R.string.local_model_name_hint), fontSize = 12.sp) },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth(),
+            )
+            Text(
+                stringResource(R.string.local_model_note),
                 fontSize = 11.sp,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )

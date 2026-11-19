@@ -204,6 +204,21 @@ class AppPreferences(private val context: Context) {
         get() = preferences.getString("sidekick_fallback_model", "") ?: ""
         set(value) { preferences.edit().putString("sidekick_fallback_model", value.trim()).apply() }
 
+    /** When true the assistant may fall back to the on-device/LAN model server (Ollama et al.). */
+    var localModelEnabled: Boolean
+        get() = preferences.getBoolean("local_model_enabled", false)
+        set(value) { preferences.edit().putBoolean("local_model_enabled", value).apply() }
+
+    /** OpenAI-compatible base URL of the local model server (default: Ollama on loopback). */
+    var localModelBaseUrl: String
+        get() = preferences.getString("local_model_base_url", "") ?: ""
+        set(value) { preferences.edit().putString("local_model_base_url", value.trim()).apply() }
+
+    /** Model id served by the local model server. */
+    var localModelName: String
+        get() = preferences.getString("local_model_name", "") ?: ""
+        set(value) { preferences.edit().putString("local_model_name", value.trim()).apply() }
+
     /** Newline/line-separated list of directories and https:// URLs the assistant may search. */
     var sidekickResearchSources: String
         get() = preferences.getString("sidekick_research_sources", "") ?: ""
