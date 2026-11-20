@@ -597,4 +597,8 @@
     <string name="devtools_privilege_stage_timeout">timeout</string>
     <string name="devtools_privilege_stage_error">error</string>
     <string name="devtools_privilege_stage_success">success</string>
+    <string name="workspace_tools_title">Herramientas del espacio de trabajo</string>
+    <string name="workspace_tools_subtitle">Permite al asistente buscar, leer y mapear tus archivos privados del espacio de trabajo (solo lectura, nunca salen del dispositivo).</string>
+    <string name="skills_title">Habilidades</string>
+    <string name="skills_subtitle">Paquetes de instrucciones opcionales que moldean cómo responde el asistente.</string>
 </resources>

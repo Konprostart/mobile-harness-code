@@ -597,4 +597,8 @@
     <string name="devtools_privilege_stage_timeout">timeout</string>
     <string name="devtools_privilege_stage_error">error</string>
     <string name="devtools_privilege_stage_success">success</string>
+    <string name="workspace_tools_title">工作区工具</string>
+    <string name="workspace_tools_subtitle">让助手搜索、读取和映射你的私人工作区文件（只读，绝不离开设备）。</string>
+    <string name="skills_title">技能</string>
+    <string name="skills_subtitle">可选的指令包，塑造助手的回答方式。</string>
 </resources>

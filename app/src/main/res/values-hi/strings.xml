@@ -597,4 +597,8 @@
     <string name="devtools_privilege_stage_timeout">timeout</string>
     <string name="devtools_privilege_stage_error">error</string>
     <string name="devtools_privilege_stage_success">success</string>
+    <string name="workspace_tools_title">कार्यक्षेत्र उपकरण</string>
+    <string name="workspace_tools_subtitle">सहायक को आपकी निजी कार्यक्षेत्र फ़ाइलों को खोजने, पढ़ने और मैप करने दें (केवल-पढ़ने के लिए, कभी डिवाइस से बाहर नहीं जाता)।</string>
+    <string name="skills_title">कौशल</string>
+    <string name="skills_subtitle">वैकल्पिक निर्देश पैक जो सहायक के उत्तर देने के तरीके को आकार देते हैं।</string>
 </resources>

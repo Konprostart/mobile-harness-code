@@ -597,4 +597,8 @@
     <string name="devtools_privilege_stage_timeout">timeout</string>
     <string name="devtools_privilege_stage_error">error</string>
     <string name="devtools_privilege_stage_success">success</string>
+    <string name="workspace_tools_title">Инструменты рабочей области</string>
+    <string name="workspace_tools_subtitle">Позволяет ассистенту искать, читать и картировать файлы вашей личной рабочей области (только чтение, никогда не покидает устройство).</string>
+    <string name="skills_title">Навыки</string>
+    <string name="skills_subtitle">Необязательные пакеты инструкций, определяющие, как ассистент отвечает.</string>
 </resources>

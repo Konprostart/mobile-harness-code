@@ -867,4 +867,8 @@
     <string name="devtools_privilege_stage_timeout">timeout</string>
     <string name="devtools_privilege_stage_error">error</string>
     <string name="devtools_privilege_stage_success">success</string>
+    <string name="workspace_tools_title">Εργαλεία χώρου εργασίας</string>
+    <string name="workspace_tools_subtitle">Επιτρέψτε στον βοηθό να αναζητά, να διαβάζει και να χαρτογραφεί τα ιδιωτικά αρχεία του χώρου εργασίας σας (μόνο ανάγνωση, δεν φεύγει ποτέ από τη συσκευή).</string>
+    <string name="skills_title">Δεξιότητες</string>
+    <string name="skills_subtitle">Προαιρετικά πακέτα οδηγιών που διαμορφώνουν τον τρόπο απάντησης του βοηθού.</string>
 </resources>
