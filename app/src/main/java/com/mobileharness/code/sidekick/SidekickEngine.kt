@@ -28,7 +28,11 @@ import com.mobileharness.code.network.RouteLog
 import com.mobileharness.code.network.RouteLogEntry
 import com.mobileharness.code.network.RouteOutcome
 import com.mobileharness.code.runtime.EcoMode
+import com.mobileharness.code.skills.SkillPolicy
+import com.mobileharness.code.tools.BuiltinTools
 import com.mobileharness.code.ui.AppStrings
+import org.json.JSONObject
+import java.io.File
 
 /** Answer from the assistant: final text plus an optional chain-of-thought excerpt. */
 data class SidekickResult(val text: String, val reasoning: String? = null)
@@ -65,9 +69,9 @@ class SidekickEngine(context: Context) {
         files: List<SidekickFile> = emptyList(),
     ): SidekickResult {
         val userMessage = SidekickInput.buildUserMessage(question, files)
-        val basePrompt = withLanguageInstruction(augmentedSystemPrompt(question), question)
+        val basePrompt = withSkillsInstruction(withLanguageInstruction(augmentedSystemPrompt(question), question))
         val mcpServers = preferences.loadMcpServers().filter { it.enabled }
-        val tools = enabledTools(mcpServers)
+        val tools = enabledTools(mcpServers) + builtinTools()
         return if (tools.isEmpty()) {
             complete(
                 systemPrompt = basePrompt,
@@ -98,6 +102,16 @@ class SidekickEngine(context: Context) {
     private fun withLanguageInstruction(prompt: String, userText: String? = null): String {
         val instruction = SidekickLanguage.responseInstruction(preferences.sidekickLanguage, userText)
         return if (instruction.isBlank()) prompt else "$prompt\n\n$instruction"
+    }
+
+    /**
+     * Appends the opt-in skill instructions when the skill system is enabled. Fail-closed: the
+     * block is blank unless the user enabled the feature and at least one valid skill is on.
+     */
+    private fun withSkillsInstruction(prompt: String): String {
+        if (!preferences.skillsEnabled) return prompt
+        val block = SkillPolicy.buildInstructionBlock(preferences.loadSkills())
+        return if (block.isBlank()) prompt else prompt + block
     }
 
     /** Retrieves a bounded, relevance-ranked context string from the saved document base. */
@@ -158,6 +172,13 @@ class SidekickEngine(context: Context) {
     private fun enabledTools(servers: List<McpServerConfig>): List<McpTool> =
         servers.flatMap { McpToolRegistry.get(it.id) }.distinctBy { it.name }
 
+    /** The built-in read-only workspace tools, offered only when the user opted in. */
+    private fun builtinTools(): List<McpTool> =
+        if (preferences.workspaceToolsEnabled) BuiltinTools.catalog() else emptyList()
+
+    /** Sandbox root for the built-in workspace tools: the app-private workspaces directory. */
+    private fun workspaceRoot(): File = File(appContext.filesDir, "workspaces")
+
     /** Finds the enabled server that owns [tool], or null. */
     private fun serverForTool(
         servers: List<McpServerConfig>,
@@ -189,6 +210,9 @@ class SidekickEngine(context: Context) {
                 val unknown = "Tool \"${request.toolName}\" is not available. Available tools: " +
                     tools.joinToString(", ") { it.name } + "."
                 return complete(systemPrompt, unknown)
+            }
+            if (BuiltinTools.isBuiltin(tool.name)) {
+                return runBuiltinTool(systemPrompt, userMessage, images, tool, request.arguments, ecoEnabled)
             }
             val server = serverForTool(servers, tool)
                 ?: return SidekickResult("Tool \"${tool.name}\" is not available from any enabled MCP server.")
@@ -228,9 +252,46 @@ class SidekickEngine(context: Context) {
         return SidekickResult(AppStrings.get(appContext, R.string.sidekick_mcp_tool_limit))
     }
 
+    /**
+     * Executes a built-in, read-only workspace tool in-process. Input is size-capped; the tool is
+     * always read-only and confined to the workspace root by the path guard. Results feed back to
+     * the model exactly like an MCP tool result.
+     */
+    private suspend fun runBuiltinTool(
+        systemPrompt: String,
+        userMessage: String,
+        images: List<SidekickImage>,
+        tool: McpTool,
+        arguments: JSONObject,
+        ecoEnabled: Boolean,
+    ): SidekickResult {
+        val argumentsJson = arguments.toString()
+        if (argumentsJson.length > McpPolicy.maxInputChars(ecoEnabled)) {
+            McpToolLog.record(McpToolLogEntry(now(), BuiltinTools.SERVER_ID, tool.name, McpToolStage.BLOCKED, "input over size limit"))
+            return SidekickResult("Tool \"${tool.name}\" was blocked: input over the size limit.")
+        }
+        McpToolLog.record(McpToolLogEntry(now(), BuiltinTools.SERVER_ID, tool.name, McpToolStage.CALL, null))
+        return when (val outcome = BuiltinTools.execute(tool.name, workspaceRoot(), arguments, ecoEnabled)) {
+            is BuiltinTools.Result.Success -> {
+                McpToolLog.record(McpToolLogEntry(now(), BuiltinTools.SERVER_ID, tool.name, McpToolStage.SUCCESS, "${outcome.text.length} chars"))
+                val followUp = buildString {
+                    append("Tool result for ").append(tool.name).append(":\n")
+                    append(outcome.text.ifBlank { "(empty result)" })
+                    append("\n\nAnswer the user's request using the tool result above.\nOriginal request:\n")
+                    append(userMessage)
+                }
+                complete(systemPrompt, followUp, images)
+            }
+            is BuiltinTools.Result.Failure -> {
+                McpToolLog.record(McpToolLogEntry(now(), BuiltinTools.SERVER_ID, tool.name, McpToolStage.ERROR, outcome.message))
+                SidekickResult("Tool \"${tool.name}\" failed: ${outcome.message}")
+            }
+        }
+    }
+
     private fun toolAwareSystemPrompt(baseSystemPrompt: String, tools: List<McpTool>): String = buildString {
         append(baseSystemPrompt)
-        append("\n\nYou may optionally use one of these MCP tools. To invoke a tool, reply with ONLY a fenced block:\n")
+        append("\n\nYou may optionally use one of these tools. To invoke a tool, reply with ONLY a fenced block:\n")
         append("```tool\n{\"tool\":\"<name>\",\"arguments\":{...}}\n```\n")
         append("You will receive the tool result and then write the final answer.\n")
         tools.forEach { tool ->

@@ -71,6 +71,7 @@ import com.mobileharness.code.network.ssh.SshShellSession
 import com.mobileharness.code.network.ssh.SshStage
 import com.mobileharness.code.network.ssh.sshSecretStore
 import com.mobileharness.code.sidekick.RagDocument
+import com.mobileharness.code.skills.Skill
 import com.mobileharness.code.share.InviteCode
 import com.mobileharness.code.device.PrivilegeController
 import com.mobileharness.code.device.PrivilegeEventLog
@@ -695,6 +696,9 @@ data class AppUiState(
     val mcpTestingServerId: String? = null,
     val ragEnabled: Boolean = false,
     val ragDocuments: List<RagDocument> = emptyList(),
+    val workspaceToolsEnabled: Boolean = false,
+    val skillsEnabled: Boolean = false,
+    val skills: List<Skill> = emptyList(),
     val sshProfiles: List<SshProfile> = emptyList(),
     val sshTestingProfileId: String? = null,
     val sshRunningTunnelIds: Set<String> = emptySet(),
@@ -854,6 +858,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             mcpServers = preferences.loadMcpServers(),
             ragEnabled = preferences.ragEnabled,
             ragDocuments = preferences.loadRagDocuments(),
+            workspaceToolsEnabled = preferences.workspaceToolsEnabled,
+            skillsEnabled = preferences.skillsEnabled,
+            skills = preferences.loadSkills(),
             sshProfiles = preferences.loadSshProfiles(),
             inviteCode = preferences.inviteCode.ifBlank {
                 InviteCode.generate().also { preferences.inviteCode = it }
@@ -1081,6 +1088,24 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         val updated = _state.value.ragDocuments.filterNot { it.id == id }
         preferences.saveRagDocuments(updated)
         _state.update { it.copy(ragDocuments = updated) }
+    }
+
+    // --- Workspace tools & skills (Faza C) -------------------------------------------------
+    fun setWorkspaceToolsEnabled(enabled: Boolean) {
+        preferences.workspaceToolsEnabled = enabled
+        _state.update { it.copy(workspaceToolsEnabled = enabled) }
+    }
+
+    fun setSkillsEnabled(enabled: Boolean) {
+        preferences.skillsEnabled = enabled
+        _state.update { it.copy(skillsEnabled = enabled) }
+    }
+
+    /** Toggles a single skill without changing the other stored skills. */
+    fun setSkillEnabled(id: String, enabled: Boolean) {
+        val updated = _state.value.skills.map { if (it.id == id) it.copy(enabled = enabled) else it }
+        preferences.saveSkills(updated)
+        _state.update { it.copy(skills = updated) }
     }
 
     // --- MCP servers (Faza 3) --------------------------------------------------------------

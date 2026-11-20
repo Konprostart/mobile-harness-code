@@ -21,6 +21,9 @@ import com.mobileharness.code.network.ssh.SshProfileCodec
 import com.mobileharness.code.sidekick.RagCodec
 import com.mobileharness.code.sidekick.RagDocument
 import com.mobileharness.code.sidekick.RagIndex
+import com.mobileharness.code.skills.BuiltinSkills
+import com.mobileharness.code.skills.Skill
+import com.mobileharness.code.skills.SkillCodec
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
@@ -282,6 +285,40 @@ class AppPreferences(private val context: Context) {
         val file = File(ragDir, "documents.json")
         if (!file.exists()) return emptyList()
         return RagCodec.fromJson(runCatching { file.readText() }.getOrDefault(""))
+    }
+
+    // --- Built-in workspace tools (Faza C) ---------------------------------------------------
+    /**
+     * When true the Sidekick assistant may use the built-in, read-only workspace tools
+     * (search files, read file, list project structure). Off by default; the tools are always
+     * confined to the app-private `workspaces/` directory by a fail-closed path guard.
+     */
+    var workspaceToolsEnabled: Boolean
+        get() = preferences.getBoolean("workspace_tools_enabled", false)
+        set(value) { preferences.edit().putBoolean("workspace_tools_enabled", value).apply() }
+
+    // --- Skills (Faza C) ---------------------------------------------------------------------
+    /** Master opt-in for the skill system; when off, no skill is injected into the assistant. */
+    var skillsEnabled: Boolean
+        get() = preferences.getBoolean("skills_enabled", false)
+        set(value) { preferences.edit().putBoolean("skills_enabled", value).apply() }
+
+    /**
+     * Persists the full skill list (curated defaults plus any user edits) as JSON. The skill
+     * instructions are user-authored text and are kept device-only (excluded from backup).
+     */
+    fun saveSkills(skills: List<Skill>) {
+        preferences.edit().putString("skills_json", SkillCodec.toJson(skills)).apply()
+    }
+
+    /**
+     * Loads the persisted skills, seeding the curated defaults on first run (all disabled). A
+     * malformed or tampered document is dropped fail-closed to the defaults.
+     */
+    fun loadSkills(): List<Skill> {
+        val raw = preferences.getString("skills_json", null) ?: return BuiltinSkills.defaults()
+        val loaded = SkillCodec.fromJson(raw)
+        return if (loaded.isEmpty()) BuiltinSkills.defaults() else loaded
     }
 
     // --- SSH servers (Faza 1: sshj client + tunnel) ----------------------------------------
@@ -809,6 +846,7 @@ class AppPreferences(private val context: Context) {
             "privileged_shizuku_opt_in",
             "privileged_wireless_adb_opt_in",
             "privileged_root_opt_in",
+            "skills_json",
         )
     }
 }

@@ -69,4 +69,15 @@ object McpPolicy {
 
     /** Convenience bridge to the Eco Mode completion budget. */
     fun ecoAwareMaxTokens(ecoEnabled: Boolean): Int = EcoMode.recommendedMaxTokens(ecoEnabled)
+
+    /**
+     * Maps an HTTP status code from an MCP server to a failure kind. 401/403 are authentication
+     * failures (never retried against another server automatically), 408 is a timeout, and every
+     * other non-2xx status is a generic network/protocol failure.
+     */
+    fun classifyHttpStatus(code: Int): McpCallFailureKind = when (code) {
+        401, 403 -> McpCallFailureKind.AUTH
+        408 -> McpCallFailureKind.TIMEOUT
+        else -> McpCallFailureKind.NETWORK
+    }
 }

@@ -782,4 +782,8 @@
     <string name="devtools_privilege_stage_timeout">timeout</string>
     <string name="devtools_privilege_stage_error">error</string>
     <string name="devtools_privilege_stage_success">success</string>
+    <string name="workspace_tools_title">Workspace tools</string>
+    <string name="workspace_tools_subtitle">Let the assistant search, read and map your private workspace files (read-only, never leaves the device).</string>
+    <string name="skills_title">Skills</string>
+    <string name="skills_subtitle">Opt-in instruction packs that shape how the assistant answers.</string>
 </resources>

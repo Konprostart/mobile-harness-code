@@ -96,16 +96,21 @@ class McpClient(private val clientVersion: String = "1.3.1") {
 
     private fun httpList(config: McpServerConfig, ecoEnabled: Boolean): McpListResult {
         val initId = allocateId()
-        val initResponse = httpPost(config, McpJsonRpc.initializeRequest(initId, clientVersion), ecoEnabled)
-        if (initResponse == null) return McpListResult.Failure("MCP server did not respond to initialize.")
-        McpJsonRpc.extractError(initResponse)?.let { return McpListResult.Failure(it) }
+        when (val initResponse = httpPost(config, McpJsonRpc.initializeRequest(initId, clientVersion), ecoEnabled)) {
+            is HttpResult.Failure -> return McpListResult.Failure(initResponse.message)
+            is HttpResult.Ok -> {
+                McpJsonRpc.extractError(initResponse.body)?.let { return McpListResult.Failure(it) }
+            }
+        }
 
         // Fire-and-forget notification; a server that closes here is still usable for tools/list.
         httpPost(config, McpJsonRpc.initializedNotification(), ecoEnabled)
 
         val listId = allocateId()
-        val listResponse = httpPost(config, McpJsonRpc.toolsListRequest(listId), ecoEnabled)
-            ?: return McpListResult.Failure("MCP server did not respond to tools/list.")
+        val listResponse = when (val r = httpPost(config, McpJsonRpc.toolsListRequest(listId), ecoEnabled)) {
+            is HttpResult.Failure -> return McpListResult.Failure(r.message)
+            is HttpResult.Ok -> r.body
+        }
         McpJsonRpc.extractError(listResponse)?.let { return McpListResult.Failure(it) }
         return McpListResult.Success(McpJsonRpc.parseToolsList(listResponse))
     }
@@ -117,8 +122,10 @@ class McpClient(private val clientVersion: String = "1.3.1") {
         ecoEnabled: Boolean,
     ): McpCallResult {
         val callId = allocateId()
-        val response = httpPost(config, McpJsonRpc.toolsCallRequest(callId, tool.name, arguments), ecoEnabled)
-            ?: return McpCallResult.Failure("MCP server did not respond to tools/call.", McpCallFailureKind.NETWORK)
+        val response = when (val r = httpPost(config, McpJsonRpc.toolsCallRequest(callId, tool.name, arguments), ecoEnabled)) {
+            is HttpResult.Failure -> return McpCallResult.Failure(r.message, r.kind)
+            is HttpResult.Ok -> r.body
+        }
         McpJsonRpc.extractError(response)?.let { return McpCallResult.Failure(it, McpCallFailureKind.PROTOCOL) }
         val output = McpJsonRpc.parseToolsCall(response)
         return McpCallResult.Success(
@@ -127,8 +134,14 @@ class McpClient(private val clientVersion: String = "1.3.1") {
         )
     }
 
-    private fun httpPost(config: McpServerConfig, body: String, ecoEnabled: Boolean): String? {
-        return runCatching {
+    /** Result of one HTTP POST, distinguishing auth/timeout/network failures for better messages. */
+    private sealed interface HttpResult {
+        data class Ok(val body: String) : HttpResult
+        data class Failure(val kind: McpCallFailureKind, val message: String) : HttpResult
+    }
+
+    private fun httpPost(config: McpServerConfig, body: String, ecoEnabled: Boolean): HttpResult {
+        return try {
             val connection = (java.net.URL(config.url).openConnection() as java.net.HttpURLConnection).apply {
                 requestMethod = "POST"
                 connectTimeout = McpPolicy.timeoutMillis(ecoEnabled).toInt()
@@ -140,26 +153,40 @@ class McpClient(private val clientVersion: String = "1.3.1") {
                 }
                 doOutput = true
             }
-            connection.outputStream.use { it.write(body.toByteArray(StandardCharsets.UTF_8)) }
-            val code = connection.responseCode
-            val stream = if (code in 200..299) connection.inputStream else connection.errorStream
-            val raw = stream?.bufferedReader()?.use { reader ->
-                buildString {
-                    val buffer = CharArray(8 * 1024)
-                    var total = 0
-                    while (total < MAX_HTTP_RESPONSE_CHARS) {
-                        val count = reader.read(buffer, 0, minOf(buffer.size, MAX_HTTP_RESPONSE_CHARS - total))
-                        if (count <= 0) break
-                        append(buffer, 0, count)
-                        total += count
-                    }
+            try {
+                connection.outputStream.use { it.write(body.toByteArray(StandardCharsets.UTF_8)) }
+                val code = connection.responseCode
+                val stream = if (code in 200..299) connection.inputStream else connection.errorStream
+                val raw = readBounded(stream)
+                if (code !in 200..299) {
+                    HttpResult.Failure(McpPolicy.classifyHttpStatus(code), "MCP server returned HTTP $code.")
+                } else {
+                    HttpResult.Ok(extractSseJson(raw) ?: raw)
                 }
-            }.orEmpty()
-            connection.disconnect()
-            if (code !in 200..299) return null
-            extractSseJson(raw) ?: raw
-        }.getOrNull()
+            } finally {
+                connection.disconnect()
+            }
+        } catch (e: java.net.SocketTimeoutException) {
+            HttpResult.Failure(McpCallFailureKind.TIMEOUT, "MCP server timed out.")
+        } catch (e: Exception) {
+            HttpResult.Failure(McpCallFailureKind.NETWORK, e.message ?: "MCP request failed.")
+        }
     }
+
+    /** Reads an HTTP response body up to [MAX_HTTP_RESPONSE_CHARS] characters. */
+    private fun readBounded(stream: java.io.InputStream?): String =
+        stream?.bufferedReader()?.use { reader ->
+            buildString {
+                val buffer = CharArray(8 * 1024)
+                var total = 0
+                while (total < MAX_HTTP_RESPONSE_CHARS) {
+                    val count = reader.read(buffer, 0, minOf(buffer.size, MAX_HTTP_RESPONSE_CHARS - total))
+                    if (count <= 0) break
+                    append(buffer, 0, count)
+                    total += count
+                }
+            }
+        }.orEmpty()
 
     /** Returns the first `data:` payload that is a JSON object, otherwise null. */
     private fun extractSseJson(body: String): String? {

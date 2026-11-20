@@ -67,4 +67,14 @@ class McpPolicyTest {
         assertEquals("abcdefgh", McpPolicy.truncate("abcdefgh", 8))
         assertEquals("", McpPolicy.truncate("abcdefgh", 0))
     }
+
+    @Test
+    fun classifyHttpStatusDistinguishesAuthTimeoutAndNetwork() {
+        assertEquals(McpCallFailureKind.AUTH, McpPolicy.classifyHttpStatus(401))
+        assertEquals(McpCallFailureKind.AUTH, McpPolicy.classifyHttpStatus(403))
+        assertEquals(McpCallFailureKind.TIMEOUT, McpPolicy.classifyHttpStatus(408))
+        assertEquals(McpCallFailureKind.NETWORK, McpPolicy.classifyHttpStatus(500))
+        assertEquals(McpCallFailureKind.NETWORK, McpPolicy.classifyHttpStatus(502))
+        assertEquals(McpCallFailureKind.NETWORK, McpPolicy.classifyHttpStatus(429))
+    }
 }

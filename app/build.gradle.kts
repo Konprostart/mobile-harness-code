@@ -89,8 +89,8 @@ android {
         targetSdk = if (playBuild) 36 else 28
         // Keep literal defaults so F-Droid's static manifest parser can detect
         // the tagged release. Gradle properties may still override Play builds.
-        versionCode = 24
-        versionName = "1.3.10"
+        versionCode = 25
+        versionName = "1.3.11"
         providers.gradleProperty("appVersionCode").orNull?.toIntOrNull()?.let { versionCode = it }
         providers.gradleProperty("appVersionName").orNull?.let { versionName = it }
 
@@ -299,7 +299,7 @@ val generateSbom = tasks.register("generateSbom") {
             appendLine("  \"specVersion\": \"1.4\",")
             appendLine("  \"serialNumber\": \"urn:uuid:${UUID.randomUUID()}\",")
             appendLine("  \"version\": 1,")
-            appendLine("  \"metadata\": { \"component\": { \"type\": \"application\", \"name\": \"Mobile Harness Code\", \"version\": \"1.3.7\" } },")
+            appendLine("  \"metadata\": { \"component\": { \"type\": \"application\", \"name\": \"Mobile Harness Code\", \"version\": \"1.3.11\" } },")
             appendLine("  \"components\": [")
             componentJsons.forEachIndexed { index, component ->
                 append("    $component")

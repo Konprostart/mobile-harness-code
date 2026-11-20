@@ -76,6 +76,7 @@ import com.mobileharness.code.network.ssh.SshProfile
 import com.mobileharness.code.runtime.ReleasePipelineStage
 import com.mobileharness.code.sidekick.RagDocument
 import com.mobileharness.code.sidekick.RagIndex
+import com.mobileharness.code.skills.Skill
 
 @Composable
 internal fun releaseStageLabel(stage: ReleasePipelineStage): String = when (stage) {
@@ -382,6 +383,9 @@ fun SidekickSettings(
     localModelEnabled: Boolean,
     localModelBaseUrl: String,
     localModelName: String,
+    workspaceToolsEnabled: Boolean,
+    skillsEnabled: Boolean,
+    skills: List<Skill>,
     onSetFloatingButton: (Boolean) -> Unit,
     onSetUseCustomProvider: (Boolean) -> Unit,
     onSetBackgroundResearch: (Boolean) -> Unit,
@@ -392,6 +396,9 @@ fun SidekickSettings(
     onSetLocalModelEnabled: (Boolean) -> Unit,
     onSetLocalModelBaseUrl: (String) -> Unit,
     onSetLocalModelName: (String) -> Unit,
+    onSetWorkspaceToolsEnabled: (Boolean) -> Unit,
+    onSetSkillsEnabled: (Boolean) -> Unit,
+    onSetSkillEnabled: (String, Boolean) -> Unit,
     onLaunch: () -> Unit,
 ) {
     var selectedKind by rememberSaveable { mutableStateOf(provider.kind.name) }
@@ -555,6 +562,38 @@ fun SidekickSettings(
                 fontSize = 11.sp,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
+        }
+
+        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+            Column(Modifier.weight(1f)) {
+                Text(stringResource(R.string.workspace_tools_title), fontWeight = FontWeight.SemiBold)
+                Text(stringResource(R.string.workspace_tools_subtitle), fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+            Switch(checked = workspaceToolsEnabled, onCheckedChange = onSetWorkspaceToolsEnabled)
+        }
+
+        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+            Column(Modifier.weight(1f)) {
+                Text(stringResource(R.string.skills_title), fontWeight = FontWeight.SemiBold)
+                Text(stringResource(R.string.skills_subtitle), fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+            Switch(checked = skillsEnabled, onCheckedChange = onSetSkillsEnabled)
+        }
+
+        if (skillsEnabled) {
+            skills.forEach { skill ->
+                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+                    Column(Modifier.weight(1f)) {
+                        Text(skill.name, fontWeight = FontWeight.Medium, fontSize = 13.sp)
+                        Text(
+                            skill.description,
+                            fontSize = 11.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                    Switch(checked = skill.enabled, onCheckedChange = { onSetSkillEnabled(skill.id, it) })
+                }
+            }
         }
     }
 }
