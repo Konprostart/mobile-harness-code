@@ -268,6 +268,12 @@ val allowedSpdxLicenses = setOf(
 
 val sbomOutputDir = layout.buildDirectory.dir("reports/sbom")
 
+// The SBOM's component version must mirror the app's resolved versionName (the
+// defaultConfig literal, overridable via -PappVersionName) instead of a stale
+// hardcoded value. Kept as a separate expression so F-Droid's static parser
+// still sees the literal versionName assignment inside defaultConfig.
+val sbomVersionName = providers.gradleProperty("appVersionName").orNull ?: "1.3.13"
+
 val generateSbom = tasks.register("generateSbom") {
     group = "verification"
     description = "Writes a dependency-free CycloneDX SBOM of the online release runtime classpath."
@@ -299,7 +305,7 @@ val generateSbom = tasks.register("generateSbom") {
             appendLine("  \"specVersion\": \"1.4\",")
             appendLine("  \"serialNumber\": \"urn:uuid:${UUID.randomUUID()}\",")
             appendLine("  \"version\": 1,")
-            appendLine("  \"metadata\": { \"component\": { \"type\": \"application\", \"name\": \"Mobile Harness Code\", \"version\": \"1.3.11\" } },")
+            appendLine("  \"metadata\": { \"component\": { \"type\": \"application\", \"name\": \"Mobile Harness Code\", \"version\": \"${esc(sbomVersionName)}\" } },")
             appendLine("  \"components\": [")
             componentJsons.forEachIndexed { index, component ->
                 append("    $component")
@@ -321,6 +327,11 @@ val licenseCheck = tasks.register("licenseCheck") {
     description = "Fails the build if a direct dependency has a denied or unverified license."
     dependsOn(generateSbom)
     doLast {
+        val sbomFile = sbomOutputDir.get().file("cyclonedx.json").asFile
+        check(sbomFile.isFile) { "generateSbom did not produce $sbomFile" }
+        check(sbomFile.readText().contains("\"version\": \"$sbomVersionName\"")) {
+            "SBOM component version does not match versionName ($sbomVersionName)"
+        }
         val resolved = configurations.getByName("onlineReleaseRuntimeClasspath").resolvedConfiguration
         val problems = mutableListOf<String>()
         resolved.firstLevelModuleDependencies.forEach { dep ->
