@@ -1,12 +1,12 @@
 {
-  "versionCode": 25,
-  "versionName": "1.3.11",
-  "notes": "Mobile Harness Code — independent fork of Mobile Harness. New: built-in workspace tools for the Sidekick assistant (read-only repo search, safe file read and a project-structure / repo map), all confined to the app-private workspace by a fail-closed path guard and opt-in via a Settings toggle — nothing ever leaves the device. A safe opt-in Skill system (validated, prompt-only instruction packs: code review, Android app audit, commit messages, explain simply) that shape how the assistant answers — text only, no code execution. MCP HTTP failures now distinguish auth vs timeout vs network so misconfigured servers are reported accurately. Existing tools untouched: providers + AI router/fallback, local model (Ollama), MCP client, RAG, SSH client/tunnel/TOFU/PTY terminal + keyboard, Phone Control (Shizuku/Wireless ADB/root), in-app update, Telegram bot, multimodal Sidekick, Eco Mode, Share & Invite. This APK is SIGNED (V1+V2+V3); install mobile-harness-online.apk.",
+  "versionCode": 26,
+  "versionName": "1.3.12",
+  "notes": "Mobile Harness Code \u2014 independent fork of Mobile Harness. New: stable background work \u2014 returning from another app or the lock screen now refreshes live SSH status (and diagnostics after a long absence) so a tunnel that died in the background no longer shows as \"running\"; SSH tunnels and the interactive PTY shell are torn down cleanly when the screen closes (no leaked loopback listeners, PTY channels or SSH transports). Fail-closed throughout: the app never auto-reconnects or re-sends credentials \u2014 it only refreshes status. Existing tools untouched: providers + AI router/fallback, local model (Ollama), MCP client, RAG, workspace tools, safe Skill system, SSH client/tunnel/TOFU/PTY terminal + keyboard, Phone Control (Shizuku/Wireless ADB/root), in-app update, Telegram bot, multimodal Sidekick, Eco Mode, Share & Invite. This APK is SIGNED (V1+V2+V3); install mobile-harness-online.apk.",
   "artifacts": {
     "online": {
-      "url": "https://github.com/Konprostart/mobile-harness-code/releases/download/v1.3.11/mobile-harness-online.apk",
-      "sha256": "4684aba053a3338677bb2f04f9d8286b6560fccdede1b191dd458962a8a2a824",
-      "sizeBytes": 99385239
+      "url": "https://github.com/Konprostart/mobile-harness-code/releases/download/v1.3.12/mobile-harness-online.apk",
+      "sha256": "c17600655dcc8ed36bd930c36ee36a678a4d475236aabf94934fb8d941b1a7a5",
+      "sizeBytes": 99393431
     }
   }
 }
