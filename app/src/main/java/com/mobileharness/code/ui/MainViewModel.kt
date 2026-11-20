@@ -1322,7 +1322,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
      */
     fun onAppForeground() {
         val decision = resumePolicy.onForeground()
-        if (decision.refreshSshStatus) refreshSshTunnelStatus()
+        if (decision.refreshSshStatus) {
+            refreshSshTunnelStatus()
+            refreshSshShellStatus()
+        }
         if (decision.refreshDiagnostics) refreshDeveloperDiagnostics()
     }
 
@@ -1432,6 +1435,23 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         _sshTerminalConnecting.value = false
         _sshTerminalError.value = null
         _sshTerminalLines.value = emptyList()
+    }
+
+    /**
+     * Reconciles the interactive shell with reality after a background → foreground cycle. A PTY
+     * whose SSH link silently died while the app was backgrounded (Doze / network drop) is closed
+     * here and surfaced as "disconnected" instead of lying as "connected" — the same fail-closed
+     * rule the tunnel registry already applies. It never reconnects: the user reopens the terminal
+     * explicitly.
+     */
+    fun refreshSshShellStatus() {
+        val session = sshShellSession ?: return
+        if (session.isAlive()) return
+        sshShellSession = null
+        session.close()
+        _sshTerminalConnected.value = false
+        _sshTerminalConnecting.value = false
+        _sshTerminalError.value = str(R.string.ssh_terminal_connection_lost)
     }
 
     /** Sends a typed line (the shell echoes it) to the remote PTY. */
@@ -3540,6 +3560,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     installedAgentVersions = installer.installedAgentVersions(),
                 )
             }
+            restoreLastSession()
             autoPingApi()
             checkForAppUpdate()
         } else {
@@ -4255,6 +4276,24 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    /**
+     * Reopens the workspace the user last had open before the process was killed in the
+     * background (Doze / low-memory reclaim). Fail-closed and silent: if the project or chat no
+     * longer exists, or something is already running, nothing is restored and the user simply
+     * lands on the project list. Called once, after startup reaches READY.
+     */
+    private fun restoreLastSession() {
+        if (_state.value.activeProject != null) return
+        if (_state.value.isRunning || _state.value.projectTerminalRunning || _state.value.androidBuildRunning) return
+        val projectId = preferences.lastProjectId ?: return
+        val project = _state.value.projects.firstOrNull { it.id == projectId } ?: return
+        openProject(project)
+        val chatId = preferences.lastChatId
+        if (chatId != null && _state.value.projectChats.any { it.id == chatId } && _state.value.activeChatId != chatId) {
+            switchChat(chatId)
+        }
+    }
+
     fun openProject(project: Project) {
         val current = _state.value
         if (current.activeProject?.id == project.id) {
@@ -4338,6 +4377,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 androidBuildRecentDurationsMillis = androidBuild.recentDurationsMillis,
             )
         }
+        // Remember the open project/chat so a process killed in the background can restore the
+        // same workspace on the next cold start instead of dropping back to the project list.
+        preferences.lastProjectId = project.id
+        preferences.lastChatId = activeChat.id
         refreshProjectFiles()
         viewModelScope.launch {
             val pending = activeRuntime().loadPendingChanges(project.id)
@@ -4362,6 +4405,11 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             }
             return
         }
+
+        // The project is genuinely closing (not merely continuing in the background), so the
+        // next cold start should land on the project list instead of reopening a closed workspace.
+        preferences.lastProjectId = null
+        preferences.lastChatId = null
 
         if (active != null) {
             val chats = preferences.loadProjectChats(active.id)
@@ -5252,6 +5300,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         val chat = ProjectChat(title = str(R.string.vm_new_chat))
         val chats = listOf(chat) + _state.value.projectChats
         preferences.saveProjectChats(project.id, chats)
+        preferences.lastChatId = chat.id
         _state.update {
             it.copy(
                 projectChats = chats,
@@ -5273,6 +5322,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         if (current.isRunning || current.activeChatId == chatId) return
         val chat = current.projectChats.firstOrNull { it.id == chatId } ?: return
         persistMessages()
+        preferences.lastChatId = chat.id
         val saved = preferences.loadMessages(project.id, chat.id)
         _state.update {
             it.copy(

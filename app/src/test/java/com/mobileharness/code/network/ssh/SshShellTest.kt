@@ -7,6 +7,7 @@ import java.util.Collections
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -14,6 +15,13 @@ private class FakePtyTransport : SshPtyTransport {
     @Volatile
     override var isOpen: Boolean = true
         private set
+
+    // The SSH transport liveness, decoupled from the channel's [isOpen] so tests can model a
+    // silent SSH drop where the channel object still looks open from the outside.
+    @Volatile
+    var sshAlive: Boolean = true
+
+    override val isAlive: Boolean get() = isOpen && sshAlive
 
     private val written = Collections.synchronizedList(mutableListOf<ByteArray>())
     private val resized = Collections.synchronizedList(mutableListOf<Pair<Int, Int>>())
@@ -140,5 +148,33 @@ class SshShellTest {
         val eco = SshShellSession(FakePtyTransport(), 10, 3) { true }
         assertEquals(0, eco.screen.scrollbackSize())
         eco.close()
+    }
+
+    @Test
+    fun isAliveWhenConnectedAndTransportAlive() {
+        val session = SshShellSession(FakePtyTransport(), 10, 3) { false }
+        assertTrue(session.isAlive())
+        assertEquals(SshShellSession.State.CONNECTED, session.state)
+        session.close()
+    }
+
+    @Test
+    fun isNotAliveWhenSshTransportSilentlyDied() {
+        // A silent SSH drop leaves the channel object open and no EOF arrives, so `state` stays
+        // CONNECTED — exactly the case a foreground refresh must fail closed on.
+        val transport = FakePtyTransport()
+        val session = SshShellSession(transport, 10, 3) { false }
+        transport.sshAlive = false
+        assertFalse(session.isAlive())
+        assertEquals(SshShellSession.State.CONNECTED, session.state)
+        session.close()
+    }
+
+    @Test
+    fun isNotAliveAfterClose() {
+        val session = SshShellSession(FakePtyTransport(), 10, 3) { false }
+        session.close()
+        assertFalse(session.isAlive())
+        assertEquals(SshShellSession.State.CLOSED, session.state)
     }
 }

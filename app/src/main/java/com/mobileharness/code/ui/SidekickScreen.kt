@@ -62,6 +62,7 @@ import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -113,7 +114,7 @@ fun SidekickScreen(onClose: () -> Unit) {
     val scope = rememberCoroutineScope()
     val messages = remember { mutableStateListOf<SidekickMessage>() }
     val attachments = remember { mutableStateListOf<PendingAttachment>() }
-    var input by remember { mutableStateOf("") }
+    var input by rememberSaveable { mutableStateOf("") }
     var loading by remember { mutableStateOf(false) }
     var mode by remember { mutableStateOf(SidekickMode.ASK) }
     var errorMessage by remember { mutableStateOf<String?>(null) }

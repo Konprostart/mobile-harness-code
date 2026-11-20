@@ -115,7 +115,9 @@ fun TerminalScreen(
     showQuickCommands: Boolean = true,
     compactHeader: Boolean = false,
 ) {
-    var commandInput by remember { mutableStateOf(TextFieldValue()) }
+    // The in-progress command line survives rotation (TextFieldValue uses the dedicated Saver),
+    // so an accidental orientation change never wipes what the user is typing.
+    var commandInput by rememberSaveable(stateSaver = TextFieldValue.Saver) { mutableStateOf(TextFieldValue()) }
     var commandHistory by remember { mutableStateOf(emptyList<String>()) }
     var historyIndex by remember { mutableStateOf(-1) }
     var altActive by rememberSaveable { mutableStateOf(false) }

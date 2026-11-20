@@ -42,6 +42,15 @@ object SshShell {
  */
 interface SshPtyTransport {
     val isOpen: Boolean
+
+    /**
+     * Whether the transport is still genuinely usable for the shell reader. The default equals
+     * [isOpen]; real transports override this to also require a live, authenticated SSH link, so a
+     * shell whose connection silently died in the background (Doze / network drop) is reported as
+     * dead even when the channel object still looks open from the outside.
+     */
+    val isAlive: Boolean get() = isOpen
+
     fun inputStream(): InputStream
     fun write(bytes: ByteArray)
     fun resize(cols: Int, rows: Int)
@@ -88,6 +97,14 @@ class SshShellSession(
     }
 
     val state: State get() = currentState
+
+    /**
+     * Whether the shell is still genuinely usable: the session state is CONNECTED and the SSH
+     * transport it reads over is still connected and authenticated. A session whose SSH link
+     * silently died in the background is reported as dead here, so a foreground status refresh can
+     * fail closed instead of leaving the UI stuck on a stale "connected".
+     */
+    fun isAlive(): Boolean = currentState == State.CONNECTED && transport.isAlive
 
     /** Sends arbitrary UTF-8 bytes to the remote shell (e.g. a typed command line + Enter). */
     fun sendInput(text: String) {
@@ -149,6 +166,9 @@ class SshjPtyTransport(
     private val shell: Session.Shell,
 ) : SshPtyTransport {
     override val isOpen: Boolean get() = shell.isOpen
+
+    override val isAlive: Boolean
+        get() = shell.isOpen && ssh.isConnected && ssh.isAuthenticated
 
     override fun inputStream(): InputStream = shell.inputStream
 

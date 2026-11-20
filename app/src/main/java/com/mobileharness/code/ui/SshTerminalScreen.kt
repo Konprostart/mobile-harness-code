@@ -225,8 +225,10 @@ fun SshTerminalScreen(
     var rows by remember { mutableStateOf(0) }
     var fontSize by rememberSaveable { mutableStateOf(12f) }
     var fnMode by rememberSaveable { mutableStateOf(false) }
-    var ctrlState by remember { mutableStateOf(TerminalModifier.OFF) }
-    var altState by remember { mutableStateOf(TerminalModifier.OFF) }
+    // Sticky/lock modifier toggles survive rotation (enum is Serializable, so the default saver
+    // restores them without losing the user's one-shot/locked Ctrl+Alt state).
+    var ctrlState by rememberSaveable { mutableStateOf(TerminalModifier.OFF) }
+    var altState by rememberSaveable { mutableStateOf(TerminalModifier.OFF) }
 
     val listState = rememberLazyListState()
     val inputFocus = remember { FocusRequester() }

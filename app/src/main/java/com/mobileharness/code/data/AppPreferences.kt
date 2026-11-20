@@ -566,6 +566,28 @@ class AppPreferences(private val context: Context) {
 
     private fun providerPrefix(agent: AgentKind): String = "provider_${agent.stableId.replace('-', '_')}_"
 
+    /**
+     * Project the user last had open in the workspace. Persisted so a process killed in the
+     * background (Doze / low-memory reclaim) can reopen the same project on the next cold start
+     * instead of dropping the user back at the project list. Cleared only by [closeProject].
+     */
+    var lastProjectId: String?
+        get() = preferences.getString("last_project_id", null)
+        set(value) {
+            preferences.edit().apply {
+                if (value == null) remove("last_project_id") else putString("last_project_id", value)
+            }.apply()
+        }
+
+    /** Chat selected within [lastProjectId]; empty/absent restores the first (default) chat. */
+    var lastChatId: String?
+        get() = preferences.getString("last_chat_id", null)
+        set(value) {
+            preferences.edit().apply {
+                if (value == null) remove("last_chat_id") else putString("last_chat_id", value)
+            }.apply()
+        }
+
     fun saveProjects(projects: List<Project>) {
         val arr = JSONArray()
         projects.forEach { p ->

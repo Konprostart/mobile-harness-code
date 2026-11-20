@@ -806,6 +806,7 @@
     <string name="ssh_terminal_input_hint">Type a command and press Send…</string>
     <string name="ssh_terminal_send">Send</string>
     <string name="ssh_terminal_failed">SSH terminal error: %1$s</string>
+    <string name="ssh_terminal_connection_lost">Connection lost — reconnect to continue</string>
     <string name="ssh_terminal_copied">Copied to clipboard</string>
     <string name="devtools_ssh_stage_shell_open">shell-open</string>
     <string name="devtools_ssh_stage_shell_close">shell-close</string>
