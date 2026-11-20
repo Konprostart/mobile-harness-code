@@ -67,6 +67,18 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    override fun onStart() {
+        super.onStart()
+        // Return-from-background edge: refresh live SSH status (and diagnostics after a long
+        // absence) so a stale "connected" never lies. Fail-closed — never reconnects.
+        mainViewModel.onAppForeground()
+    }
+
+    override fun onStop() {
+        mainViewModel.onAppBackground()
+        super.onStop()
+    }
+
     @Suppress("DEPRECATION")
     override fun onTrimMemory(level: Int) {
         super.onTrimMemory(level)

@@ -146,6 +146,19 @@ class SshController(
     }
 
     /**
+     * Idempotently closes every live tunnel and clears the registry. Called on ViewModel
+     * teardown so a finished Activity can never leave a loopback listener or SSH transport
+     * behind while the process is still alive (backgrounding / swipe-away / rotation on some
+     * devices recreates the ViewModel without killing the process).
+     */
+    fun closeAll() {
+        val ids = tunnels.keys.toList()
+        for (id in ids) {
+            tunnels.remove(id)?.close()
+        }
+    }
+
+    /**
      * Opens an interactive PTY shell for [profile] at [cols]×[rows]. Enforces the exact same
      * TOFU gate as every other SSH operation: an unknown or changed fingerprint fails closed
      * before any password/key is sent, and only then does authentication and the shell start.

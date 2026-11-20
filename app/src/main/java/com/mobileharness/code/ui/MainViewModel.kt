@@ -734,6 +734,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val preferences = AppPreferences(application)
     private val sshSecrets = sshSecretStore(application)
     private val sshController = SshController(sshSecrets) { preferences.ecoModeEnabled }
+    private val resumePolicy = SessionResumePolicy()
     private val claudeRuntime = ClaudeRuntimeBridge(application) { profile -> vault.get(profile.kind.name) }
     private val dshRuntime = DshRuntimeBridge(application) { profile -> vault.get(profile.kind.name) }
     private val installer = RuntimeInstaller(application)
@@ -1293,6 +1294,36 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 _state.update { it.copy(toastMessage = str(R.string.ssh_tunnel_stopped)) }
             }
         }
+    }
+
+    /**
+     * Re-reads the live tunnel registry and reconciles [AppState.sshRunningTunnelIds] with
+     * reality. A tunnel that died while the app was backgrounded (Doze / network drop) surfaces
+     * as "stopped" here instead of silently lying as "running" in the UI. Fail-closed: it never
+     * reconnects — the user re-enables the toggle explicitly.
+     */
+    fun refreshSshTunnelStatus() {
+        val profiles = _state.value.sshProfiles
+        if (profiles.isEmpty()) return
+        val running = profiles.filter { sshController.isTunnelRunning(it.id) }.map { it.id }.toSet()
+        _state.update { state ->
+            if (state.sshRunningTunnelIds == running) state else state.copy(sshRunningTunnelIds = running)
+        }
+    }
+
+    /** Records the app entering the background (collapses repeated edges). */
+    fun onAppBackground() {
+        resumePolicy.onBackground()
+    }
+
+    /**
+     * App returned to the foreground. Refreshes SSH status after any background and diagnostics
+     * after a long absence, without ever reconnecting or re-sending credentials.
+     */
+    fun onAppForeground() {
+        val decision = resumePolicy.onForeground()
+        if (decision.refreshSshStatus) refreshSshTunnelStatus()
+        if (decision.refreshDiagnostics) refreshDeveloperDiagnostics()
     }
 
     /** Executes a single sanitized remote command and surfaces the bounded result. */
@@ -6899,6 +6930,11 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     override fun onCleared() {
         stopAndroidLogcat()
+        // Tear down long-lived SSH resources so a finished/backgrounded Activity cannot leave a
+        // loopback listener, PTY channel or SSH transport behind while the process stays alive.
+        sshShellSession?.close()
+        sshShellSession = null
+        sshController.closeAll()
         super.onCleared()
     }
 
