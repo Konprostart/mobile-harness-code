@@ -16,8 +16,15 @@ class SshTunnel internal constructor(
     private val thread: Thread,
     val localPort: Int,
 ) {
-    /** Whether the listener thread is still alive and the socket is open. */
-    fun isRunning(): Boolean = thread.isAlive && !serverSocket.isClosed
+    /**
+     * Whether the tunnel is still genuinely usable: the accept loop is alive, the loopback socket
+     * is open, and the SSH transport it forwards over is still connected and authenticated. The
+     * transport checks are what catch a tunnel whose SSH link died in the background (Doze or a
+     * network drop) while the listener thread and socket still look healthy from the outside — so
+     * a foreground status refresh can report it as "stopped" instead of lying as "running".
+     */
+    fun isRunning(): Boolean =
+        thread.isAlive && !serverSocket.isClosed && ssh.isConnected && ssh.isAuthenticated
 
     /** Idempotent shutdown: interrupt the accept loop, close the socket, then drop the SSH transport. */
     fun close() {

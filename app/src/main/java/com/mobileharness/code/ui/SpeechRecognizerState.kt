@@ -12,6 +12,8 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LifecycleEventEffect
 import com.mobileharness.code.R
 
 /**
@@ -113,6 +115,11 @@ class SpeechRecognizerState(context: Context) : AutoCloseable {
 @Composable
 fun rememberSpeechRecognizerState(context: Context): SpeechRecognizerState {
     val state = remember(context) { SpeechRecognizerState(context) }
+    // The microphone must not stay live while the app is in the background: as soon as the
+    // Activity is stopped (screen off, switching apps, recents) the recognizer is released so no
+    // audio is captured and no recognizer survives a background → foreground cycle. Split-screen /
+    // PiP keep the Activity started, so an intentional listen continues exactly as the user sees it.
+    LifecycleEventEffect(Lifecycle.Event.ON_STOP) { state.stop() }
     DisposableEffect(state) { onDispose { state.close() } }
     return state
 }
