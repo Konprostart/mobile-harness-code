@@ -14,6 +14,10 @@ import com.mobileharness.code.model.RuntimeEvent
 import com.mobileharness.code.model.RuntimeRecoveryContext
 import com.mobileharness.code.model.RuntimeRecoveryProfile
 import com.mobileharness.code.model.ToolRequest
+import com.mobileharness.code.permission.PermissionController
+import com.mobileharness.code.permission.PermissionDecision
+import com.mobileharness.code.permission.PermissionRequest
+import com.mobileharness.code.permission.PermissionSubject
 import java.io.File
 import java.io.RandomAccessFile
 import java.util.UUID
@@ -413,7 +417,15 @@ class AntigravityRuntimeBridge(
             val workspace = checkpoints.ensureWorkspace(projectId)
             checkpoints.createCheckpoint(projectId, workspace)
             val before = checkpoints.snapshot(workspace)
-            val command = antigravityCommand(model(), effort(), conversationId(projectId))
+            PermissionController.initialize(context)
+            val skipPermissions = PermissionController.decide(
+                PermissionRequest(
+                    subject = PermissionSubject.AGENT,
+                    subjectId = "antigravity",
+                    mutating = true,
+                ),
+            ) is PermissionDecision.Allowed
+            val command = antigravityCommand(model(), effort(), conversationId(projectId), skipPermissions)
             val process = installer.process(
                 installed.proot,
                 installed.rootfs,
@@ -805,14 +817,15 @@ private val ANTIGRAVITY_NETWORK_ERRORS = listOf(
 
 private class AntigravitySessionException(message: String) : IllegalStateException(message)
 
-internal fun antigravityCommand(model: String, effort: String, conversationId: String?): List<String> = buildList {
+internal fun antigravityCommand(model: String, effort: String, conversationId: String?, skipPermissions: Boolean = false): List<String> = buildList {
     add(RuntimeInstaller.AGY_GUEST_PATH)
     addAll(listOf("--input-format", "stream-json"))
     addAll(listOf("--output-format", "stream-json"))
     addAll(listOf("--print-timeout", "60m"))
-    // This is intentionally explicit and covered by tests. Antigravity tool calls
-    // do not pass through PocketDev approval dialogs while this mode is enabled.
-    add("--dangerously-skip-permissions")
+    // Full autonomy is granted only when the unified permission system has an ALLOW_ALL
+    // grant for the Antigravity agent; otherwise the CLI runs without the bypass flag and
+    // falls back to its own (more conservative) default permission handling.
+    if (skipPermissions) add("--dangerously-skip-permissions")
     addAntigravitySelection(model, effort)
     conversationId?.takeIf(String::isNotBlank)?.let {
         addAll(listOf("--conversation", it))

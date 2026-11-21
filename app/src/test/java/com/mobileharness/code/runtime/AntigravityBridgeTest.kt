@@ -126,12 +126,20 @@ class AntigravityBridgeTest {
             "--input-format", "stream-json",
             "--output-format", "stream-json",
             "--print-timeout", "60m",
-            "--dangerously-skip-permissions",
             "--model", "gemini-model",
             "--conversation", "conversation-1",
         )))
         assertTrue("--effort" !in command)
         assertTrue("--new-project" !in command)
+    }
+
+    @Test
+    fun `permission bypass flag is off by default and on only with explicit grant`() {
+        val without = antigravityCommand("gemini-model", "high", null)
+        assertTrue("--dangerously-skip-permissions" !in without)
+
+        val with = antigravityCommand("gemini-model", "high", null, skipPermissions = true)
+        assertTrue("--dangerously-skip-permissions" in with)
     }
 
     @Test

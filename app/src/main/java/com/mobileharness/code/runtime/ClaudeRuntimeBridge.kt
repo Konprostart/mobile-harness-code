@@ -19,6 +19,11 @@ import com.mobileharness.code.model.RuntimeEvent
 import com.mobileharness.code.model.RuntimeRecoveryContext
 import com.mobileharness.code.model.RuntimeRecoveryProfile
 import com.mobileharness.code.model.ToolRequest
+import com.mobileharness.code.permission.DestructiveOpClassifier
+import com.mobileharness.code.permission.PermissionController
+import com.mobileharness.code.permission.PermissionDecision
+import com.mobileharness.code.permission.PermissionRequest
+import com.mobileharness.code.permission.PermissionSubject
 import java.io.File
 import java.io.RandomAccessFile
 import java.security.MessageDigest
@@ -544,10 +549,12 @@ class ClaudeRuntimeBridge(
     }
 
     private suspend fun watchPermissionRequests(sessionId: String) {
+        PermissionController.initialize(context)
         val bridge = File(context.filesDir, "runtime-bridge")
         while (kotlin.coroutines.coroutineContext.isActive) {
             bridge.listFiles { file -> file.name.endsWith(".request") }.orEmpty().forEach { file ->
                 val approvalId = file.name.removeSuffix(".request")
+                val response = File(file.parentFile, "$approvalId.response")
                 runCatching {
                     val json = JSONObject(file.readText())
                     val toolName = json.optString("tool_name", "Tool")
@@ -558,15 +565,52 @@ class ClaudeRuntimeBridge(
                     val explanation = input.optString("description")
                         .ifBlank { command.orEmpty() }
                         .ifBlank { "$toolName running in project" }
+                    val destructive = DestructiveOpClassifier.isDestructive(null, command)
 
-                    DebugLog.d("ClaudeBridge", "Auto-approving permission request $approvalId for $toolName ($paths)")
-                    val response = File(file.parentFile, "$approvalId.response")
-                    response.writeText("allow")
+                    val request = PermissionRequest(
+                        subject = PermissionSubject.TOOL,
+                        subjectId = toolName,
+                        operation = command ?: toolName,
+                        mutating = true,
+                        destructive = destructive,
+                    )
 
-                    recordToolActivity(toolName)
-                    eventBus.emit(RuntimeEvent.ToolCompleted(sessionId, toolName, explanation))
+                    when (val decision = PermissionController.decide(request)) {
+                        is PermissionDecision.Allowed -> {
+                            DebugLog.d("ClaudeBridge", "Allowing permission request $approvalId for $toolName")
+                            response.writeText("allow")
+                            recordToolActivity(toolName)
+                            eventBus.emit(RuntimeEvent.ToolCompleted(sessionId, toolName, explanation))
+                        }
+                        is PermissionDecision.Denied -> {
+                            DebugLog.d("ClaudeBridge", "Denying permission request $approvalId for $toolName (${decision.reason})")
+                            response.writeText("deny")
+                            eventBus.emit(
+                                RuntimeEvent.RuntimeLog(
+                                    sessionId,
+                                    "Permission denied",
+                                    "$toolName was denied: ${decision.reason.name}",
+                                ),
+                            )
+                        }
+                        is PermissionDecision.NeedsApproval -> {
+                            DebugLog.d("ClaudeBridge", "Deferring permission request $approvalId for $toolName to user")
+                            val toolRequest = ToolRequest(
+                                approvalId = approvalId,
+                                sessionId = sessionId,
+                                toolName = toolName,
+                                explanation = explanation,
+                                affectedPaths = paths,
+                                commandPreview = command,
+                                risk = DestructiveOpClassifier.riskLevel(mutating = true, destructive = destructive),
+                            )
+                            pending[approvalId] = PendingPermission(toolRequest, response)
+                            eventBus.emit(RuntimeEvent.ToolRequested(sessionId, toolRequest))
+                        }
+                    }
                 }.onFailure {
-                    File(file.parentFile, "$approvalId.response").writeText("allow")
+                    // Fail-closed: a malformed request is denied, never silently allowed.
+                    response.writeText("deny")
                 }
             }
             delay(50)

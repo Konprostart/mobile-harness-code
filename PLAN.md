@@ -45,6 +45,40 @@ resources (sockets, processes, streams, coroutine scopes, `SpeechRecognizer`/aud
 - **Rotation-state polish**: SSH terminal Ctrl/Alt modifier toggles and the Sidekick + quick
   terminal input drafts survive configuration changes (`rememberSaveable`).
 
+## Phase E — Unified permissions, voice, research, provider diagnostics, prompt engine
+
+### Landed in v1.4.0 (this phase)
+
+- **Unified Permission System** (`permission/`): `PermissionLevel` (ASK_EVERY_TIME / ALLOW_ONCE /
+  ALLOW_SESSION / ALWAYS_ALLOW / ALLOW_ALL / DENY), `PermissionPolicy` (fail-closed, with hard
+  blocks for emergency stop, secret access, destructive operations, out-of-workspace paths and
+  untrusted destinations), persistent `PermissionStore`, `PermissionAuditLog` (redacted), and a
+  global `EmergencyStop`.
+- **Removed uncontrolled auto-approval**: Claude Code's `watchPermissionRequests` now routes every
+  Bash/Edit/Write through `PermissionController` (allow / deny / surface-to-user) instead of
+  auto-allowing; the guest `permission-hook.sh` writes a `.request` and waits for the app's
+  `.response` (fail-closed → deny on error/timeout), and Claude `settings.json` now auto-allows only
+  read-only tools (`Read`/`Glob`/`Grep`) with `defaultMode: "default"` instead of `acceptEdits`.
+- **Antigravity**: `--dangerously-skip-permissions` is no longer hard-coded; it is added only when
+  the unified permission system grants ALLOW_ALL for the Antigravity agent.
+- **Persistent provider request log** (`network/ProviderRequestLog`): redacted, bounded, JSON
+  round-trip, with a reusable `redact()`.
+- **Custom settings registry** (`ui/settings/SettingsRegistry`): additive extensibility point that
+  does not refactor the existing 19 hard-coded sections.
+- **Voice** (`voice/`): provider model + fail-closed `VoicePolicy` + OpenAI-compatible STT/TTS
+  `VoiceApiClient`; the Android OS SpeechRecognizer remains the local STT option.
+- **Web research** (`research/`): connector registry + presets (Marginalia/Jina/Firecrawl/Linkup/
+  Langsearch), `ResearchPolicy` (SSRF guard + budgets) and `ClaimCheck` (claim extraction + verdict).
+- **Auto Prompt Engineering** (`prompt/`): `PromptAssembler` (priority-based contradiction removal +
+  token budget), `TaskDecomposer`, `PromptVersionStore`, `AgentsMdParser`.
+
+### Not implemented in this pass (documented gaps)
+
+- **Wireless ADB executor**: the `WIRELESS_ADB` route remains declared but executor-less (SPAKE2
+  pairing is a separate, larger effort; see `device/PrivilegeController`). Shizuku + root still work.
+- **Plugin manager** and **Automation (WorkManager/AlarmManager)**: not yet implemented; Skills
+  remain the safe, text-only extension mechanism.
+
 ## Testing & CI
 
 - Plain-JVM unit tests cover lifecycle and background-state logic (`SessionResumePolicyTest`,
