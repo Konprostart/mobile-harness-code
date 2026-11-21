@@ -68,6 +68,19 @@ class TransportRetryTest {
     }
 
     @Test
+    fun rotationDelayHonorsMaxAttemptsWithCappedTail() {
+        // Default (2 attempts) mirrors the legacy budget exactly.
+        assertEquals(5000L, rotationDelayMillis(0, 2)!!)
+        assertEquals(15000L, rotationDelayMillis(1, 2)!!)
+        assertNull(rotationDelayMillis(2, 2))
+        // An extended chain caps the tail at 30s and still exhausts.
+        assertEquals(30000L, rotationDelayMillis(2, 4)!!)
+        assertEquals(30000L, rotationDelayMillis(3, 4)!!)
+        assertNull(rotationDelayMillis(4, 4))
+        assertNull(rotationDelayMillis(-1, 2))
+    }
+
+    @Test
     fun stopFinalizesLocallyOnlyDuringRetryGap() {
         assertFalse(shouldFinalizeStopLocally(false))
         assertTrue(shouldFinalizeStopLocally(true))

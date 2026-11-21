@@ -84,6 +84,7 @@ import com.mobileharness.code.network.ModelDiscoveryResult
 import com.mobileharness.code.network.ProviderApiClient
 import com.mobileharness.code.network.RouteLog
 import com.mobileharness.code.network.GitHubRepository
+import com.mobileharness.code.network.isRotatableProviderFailure
 import com.mobileharness.code.network.ServerSyncConfig
 import com.mobileharness.code.network.ServerSyncMode
 import com.mobileharness.code.runtime.ClaudeRuntimeBridge
@@ -139,6 +140,12 @@ import com.mobileharness.code.runtime.findReusableDebugApk
 import com.mobileharness.code.runtime.inferAndroidBuildStage
 import com.mobileharness.code.runtime.isDebugApkStale
 import com.mobileharness.code.runtime.parseAndroidBuildIssues
+import com.mobileharness.code.runtime.ProviderRotation
+import com.mobileharness.code.runtime.ProviderRotationCandidate
+import com.mobileharness.code.runtime.ProviderRotationPlan
+import com.mobileharness.code.runtime.ContinuationPack
+import com.mobileharness.code.runtime.ContinuationPackBuilder
+import com.mobileharness.code.runtime.toInstruction
 import com.mobileharness.code.update.AppUpdateInfo
 import com.mobileharness.code.update.AppUpdater
 import java.io.File
@@ -311,6 +318,13 @@ internal fun transportRetryDelayMillis(attempt: Int): Long? = when (attempt) {
 }
 
 /**
+ * Backoff for a rotation attempt. Mirrors the legacy [transportRetryDelayMillis] for the first two
+ * attempts (5s then 15s) and caps any extension at 30s so a longer chain never stalls forever.
+ */
+internal fun rotationDelayMillis(attempt: Int, maxAttempts: Int): Long? =
+    if (attempt < 0 || attempt >= maxAttempts) null else transportRetryDelayMillis(attempt) ?: 30_000L
+
+/**
  * True when `stopTask` must finalize the stopped state locally instead of delegating to the
  * bridge. Only the transport reconnect gap triggers this: there the bridge has already ended
  * its session (`stopActiveSession` would no-op) and no terminal event is coming, so the view
@@ -408,6 +422,8 @@ data class RuntimeRetryRequest(
     val prompt: String,
     val history: List<ChatMessage>,
     val provider: ProviderProfile,
+    /** Rotation chain resolved at the start of the turn; null/disabled means "keep the primary". */
+    val rotation: ProviderRotationPlan? = null,
 )
 
 data class QueuedFollowUp(
@@ -490,12 +506,13 @@ internal const val TRANSPORT_RETRY_MAX_ATTEMPTS = 2
 internal fun recoveryUiStateForFallbackAttempt(
     decision: RecoveryDecision,
     attempt: Int,
+    maxAttempts: Int = TRANSPORT_RETRY_MAX_ATTEMPTS,
     reason: String,
     recovery: RecoveryFailureInfo,
 ): RecoveryUiState = RecoveryUiState(
     decision = decision,
     attempt = attempt,
-    maxAttempts = TRANSPORT_RETRY_MAX_ATTEMPTS,
+    maxAttempts = maxAttempts,
     reason = reason,
     retryAvailable = false,
     sideEffectsPossible = recovery.sideEffectsPossible,
@@ -690,6 +707,8 @@ data class AppUiState(
     val localModelEnabled: Boolean = false,
     val localModelBaseUrl: String = "",
     val localModelName: String = "",
+    val agentRotationEnabled: Boolean = false,
+    val agentRotationMaxAttempts: Int = 2,
     val ecoModeEnabled: Boolean = false,
     val autoPromptEnabled: Boolean = false,
     val mcpServers: List<McpServerConfig> = emptyList(),
@@ -856,6 +875,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             localModelEnabled = preferences.localModelEnabled,
             localModelBaseUrl = preferences.localModelBaseUrl,
             localModelName = preferences.localModelName,
+            agentRotationEnabled = preferences.agentRotationEnabled,
+            agentRotationMaxAttempts = preferences.agentRotationMaxAttempts,
             ecoModeEnabled = preferences.ecoModeEnabled,
             autoPromptEnabled = preferences.autoPromptEnabled,
             mcpServers = preferences.loadMcpServers(),
@@ -1029,6 +1050,16 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     fun setLocalModelName(model: String) {
         preferences.localModelName = model
         _state.update { it.copy(localModelName = model.trim()) }
+    }
+
+    fun setAgentRotationEnabled(enabled: Boolean) {
+        preferences.agentRotationEnabled = enabled
+        _state.update { it.copy(agentRotationEnabled = enabled) }
+    }
+
+    fun setAgentRotationMaxAttempts(attempts: Int) {
+        preferences.agentRotationMaxAttempts = attempts
+        _state.update { it.copy(agentRotationMaxAttempts = attempts.coerceIn(1, 8)) }
     }
 
     fun setEcoMode(enabled: Boolean) {
@@ -6172,6 +6203,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             prompt = runtimePrompt,
             history = history,
             provider = state.value.provider,
+            rotation = resolveRotationPlan(state.value.agentKind, state.value.provider),
         )
         viewModelScope.launch {
             activeRuntimeRequest?.let { request ->
@@ -6706,6 +6738,43 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         persistMessages(includeLiveProcess = true)
     }
 
+    /** Provider kinds that actually have a secret saved (subscription token or API key). */
+    private fun availableProviderKinds(): Set<ProviderKind> =
+        ProviderKind.entries.filterTo(mutableSetOf()) { vault.contains(it.name) }
+
+    /** Resolves the rotation chain for a turn; null when rotation is disabled or inert. */
+    private fun resolveRotationPlan(agent: AgentKind, primary: ProviderProfile): ProviderRotationPlan? {
+        if (!preferences.agentRotationEnabled) return null
+        val plan = ProviderRotation.plan(
+            agent = agent,
+            primary = primary,
+            availableKinds = availableProviderKinds(),
+            enabled = true,
+            maxAttempts = preferences.agentRotationMaxAttempts,
+        )
+        return if (plan.isActive) plan else null
+    }
+
+    /**
+     * Provider for a zero-based rotation attempt; keeps the primary when the chain is exhausted.
+     * [preferDifferentProvider] is set for a provider rejection (429/5xx/quota): same-provider
+     * models are then skipped because the whole provider account/infra is the failing part.
+     */
+    private fun rotationProviderFor(request: RuntimeRetryRequest, attemptIndex: Int, preferDifferentProvider: Boolean = false): ProviderProfile {
+        val plan = request.rotation ?: return request.provider
+        val pool = if (preferDifferentProvider) {
+            plan.candidates.filter { it.kind != request.provider.kind }
+        } else {
+            plan.candidates
+        }
+        val candidate = pool.getOrNull(attemptIndex) ?: return request.provider
+        return ProviderRotation.profileFor(request.provider, candidate)
+    }
+
+    /** Folds the provider-agnostic continuation instruction into the resumed prompt. */
+    private fun continuationPrompt(task: String, toolsExecuted: Boolean): String =
+        ContinuationPackBuilder.forInterruptedTask(task = task, toolsExecuted = toolsExecuted).toInstruction() + "\n\n" + task
+
     private fun retryWithNextApiKey(event: RuntimeEvent.SessionFailed): Boolean {
         val current = _state.value
         if (current.agentKind == AgentKind.ANTIGRAVITY) return false
@@ -6754,16 +6823,21 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private fun retryOnTransportFailure(event: RuntimeEvent.SessionFailed): Boolean {
         val current = _state.value
         if (!current.isRunning || current.activeSessionId != event.sessionId) return false
-        if (!isTransportFailure(event.reason)) return false
         val request = activeRuntimeRequest ?: return false
+        val isTransport = isTransportFailure(event.reason)
+        val isRotatableProvider = request.rotation?.isActive == true && isRotatableProviderFailure(event.reason)
+        if (!isTransport && !isRotatableProvider) return false
         val sessionId = current.activeSessionId ?: return false
 
         val context = request.runtime.recoveryContext(sessionId, request.project.id) ?: return false
 
-        // Fail-closed gate: transport failure plus (recovery evidence OR live in-place).
-        if (!shouldHandleTransportFailure(event.reason, event.recovery) &&
+        // Fail-closed gate: a transport dropout needs recovery evidence OR a live in-place
+        // continuation; a provider rejection (429/5xx/quota) rotates only when the session can
+        // prove no tool ran, so a mutating turn is never replayed across a provider change.
+        if (isTransport && !shouldHandleTransportFailure(event.reason, event.recovery) &&
             !context.inPlaceContinuationAvailable
         ) return false
+        if (isRotatableProvider && context.toolsExecuted) return false
 
         // Effective facts for the fallback terminal state: event recovery wins verbatim,
         // otherwise derive from the structured context so side-effect warnings survive.
@@ -6797,8 +6871,11 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
 
         // Fallback path (RETRY_NEW_SESSION_SAFE and future RESUME_PERSISTED): budget the
-        // new-session retries at 5 s then 15 s before exhausting into manual retry.
-        val delayMillis = transportRetryDelayMillis(transportRetryAttempts) ?: return false
+        // new-session retries. With rotation disabled the budget stays at the legacy 2 attempts
+        // (5s then 15s); an enabled chain may extend up to its configured maxAttempts with a
+        // capped 30s tail.
+        val rotationMaxAttempts = request.rotation?.takeIf { it.isActive }?.maxAttempts ?: TRANSPORT_RETRY_MAX_ATTEMPTS
+        val delayMillis = rotationDelayMillis(transportRetryAttempts, rotationMaxAttempts) ?: return false
         transportRetryAttempts += 1
         val attempt = transportRetryAttempts
         val generation = ++transportRetryGeneration
@@ -6812,7 +6889,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             committed.copy(
                 activeSessionId = null,
                 pendingApproval = null,
-                recovery = recoveryUiStateForFallbackAttempt(decision, attempt, event.reason, effectiveInfo),
+                recovery = recoveryUiStateForFallbackAttempt(decision, attempt, rotationMaxAttempts, event.reason, effectiveInfo),
                 activity = listOf(ActivityItem(str(R.string.vm_transport_reconnecting), "", isComplete = false)) + committed.activity,
                 liveProcess = listOf(ActivityItem(str(R.string.vm_transport_reconnecting), "", isComplete = false)),
             )
@@ -6824,7 +6901,15 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             if (activeRuntimeRequest !== request) return@launch
             transportRetryWaiting = false
             transportRetryingFromSessionId = null
-            val recovered = request.runtime.recover(action, decision)
+            // Rotate the provider/model for this attempt (first attempt stays on the primary,
+            // later attempts walk the ordered fallback chain). Only an active rotation chain folds
+            // in the continuation instruction: with rotation disabled the resumed prompt stays
+            // bit-identical to the legacy reconnect so default behaviour is unchanged.
+            val rotationActive = request.rotation?.isActive == true
+            val rotatedProvider = rotationProviderFor(request, attempt - 1, preferDifferentProvider = isRotatableProvider)
+            val resumedPrompt = if (rotationActive) continuationPrompt(request.prompt, toolsExecuted = false) else request.prompt
+            val rotatedAction = action.copy(provider = rotatedProvider, originalPrompt = resumedPrompt)
+            val recovered = request.runtime.recover(rotatedAction, decision)
             if (!recovered) {
                 // The bridge declined to restart; preserve the request for manual retry.
                 preserveForManualRetry(request, event.reason, effectiveInfo)

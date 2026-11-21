@@ -48,6 +48,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -67,12 +68,14 @@ import com.mobileharness.code.mcp.McpServerConfig
 import com.mobileharness.code.mcp.McpTool
 import com.mobileharness.code.mcp.McpToolConfirmMode
 import com.mobileharness.code.mcp.McpTransport
+import com.mobileharness.code.model.AgentKind
 import com.mobileharness.code.model.ProviderKind
 import com.mobileharness.code.model.ProviderProfile
 import com.mobileharness.code.network.ServerSyncConfig
 import com.mobileharness.code.network.ServerSyncMode
 import com.mobileharness.code.network.ssh.SshAuthType
 import com.mobileharness.code.network.ssh.SshProfile
+import com.mobileharness.code.runtime.ProviderRotation
 import com.mobileharness.code.runtime.ReleasePipelineStage
 import com.mobileharness.code.sidekick.RagDocument
 import com.mobileharness.code.sidekick.RagIndex
@@ -645,6 +648,100 @@ fun AutoPromptSettings(
 
         Text(
             stringResource(R.string.auto_prompt_note),
+            fontSize = 11.sp,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
+}
+
+/**
+ * Model / provider rotation for coding agents. Off by default (fail-closed): when off the coding
+ * agents keep their exact reconnect-only behaviour. When on, a transient failure rotates to the
+ * next compatible model/provider in the chain. The chain is read-only here and derived from
+ * [ProviderRotation.defaultCandidates], filtered to providers with a saved key at launch time.
+ */
+@Composable
+fun ModelRotationSettings(
+    enabled: Boolean,
+    maxAttempts: Int,
+    agent: AgentKind,
+    provider: ProviderProfile,
+    onSetEnabled: (Boolean) -> Unit,
+    onSetMaxAttempts: (Int) -> Unit,
+) {
+    val chain = remember(agent, provider.kind, provider.model) {
+        ProviderRotation.defaultCandidates(agent, provider)
+            .map { "${it.kind.title} · ${it.model}" }
+    }
+
+    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+            Column(Modifier.weight(1f)) {
+                Text(stringResource(R.string.model_rotation_enable_label), fontWeight = FontWeight.SemiBold)
+                Text(stringResource(R.string.model_rotation_enable_subtitle), fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+            Switch(checked = enabled, onCheckedChange = onSetEnabled)
+        }
+
+        if (enabled) {
+            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+                Column(Modifier.weight(1f)) {
+                    Text(stringResource(R.string.model_rotation_max_attempts_label), fontWeight = FontWeight.SemiBold)
+                }
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    OutlinedButton(
+                        onClick = { onSetMaxAttempts((maxAttempts - 1).coerceAtLeast(1)) },
+                        enabled = maxAttempts > 1,
+                        modifier = Modifier.size(40.dp),
+                        contentPadding = androidx.compose.foundation.layout.PaddingValues(0.dp),
+                    ) { Text("−", fontWeight = FontWeight.Bold) }
+                    Text(
+                        text = maxAttempts.toString(),
+                        modifier = Modifier.padding(horizontal = 12.dp),
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 16.sp,
+                    )
+                    OutlinedButton(
+                        onClick = { onSetMaxAttempts((maxAttempts + 1).coerceAtMost(8)) },
+                        enabled = maxAttempts < 8,
+                        modifier = Modifier.size(40.dp),
+                        contentPadding = androidx.compose.foundation.layout.PaddingValues(0.dp),
+                    ) { Text("+", fontWeight = FontWeight.Bold) }
+                }
+            }
+
+            if (chain.isNotEmpty()) {
+                Text(
+                    stringResource(R.string.model_rotation_order_label),
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Surface(
+                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f),
+                    shape = RoundedCornerShape(12.dp),
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Column(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp)) {
+                        chain.forEachIndexed { index, entry ->
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text(
+                                    "${index + 1}.",
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.width(24.dp),
+                                )
+                                Text(entry, fontSize = 12.sp, fontFamily = FontFamily.Monospace)
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        Text(
+            stringResource(R.string.model_rotation_note),
             fontSize = 11.sp,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )

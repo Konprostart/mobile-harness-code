@@ -582,6 +582,15 @@
     <string name="auto_prompt_note">When on, the coding agent reads AGENTS.md (or CLAUDE.md) from the active workspace as data and merges it into prompts; the assembled prompt is versioned. Off by default — when off, prompts are sent unchanged. AGENTS.md is always treated as data, never as system instructions.</string>
     <string name="auto_prompt_on">On — merging workspace instructions</string>
     <string name="auto_prompt_off">Off</string>
+    <!-- Model / provider rotation (coding agents) -->
+    <string name="model_rotation_title">Model rotation</string>
+    <string name="model_rotation_subtitle_on">Automatic failover between models and providers</string>
+    <string name="model_rotation_subtitle_off">Off — reconnect only</string>
+    <string name="model_rotation_enable_label">Rotate model/provider automatically</string>
+    <string name="model_rotation_enable_subtitle">On a transient failure, try the next compatible model or provider instead of stopping.</string>
+    <string name="model_rotation_max_attempts_label">Rotation attempts</string>
+    <string name="model_rotation_order_label">Default rotation order</string>
+    <string name="model_rotation_note">A turn that already ran tools is never re-run automatically, and API keys never leave secure storage. Only providers with a saved key are used.</string>
     <!-- Sidekick multimodal input + voice typing -->
     <string name="sidekick_attach">Attach</string>
     <string name="sidekick_attach_photo">Take photo</string>

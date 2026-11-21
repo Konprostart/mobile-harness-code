@@ -14,6 +14,9 @@ enum class CompletionFailureKind {
     /** 429 — rate limit. A good fallback trigger. */
     RATE_LIMITED,
 
+    /** 402 / insufficient balance — the account has no credit left. Rotate provider, not model. */
+    QUOTA_EXCEEDED,
+
     /** 500..599 — provider is temporarily down or overloaded. A good fallback trigger. */
     SERVER_ERROR,
 
@@ -39,6 +42,7 @@ fun classifyCompletionFailure(httpCode: Int, error: String?): CompletionFailureK
     return when {
         httpCode == 401 || httpCode == 403 -> CompletionFailureKind.AUTH
         httpCode == 429 -> CompletionFailureKind.RATE_LIMITED
+        httpCode == 402 -> CompletionFailureKind.QUOTA_EXCEEDED
         httpCode in 500..599 -> CompletionFailureKind.SERVER_ERROR
         httpCode == 400 || httpCode == 404 || httpCode == 422 -> CompletionFailureKind.BAD_REQUEST
         httpCode > 0 -> CompletionFailureKind.OTHER
@@ -46,6 +50,41 @@ fun classifyCompletionFailure(httpCode: Int, error: String?): CompletionFailureK
             message.contains("timed out", ignoreCase = true) -> CompletionFailureKind.TIMEOUT
         else -> CompletionFailureKind.NETWORK
     }
+}
+
+/**
+ * Classifies a coding-agent failure from its user-facing reason string. The bridges surface only a
+ * reason string at `SessionFailed` (no structured HTTP code), so this maps the stable English
+ * phrases they emit onto [CompletionFailureKind] for the same routing decision as
+ * [classifyCompletionFailure]. Deliberately conservative: unknown text is [CompletionFailureKind.OTHER].
+ */
+fun classifyFailureKindFromReason(reason: String): CompletionFailureKind {
+    val value = reason.lowercase()
+    val serverCode = Regex("\\b(500|502|503|504)\\b").containsMatchIn(value)
+    return when {
+        "user not found" in value || "api key" in value || "authentication" in value ||
+            "http 401" in value || "http 403" in value -> CompletionFailureKind.AUTH
+        "rate limit" in value || "429" in value -> CompletionFailureKind.RATE_LIMITED
+        "quota" in value || "402" in value || "insufficient" in value -> CompletionFailureKind.QUOTA_EXCEEDED
+        "server error" in value || "internal server" in value || "bad gateway" in value ||
+            "service unavailable" in value || "upstream" in value || serverCode ->
+            CompletionFailureKind.SERVER_ERROR
+        "connection error" in value || "transport" in value || "network" in value -> CompletionFailureKind.NETWORK
+        "timeout" in value || "timed out" in value -> CompletionFailureKind.TIMEOUT
+        else -> CompletionFailureKind.OTHER
+    }
+}
+
+/**
+ * True when a coding-agent failure is a transient *provider rejection* that reconnect cannot fix
+ * — rate limit (429), server error (5xx) or exhausted credit (402). Network/timeout dropouts are
+ * deliberately excluded: those are handled by the transport-recovery path, which reconnects first.
+ */
+fun isRotatableProviderFailure(reason: String): Boolean {
+    val kind = classifyFailureKindFromReason(reason)
+    return kind == CompletionFailureKind.RATE_LIMITED ||
+        kind == CompletionFailureKind.SERVER_ERROR ||
+        kind == CompletionFailureKind.QUOTA_EXCEEDED
 }
 
 /** A single model step in a fallback chain. [id] is a stable label used only for logs. */

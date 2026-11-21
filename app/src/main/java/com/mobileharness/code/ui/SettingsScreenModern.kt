@@ -134,7 +134,7 @@ import com.mobileharness.code.ui.theme.AppThemeMode
 import com.mobileharness.code.ui.theme.PocketOrange
 import kotlinx.coroutines.launch
 
-private enum class SettingsSection { APPEARANCE, LANGUAGE, TOOLS, RUNTIME, DIAGNOSTICS, DEVELOPER_TOOLS, BACKUP, UPDATE_CHANNEL, UPDATES, GRADLE_MEMORY, RELEASE_SIGNING, SERVER_SYNC, TELEGRAM, SIDEKICK, MCP_SERVERS, ECO_MODE, AUTO_PROMPT, RAG, SSH, SHARE_INVITE }
+private enum class SettingsSection { APPEARANCE, LANGUAGE, TOOLS, RUNTIME, DIAGNOSTICS, DEVELOPER_TOOLS, BACKUP, UPDATE_CHANNEL, UPDATES, GRADLE_MEMORY, RELEASE_SIGNING, SERVER_SYNC, TELEGRAM, SIDEKICK, MCP_SERVERS, ECO_MODE, AUTO_PROMPT, MODEL_ROTATION, RAG, SSH, SHARE_INVITE }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -198,6 +198,8 @@ fun SettingsScreen(
     onSetSkillEnabled: (String, Boolean) -> Unit = { _, _ -> },
     onSetEcoMode: (Boolean) -> Unit = {},
     onSetAutoPromptEnabled: (Boolean) -> Unit = {},
+    onSetAgentRotationEnabled: (Boolean) -> Unit = {},
+    onSetAgentRotationMaxAttempts: (Int) -> Unit = {},
     onCheckForAppUpdate: () -> Unit = {},
     onInstallAppUpdate: () -> Unit = {},
     onRefreshDevTools: () -> Unit = {},
@@ -662,6 +664,29 @@ fun SettingsScreen(
                     AutoPromptSettings(
                         enabled = state.autoPromptEnabled,
                         onSetEnabled = onSetAutoPromptEnabled,
+                    )
+                }
+            }
+
+            item {
+                SettingsAccordion(
+                    title = stringResource(R.string.model_rotation_title),
+                    subtitle = if (state.agentRotationEnabled) {
+                        stringResource(R.string.model_rotation_subtitle_on)
+                    } else {
+                        stringResource(R.string.model_rotation_subtitle_off)
+                    },
+                    icon = Icons.Default.Refresh,
+                    expanded = expanded == SettingsSection.MODEL_ROTATION,
+                    onClick = { toggle(SettingsSection.MODEL_ROTATION) },
+                ) {
+                    ModelRotationSettings(
+                        enabled = state.agentRotationEnabled,
+                        maxAttempts = state.agentRotationMaxAttempts,
+                        agent = state.agentKind,
+                        provider = state.provider,
+                        onSetEnabled = onSetAgentRotationEnabled,
+                        onSetMaxAttempts = onSetAgentRotationMaxAttempts,
                     )
                 }
             }

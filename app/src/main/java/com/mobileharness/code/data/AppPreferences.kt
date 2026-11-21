@@ -248,6 +248,25 @@ class AppPreferences(private val context: Context) {
         get() = preferences.getString("local_model_name", "") ?: ""
         set(value) { preferences.edit().putString("local_model_name", value.trim()).apply() }
 
+    // --- Model / provider rotation (coding agents) ---------------------------------------
+    /**
+     * When true the coding agents may automatically rotate to the next compatible model or
+     * provider after a transient failure. Off by default: existing transport recovery and the
+     * manual retry card keep their exact current behaviour until the user opts in.
+     */
+    var agentRotationEnabled: Boolean
+        get() = preferences.getBoolean("agent_rotation_enabled", false)
+        set(value) { preferences.edit().putBoolean("agent_rotation_enabled", value).apply() }
+
+    /**
+     * How many new-session rotation attempts are allowed per failure. Defaults to 2, which lines
+     * up with the existing 5s/15s reconnect budget; higher values extend the chain with a capped
+     * backoff. Clamped to a safe range so a misconfigured value can never loop forever.
+     */
+    var agentRotationMaxAttempts: Int
+        get() = preferences.getInt("agent_rotation_max_attempts", 2).coerceIn(1, 8)
+        set(value) { preferences.edit().putInt("agent_rotation_max_attempts", value.coerceIn(1, 8)).apply() }
+
     // --- MCP servers (Faza 3) -------------------------------------------------------------
     /**
      * Persists the registered MCP servers as a single JSON document. The per-server bearer token
