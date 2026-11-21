@@ -70,7 +70,12 @@ resources (sockets, processes, streams, coroutine scopes, `SpeechRecognizer`/aud
 - **Web research** (`research/`): connector registry + presets (Marginalia/Jina/Firecrawl/Linkup/
   Langsearch), `ResearchPolicy` (SSRF guard + budgets) and `ClaimCheck` (claim extraction + verdict).
 - **Auto Prompt Engineering** (`prompt/`): `PromptAssembler` (priority-based contradiction removal +
-  token budget), `TaskDecomposer`, `PromptVersionStore`, `AgentsMdParser`.
+  token budget), `TaskDecomposer`, `PromptVersionStore`, `AgentsMdParser` — now orchestrated by
+  `PromptEngine` and wired into all three coding agents (`ClaudeRuntimeBridge`,
+  `DshRuntimeBridge`, `AntigravityRuntimeBridge`) behind an **opt-in** `autoPromptEnabled`
+  preference (off by default, fail-closed). When on, the runtime reads `AGENTS.md`/`CLAUDE.md`
+  from the workspace as *data* (never system instructions), versions the assembly, and prepends a
+  data-only guidance block; when off, prompts are sent byte-for-byte unchanged.
 - **Wireless ADB** (`device/`): pure ADB framing (`AdbProtocol`), ADB RSA key handling (`AdbKey`),
   CNXN/AUTH handshake + `shell:` transport (`AdbConnection`), the `WirelessAdbExecutor` (wired into
   `PrivilegeController`) and `WirelessAdbStore` (app-private key + endpoint). First-time SPAKE2
@@ -91,8 +96,9 @@ resources (sockets, processes, streams, coroutine scopes, `SpeechRecognizer`/aud
 - **Plugin execution sandbox & Automation wake layer**: the manifest/registry/policy and the
   schedule model/policy are implemented and tested; the Android guest-runtime process isolation for
   plugins and the WorkManager/AlarmManager scheduling UI are the remaining integration work.
-- **Voice/research/settings/prompt UI wiring**: those modules are implemented + tested as pure
-  logic; their Compose settings screens and AppPreferences plumbing are follow-up UI work.
+- **Voice/research/settings UI wiring**: those modules are implemented + tested as pure logic; their
+  Compose settings screens and AppPreferences plumbing are follow-up UI work. (Auto Prompt is the
+  exception — it is now fully wired with a settings toggle, see above.)
 
 ## Testing & CI
 

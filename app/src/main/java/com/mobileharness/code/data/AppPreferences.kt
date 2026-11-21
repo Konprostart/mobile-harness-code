@@ -185,6 +185,16 @@ class AppPreferences(private val context: Context) {
         get() = preferences.getBoolean("eco_mode_enabled", false)
         set(value) { preferences.edit().putBoolean("eco_mode_enabled", value).apply() }
 
+    // --- Auto Prompt Engine (opt-in, off by default — fail-closed) ------------------------
+    /**
+     * When off (default) the coding agents run their existing prompt flow unchanged. When on, the
+     * runtime reads AGENTS.md/CLAUDE.md from the workspace as data and merges it into prompts.
+     * Not sensitive, so it is intentionally excluded from [DEVICE_ONLY_KEYS].
+     */
+    var autoPromptEnabled: Boolean
+        get() = preferences.getBoolean("auto_prompt_enabled", false)
+        set(value) { preferences.edit().putBoolean("auto_prompt_enabled", value).apply() }
+
     // --- Sidekick assistant ---------------------------------------------------------------
     var sidekickFloatingButton: Boolean
         get() = preferences.getBoolean("sidekick_floating_button", false)

@@ -134,7 +134,7 @@ import com.mobileharness.code.ui.theme.AppThemeMode
 import com.mobileharness.code.ui.theme.PocketOrange
 import kotlinx.coroutines.launch
 
-private enum class SettingsSection { APPEARANCE, LANGUAGE, TOOLS, RUNTIME, DIAGNOSTICS, DEVELOPER_TOOLS, BACKUP, UPDATE_CHANNEL, UPDATES, GRADLE_MEMORY, RELEASE_SIGNING, SERVER_SYNC, TELEGRAM, SIDEKICK, MCP_SERVERS, ECO_MODE, RAG, SSH, SHARE_INVITE }
+private enum class SettingsSection { APPEARANCE, LANGUAGE, TOOLS, RUNTIME, DIAGNOSTICS, DEVELOPER_TOOLS, BACKUP, UPDATE_CHANNEL, UPDATES, GRADLE_MEMORY, RELEASE_SIGNING, SERVER_SYNC, TELEGRAM, SIDEKICK, MCP_SERVERS, ECO_MODE, AUTO_PROMPT, RAG, SSH, SHARE_INVITE }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -197,6 +197,7 @@ fun SettingsScreen(
     onSetSkillsEnabled: (Boolean) -> Unit = {},
     onSetSkillEnabled: (String, Boolean) -> Unit = { _, _ -> },
     onSetEcoMode: (Boolean) -> Unit = {},
+    onSetAutoPromptEnabled: (Boolean) -> Unit = {},
     onCheckForAppUpdate: () -> Unit = {},
     onInstallAppUpdate: () -> Unit = {},
     onRefreshDevTools: () -> Unit = {},
@@ -642,6 +643,25 @@ fun SettingsScreen(
                     EcoModeSettings(
                         enabled = state.ecoModeEnabled,
                         onSetEnabled = onSetEcoMode,
+                    )
+                }
+            }
+
+            item {
+                SettingsAccordion(
+                    title = stringResource(R.string.auto_prompt_title),
+                    subtitle = if (state.autoPromptEnabled) {
+                        stringResource(R.string.auto_prompt_on)
+                    } else {
+                        stringResource(R.string.auto_prompt_off)
+                    },
+                    icon = Icons.Default.AutoAwesome,
+                    expanded = expanded == SettingsSection.AUTO_PROMPT,
+                    onClick = { toggle(SettingsSection.AUTO_PROMPT) },
+                ) {
+                    AutoPromptSettings(
+                        enabled = state.autoPromptEnabled,
+                        onSetEnabled = onSetAutoPromptEnabled,
                     )
                 }
             }

@@ -2,8 +2,11 @@ package com.mobileharness.code.runtime
 
 import android.content.Context
 import androidx.core.content.ContextCompat
+import com.mobileharness.code.data.AppPreferences
 import com.mobileharness.code.devtools.DebugLog
 import com.mobileharness.code.R
+import com.mobileharness.code.prompt.AutoPrompt
+import com.mobileharness.code.prompt.PromptEngine
 import com.mobileharness.code.ui.AppStrings
 import com.mobileharness.code.model.ChatMessage
 import com.mobileharness.code.model.ChangeItem
@@ -123,6 +126,7 @@ class ClaudeRuntimeBridge(
     private val secretFor: (ProviderProfile) -> String?,
 ) : RuntimeBridge {
     private val installer = RuntimeInstaller(context)
+    private val promptEngine = PromptEngine()
     private val eventBus = MutableSharedFlow<RuntimeEvent>(extraBufferCapacity = 64)
     override val events: Flow<RuntimeEvent> = eventBus
     private val pending = ConcurrentHashMap<String, PendingPermission>()
@@ -274,7 +278,15 @@ class ClaudeRuntimeBridge(
 
             // Build a context-aware prompt that includes conversation history
             val guestWorkspacePath = "/workspace/$projectSlug"
-            val contextPrompt = buildContextPrompt(prompt, conversationHistory, guestWorkspacePath, projectKind)
+            val contextPrompt = AutoPrompt.apply(
+                contextPrompt = buildContextPrompt(prompt, conversationHistory, guestWorkspacePath, projectKind),
+                rawTask = prompt,
+                enabled = AppPreferences(context).autoPromptEnabled,
+                engine = promptEngine,
+                workspaceDir = workspace,
+                agentKind = "claude",
+                projectId = projectId,
+            )
 
             val command = buildList {
                 add(launch.executable)

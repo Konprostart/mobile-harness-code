@@ -2656,6 +2656,7 @@ private fun RootScreenHost(
                     onSetSkillsEnabled = viewModel::setSkillsEnabled,
                     onSetSkillEnabled = viewModel::setSkillEnabled,
                     onSetEcoMode = viewModel::setEcoMode,
+                    onSetAutoPromptEnabled = viewModel::setAutoPromptEnabled,
                     onCheckForAppUpdate = { viewModel.checkForAppUpdate(force = true) },
                     onInstallAppUpdate = viewModel::installAppUpdate,
                     onRefreshDevTools = viewModel::refreshDevTools,

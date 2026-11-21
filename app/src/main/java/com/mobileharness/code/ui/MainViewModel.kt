@@ -691,6 +691,7 @@ data class AppUiState(
     val localModelBaseUrl: String = "",
     val localModelName: String = "",
     val ecoModeEnabled: Boolean = false,
+    val autoPromptEnabled: Boolean = false,
     val mcpServers: List<McpServerConfig> = emptyList(),
     val mcpToolCatalog: Map<String, List<McpTool>> = emptyMap(),
     val mcpTestingServerId: String? = null,
@@ -856,6 +857,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             localModelBaseUrl = preferences.localModelBaseUrl,
             localModelName = preferences.localModelName,
             ecoModeEnabled = preferences.ecoModeEnabled,
+            autoPromptEnabled = preferences.autoPromptEnabled,
             mcpServers = preferences.loadMcpServers(),
             ragEnabled = preferences.ragEnabled,
             ragDocuments = preferences.loadRagDocuments(),
@@ -1032,6 +1034,11 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     fun setEcoMode(enabled: Boolean) {
         preferences.ecoModeEnabled = enabled
         _state.update { it.copy(ecoModeEnabled = enabled) }
+    }
+
+    fun setAutoPromptEnabled(enabled: Boolean) {
+        preferences.autoPromptEnabled = enabled
+        _state.update { it.copy(autoPromptEnabled = enabled) }
     }
 
     // --- Share & Invite (local scaffolding for the "soon" crypto rewards) ----------------

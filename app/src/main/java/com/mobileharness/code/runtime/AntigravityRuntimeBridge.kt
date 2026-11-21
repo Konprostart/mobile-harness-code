@@ -3,6 +3,9 @@ package com.mobileharness.code.runtime
 import android.content.Context
 import androidx.core.content.ContextCompat
 import com.mobileharness.code.R
+import com.mobileharness.code.data.AppPreferences
+import com.mobileharness.code.prompt.AutoPrompt
+import com.mobileharness.code.prompt.PromptEngine
 import com.mobileharness.code.ui.AppStrings
 import com.mobileharness.code.model.ChatMessage
 import com.mobileharness.code.model.ChangeItem
@@ -192,6 +195,7 @@ class AntigravityRuntimeBridge(
 ) : RuntimeBridge {
     private val installer = RuntimeInstaller(context)
     private val checkpoints = WorkspaceCheckpoints(context.filesDir, context)
+    private val promptEngine = PromptEngine()
     private val eventBus = MutableSharedFlow<RuntimeEvent>(extraBufferCapacity = 64)
     override val events: Flow<RuntimeEvent> = eventBus
     private val finished = ConcurrentHashMap.newKeySet<String>()
@@ -439,7 +443,21 @@ class AntigravityRuntimeBridge(
             if (userStopRequested) process.destroy()
             val request = JSONObject()
                 .put("event", "user")
-                .put("message", JSONObject().put("content", antigravityWorkspacePrompt(projectSlug, prompt)))
+                .put(
+                    "message",
+                    JSONObject().put(
+                        "content",
+                        AutoPrompt.apply(
+                            contextPrompt = antigravityWorkspacePrompt(projectSlug, prompt),
+                            rawTask = prompt,
+                            enabled = AppPreferences(context).autoPromptEnabled,
+                            engine = promptEngine,
+                            workspaceDir = workspace,
+                            agentKind = "antigravity",
+                            projectId = projectId,
+                        ),
+                    ),
+                )
                 .toString() + "\n"
             process.outputStream.write(request.toByteArray())
             process.outputStream.flush()

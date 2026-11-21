@@ -625,6 +625,33 @@ fun EcoModeSettings(
 }
 
 /**
+ * Auto Prompt Engine on/off. Off by default (fail-closed): when off, coding agents send their
+ * existing prompts unchanged. When on, the runtime reads AGENTS.md/CLAUDE.md from the workspace as
+ * data and merges it into prompts.
+ */
+@Composable
+fun AutoPromptSettings(
+    enabled: Boolean,
+    onSetEnabled: (Boolean) -> Unit,
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+            Column(Modifier.weight(1f)) {
+                Text(stringResource(R.string.auto_prompt_title), fontWeight = FontWeight.SemiBold)
+                Text(stringResource(R.string.auto_prompt_subtitle), fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+            Switch(checked = enabled, onCheckedChange = onSetEnabled)
+        }
+
+        Text(
+            stringResource(R.string.auto_prompt_note),
+            fontSize = 11.sp,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
+}
+
+/**
  * MCP Servers management: add, edit, test ("Test & List Tools"), enable/disable and delete
  * servers that the Sidekick assistant may use for tool calls. Everything is opt-in; a server is
  * only contacted when the user presses "Test" or when the assistant actually invokes a tool.

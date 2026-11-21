@@ -660,6 +660,12 @@
     <string name="eco_mode_note">When on, the assistant asks for shorter answers and gathers less background-research context, and background polling relaxes during quiet hours (00:00–06:00) when no task is running. Never disables a feature you started.</string>
     <string name="eco_mode_on">On — saving tokens and battery</string>
     <string name="eco_mode_off">Off</string>
+    <!-- Auto Prompt Engine -->
+    <string name="auto_prompt_title">Auto Prompt Engine</string>
+    <string name="auto_prompt_subtitle">Assemble prompts from AGENTS.md and workspace context</string>
+    <string name="auto_prompt_note">When on, the coding agent reads AGENTS.md (or CLAUDE.md) from the active workspace as data and merges it into prompts; the assembled prompt is versioned. Off by default — when off, prompts are sent unchanged. AGENTS.md is always treated as data, never as system instructions.</string>
+    <string name="auto_prompt_on">On — merging workspace instructions</string>
+    <string name="auto_prompt_off">Off</string>
     <!-- Sidekick multimodal input + voice typing -->
     <string name="sidekick_attach">Attach</string>
     <string name="sidekick_attach_photo">Take photo</string>

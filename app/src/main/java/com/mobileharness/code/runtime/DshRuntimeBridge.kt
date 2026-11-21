@@ -2,8 +2,11 @@ package com.mobileharness.code.runtime
 
 import android.content.Context
 import androidx.core.content.ContextCompat
+import com.mobileharness.code.data.AppPreferences
 import com.mobileharness.code.devtools.DebugLog
 import com.mobileharness.code.R
+import com.mobileharness.code.prompt.AutoPrompt
+import com.mobileharness.code.prompt.PromptEngine
 import com.mobileharness.code.ui.AppStrings
 import com.mobileharness.code.model.ChangeItem
 import com.mobileharness.code.model.ChatMessage
@@ -52,6 +55,7 @@ class DshRuntimeBridge(
 ) : RuntimeBridge {
     private val installer = RuntimeInstaller(context)
     private val checkpoints = WorkspaceCheckpoints(context.filesDir, context)
+    private val promptEngine = PromptEngine()
     private val eventBus = MutableSharedFlow<RuntimeEvent>(extraBufferCapacity = 64)
     override val events: Flow<RuntimeEvent> = eventBus
     private val finishedSessions = ConcurrentHashMap.newKeySet<String>()
@@ -215,7 +219,15 @@ class DshRuntimeBridge(
             if (route.keyEnv != FALLBACK_KEY_ENV) environment.remove(FALLBACK_KEY_ENV)
 
             val guestWorkspacePath = "/workspace/$projectSlug"
-            val contextPrompt = buildContextPrompt(prompt, conversationHistory, guestWorkspacePath, projectKind)
+            val contextPrompt = AutoPrompt.apply(
+                contextPrompt = buildContextPrompt(prompt, conversationHistory, guestWorkspacePath, projectKind),
+                rawTask = prompt,
+                enabled = AppPreferences(context).autoPromptEnabled,
+                engine = promptEngine,
+                workspaceDir = workspace,
+                agentKind = "dsh",
+                projectId = projectId,
+            )
             val command = listOf("/usr/local/bin/dsh", "--profile", "sdk")
             DebugLog.d("DshBridge", "Route: ${route.name}, Model: ${provider.model}")
             val process = installer.process(
