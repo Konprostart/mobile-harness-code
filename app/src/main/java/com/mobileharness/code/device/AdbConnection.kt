@@ -91,6 +91,9 @@ class AdbConnection(
                 }
             }
         }
-        return ShellResult(stdout.toString(Charsets.UTF_8), stderr.toString(Charsets.UTF_8))
+        return ShellResult(
+            String(stdout.toByteArray(), Charsets.UTF_8),
+            String(stderr.toByteArray(), Charsets.UTF_8),
+        )
     }
 }
