@@ -71,13 +71,28 @@ resources (sockets, processes, streams, coroutine scopes, `SpeechRecognizer`/aud
   Langsearch), `ResearchPolicy` (SSRF guard + budgets) and `ClaimCheck` (claim extraction + verdict).
 - **Auto Prompt Engineering** (`prompt/`): `PromptAssembler` (priority-based contradiction removal +
   token budget), `TaskDecomposer`, `PromptVersionStore`, `AgentsMdParser`.
+- **Wireless ADB** (`device/`): pure ADB framing (`AdbProtocol`), ADB RSA key handling (`AdbKey`),
+  CNXN/AUTH handshake + `shell:` transport (`AdbConnection`), the `WirelessAdbExecutor` (wired into
+  `PrivilegeController`) and `WirelessAdbStore` (app-private key + endpoint). First-time SPAKE2
+  pairing is documented honestly in `AdbPairing` (needs a vetted X25519/HKDF primitive); the
+  executor works with an already-paired key, and `PrivilegeDetector` reflects that state.
+- **Plugin manager** (`plugins/`): `PluginManifest`/`PluginPermission` models, fail-closed
+  `PluginPolicy` (id/size/entry/version/checksum validation), JSON `PluginCodec`, SSRF-guarded
+  `PluginSourceResolver` (GitHub/npm/ZIP/marketplace), and a validated `PluginRegistry`. Plugin code
+  is intended to execute in the guest PRoot runtime, never the Android process.
+- **Automation** (`automation/`): `ScheduledTask`/`Recurrence` models, fail-closed `SchedulePolicy`
+  (min interval + Eco Mode quiet-hours), `ScheduleParser` (`once at <epoch>` / `every <N>m|h|d`),
+  and `SchedulerStore` (JSON). The WorkManager/AlarmManager wake layer is the Android side of this.
 
 ### Not implemented in this pass (documented gaps)
 
-- **Wireless ADB executor**: the `WIRELESS_ADB` route remains declared but executor-less (SPAKE2
-  pairing is a separate, larger effort; see `device/PrivilegeController`). Shizuku + root still work.
-- **Plugin manager** and **Automation (WorkManager/AlarmManager)**: not yet implemented; Skills
-  remain the safe, text-only extension mechanism.
+- **Wireless ADB SPAKE2 pairing**: first-time key provisioning is deferred (see `AdbPairing`);
+  Shizuku + root, and wireless execution with an already-paired key, work.
+- **Plugin execution sandbox & Automation wake layer**: the manifest/registry/policy and the
+  schedule model/policy are implemented and tested; the Android guest-runtime process isolation for
+  plugins and the WorkManager/AlarmManager scheduling UI are the remaining integration work.
+- **Voice/research/settings/prompt UI wiring**: those modules are implemented + tested as pure
+  logic; their Compose settings screens and AppPreferences plumbing are follow-up UI work.
 
 ## Testing & CI
 

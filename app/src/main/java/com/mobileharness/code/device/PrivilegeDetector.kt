@@ -72,15 +72,20 @@ object PrivilegeDetector {
         val adbEnabled = runCatching {
             Settings.Global.getInt(context.contentResolver, Settings.Global.ADB_ENABLED, 0) == 1
         }.getOrDefault(false)
-        // Wireless ADB only means "debugging over Wi-Fi is on"; turning that into a shell
-        // requires the SPAKE2 pairing flow, which is not implemented in this phase. Report the
-        // transport as detected but not authorized so the policy stays fail-closed.
+        // Available = debugging over Wi-Fi is on. Authorized = a paired ADB key is present so the
+        // executor can authenticate; first-time SPAKE2 pairing is documented in AdbPairing. Without
+        // a paired key the route stays fail-closed.
+        val paired = WirelessAdbStore.hasKey(context)
         return PrivilegeRouteState(
             route = PrivilegeRoute.WIRELESS_ADB,
             available = adbEnabled,
-            authorized = false,
+            authorized = adbEnabled && paired,
             level = PrivilegeLevel.SHELL,
-            detail = if (adbEnabled) "ADB enabled; pairing flow not implemented" else "ADB disabled",
+            detail = when {
+                !adbEnabled -> "ADB disabled"
+                !paired -> "ADB enabled; no paired key (see AdbPairing)"
+                else -> "ADB enabled; paired key present"
+            },
         )
     }
 

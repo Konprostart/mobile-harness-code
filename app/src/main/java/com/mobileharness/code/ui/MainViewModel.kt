@@ -2051,6 +2051,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         val deviceInfo = DeviceInfo.collect(getApplication())
         val cpuUsage = CpuUsageReader.readUsageNow()
         val crashLogs = CrashLogStore.read(getApplication())
+        // Keep the wireless-ADB executor armed with the configured endpoint + paired key so route
+        // detection reflects whether execution is actually possible (fail-closed otherwise).
+        com.mobileharness.code.device.WirelessAdbStore.load(getApplication(), preferences.wirelessAdbEndpoint)
         val privilegedRoutes = PrivilegeController.detect(getApplication())
         val privilegedOptIns = PrivilegeRoute.entries.associateWith { preferences.privilegedOptIn(it) }
         return DevToolsState(
@@ -2103,6 +2106,27 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 ),
             )
         }
+    }
+
+    fun setWirelessAdbEndpoint(endpoint: String) {
+        preferences.wirelessAdbEndpoint = endpoint
+        com.mobileharness.code.device.WirelessAdbStore.load(getApplication(), endpoint)
+        val routes = PrivilegeController.detect(getApplication())
+        _state.update {
+            it.copy(
+                devTools = it.devTools.copy(
+                    privilegedRoutes = routes,
+                    privilegedLog = PrivilegeEventLog.snapshot(),
+                ),
+            )
+        }
+    }
+
+    /** Generates (or loads) the app's wireless-ADB key and returns its public-key line for pairing. */
+    fun wirelessAdbPublicKey(): String? {
+        val store = com.mobileharness.code.device.WirelessAdbStore
+        store.ensureKey(getApplication())
+        return store.publicKeyLine(getApplication())
     }
 
     fun requestShizukuPermission() {

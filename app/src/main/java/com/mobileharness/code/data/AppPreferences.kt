@@ -826,6 +826,11 @@ class AppPreferences(private val context: Context) {
         get() = preferences.getBoolean("privileged_wireless_adb_opt_in", false)
         set(value) { preferences.edit().putBoolean("privileged_wireless_adb_opt_in", value).apply() }
 
+    /** "host:port" endpoint for Wireless Debugging (empty when not configured). */
+    var wirelessAdbEndpoint: String
+        get() = preferences.getString("wireless_adb_endpoint", "").orEmpty()
+        set(value) { preferences.edit().putString("wireless_adb_endpoint", value.trim()).apply() }
+
     var privilegedRootOptIn: Boolean
         get() = preferences.getBoolean("privileged_root_opt_in", false)
         set(value) { preferences.edit().putBoolean("privileged_root_opt_in", value).apply() }
@@ -867,6 +872,7 @@ class AppPreferences(private val context: Context) {
             "invite_share_count",
             "privileged_shizuku_opt_in",
             "privileged_wireless_adb_opt_in",
+            "wireless_adb_endpoint",
             "privileged_root_opt_in",
             "skills_json",
         )

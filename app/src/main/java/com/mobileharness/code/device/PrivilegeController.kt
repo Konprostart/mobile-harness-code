@@ -14,7 +14,8 @@ object PrivilegeController {
     private val executors: Map<PrivilegeRoute, PrivilegeExecutor> = mapOf(
         PrivilegeRoute.ROOT to SuRootExecutor,
         PrivilegeRoute.SHIZUKU to ShizukuExecutor,
-        // WIRELESS_ADB has no executor yet: the SPAKE2 pairing flow is a separate, large effort.
+        // Executes once the app has a paired ADB key + a configured endpoint (see WirelessAdbStore).
+        PrivilegeRoute.WIRELESS_ADB to WirelessAdbExecutor,
     )
 
     /** Re-runs route detection and records a DETECTED event per route (without secrets). */
