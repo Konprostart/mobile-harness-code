@@ -1,12 +1,12 @@
 {
-  "versionCode": 27,
-  "versionName": "1.3.13",
-  "notes": "Mobile Harness Code — independent fork of Mobile Harness. New: background-lifecycle hardening. The microphone is released as soon as the app is stopped (screen off, switching apps, recents), so no audio is captured in the background and no SpeechRecognizer survives a background → foreground cycle — a deliberate listen still works in split-screen / PiP. SSH tunnels now report \"running\" only while the accept loop, the loopback socket AND the live SSH transport are all healthy, so a tunnel whose SSH link died in the background (Doze / network drop) shows as stopped instead of a stale \"running\"; combined with the foreground-resume status refresh and the clean teardown of tunnels + PTY shell when the screen closes (no leaked listeners, PTY channels or transports). Fail-closed throughout: the app never auto-reconnects or re-sends credentials — it only refreshes status. Existing tools untouched: providers + AI router/fallback, local model (Ollama), MCP client, RAG, workspace tools, safe Skill system, SSH client/tunnel/TOFU/PTY terminal + keyboard, Phone Control (Shizuku/Wireless ADB/root), in-app update, Telegram bot, multimodal Sidekick, Eco Mode, Share & Invite. This APK is SIGNED (V1+V2+V3); install mobile-harness-online.apk.",
+  "versionCode": 29,
+  "versionName": "1.4.0",
+  "notes": "Mobile Harness Code — independent fork of Mobile Harness. v1.4.0: Auto Prompt Engine behind an opt-in toggle; Wireless ADB executor + plugin manager + automation core; unified permission system with voice/research/provider-log/settings/prompt modules; SSH shell liveness + session restore. This APK is SIGNED (V3); install mobile-harness-online.apk.",
   "artifacts": {
     "online": {
-      "url": "https://github.com/Konprostart/mobile-harness-code/releases/download/v1.3.13/mobile-harness-online.apk",
-      "sha256": "66fb1d510d412bd2373119aa60dbaedd79fe718bd73019deb09d2eb1e389aeaa",
-      "sizeBytes": 99393431
+      "url": "https://github.com/Konprostart/mobile-harness-code/releases/download/v1.4.0/mobile-harness-online.apk",
+      "sha256": "a993ce99261f419e32060b35dc608bef558622d5420f6050286c42d941f8cef8",
+      "sizeBytes": 99630999
     }
   }
 }
