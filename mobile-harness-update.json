@@ -1,12 +1,12 @@
 {
-  "versionCode": 29,
-  "versionName": "1.4.0",
-  "notes": "Mobile Harness Code — independent fork of Mobile Harness. v1.4.0: Auto Prompt Engine behind an opt-in toggle; Wireless ADB executor + plugin manager + automation core; unified permission system with voice/research/provider-log/settings/prompt modules; SSH shell liveness + session restore. This APK is SIGNED (V3); install mobile-harness-online.apk.",
+  "versionCode": 30,
+  "versionName": "1.5.0",
+  "notes": "Mobile Harness Code — independent fork of Mobile Harness. v1.5.0: automatic model/provider rotation for coding agents — on transient failures (429/5xx/timeout) the DSH DeepSeek and Claude Code agents reconnect, then rotate through the next compatible model and provider (DeepSeek → Anthropic → OpenRouter), all fail-closed (mutating tools are never auto-replayed; 401/403 never cascade). Adds a Continuation Pack that preserves task, plan, recent messages, touched files and last-tool status across a model change. Rotation is opt-in under Settings → Model rotation. This APK is SIGNED (V3-only, production key); install mobile-harness-online.apk.",
   "artifacts": {
     "online": {
-      "url": "https://github.com/Konprostart/mobile-harness-code/releases/download/v1.4.0/mobile-harness-online.apk",
-      "sha256": "a993ce99261f419e32060b35dc608bef558622d5420f6050286c42d941f8cef8",
-      "sizeBytes": 99630999
+      "url": "https://github.com/Konprostart/mobile-harness-code/releases/download/v1.5.0/mobile-harness-online.apk",
+      "sha256": "f49bdd1ffec2321cc1ce7d1b8a562554a42843d44e8495233fe8c004a908ce43",
+      "sizeBytes": 99655376
     }
   }
 }
