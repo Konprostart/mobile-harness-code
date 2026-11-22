@@ -53,4 +53,19 @@
     <string name="backup_channel_name">备份与恢复</string>
     <string name="backup_restore_on_setup">从备份恢复</string>
     <string name="backup_restore_on_setup_desc">重新安装了应用？请在设置前先恢复你的项目、聊天和设置。</string>
+    <string name="account_title">账户</string>
+    <string name="account_subtitle">登录，不再丢失工作成果</string>
+    <string name="account_description">创建带密码的账户，以便在新手机上恢复一切。密码会加密您的备份——项目、API 密钥和签名密钥——绝不会被存储或发送到任何地方。</string>
+    <string name="account_create">创建账户</string>
+    <string name="account_signed_in_as">已登录为 %1$s</string>
+    <string name="account_last_backup">上次备份：%1$s</string>
+    <string name="account_last_backup_never">尚无备份</string>
+    <string name="account_backup_hint">立即备份，并将文件保存到 Google Drive 或任意云盘。在新手机上用相同密码创建账户并恢复。备份现在包含您的签名密钥。</string>
+    <string name="account_sign_out">退出登录</string>
+    <string name="account_username">账户名</string>
+    <string name="account_password">密码</string>
+    <string name="account_password_confirm">确认密码</string>
+    <string name="account_password_short">请使用至少 8 个字符</string>
+    <string name="account_password_mismatch">密码不一致</string>
+    <string name="account_username_short">请使用至少 2 个字符</string>
 </resources>

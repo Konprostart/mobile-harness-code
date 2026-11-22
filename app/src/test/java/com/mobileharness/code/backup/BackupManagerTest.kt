@@ -49,9 +49,12 @@ class BackupManagerTest {
         dir.write("workspaces/p2/build/notes.txt", "hand-written build folder")
         dir.write("workspaces/github-auth/scratch.log", "scratch")
         dir.write("chats/p1/index.json", "[]")
+        dir.write("release/upload-keystore.jks", "host-keystore")
+        dir.write("release/output/signed.apk", "apk-output")
         dir.write("runtime/ubuntu/root/.gitconfig", "[user]\n name = me")
         dir.write("runtime/ubuntu/root/.config/gh/hosts.yml", "token: x")
         dir.write("runtime/ubuntu/root/.claude/cache/big.bin", "cache")
+        dir.write("runtime/ubuntu/root/.mobile-harness/mobile-harness-code-release.keystore", "prod-keystore")
         dir.write("runtime/ubuntu/root/.bash_history", "not backed up")
         val stores = FakeStores(
             prefs = projectsPrefs("p1", "p2"),
@@ -94,6 +97,9 @@ class BackupManagerTest {
         assertTrue(File(target, "runtime/ubuntu/root/.config/gh/hosts.yml").isFile)
         assertFalse(File(target, "runtime/ubuntu/root/.claude/cache").exists())
         assertFalse(File(target, "runtime/ubuntu/root/.bash_history").exists())
+        assertEquals("host-keystore", File(target, "release/upload-keystore.jks").readText())
+        assertFalse(File(target, "release/output/signed.apk").exists())
+        assertEquals("prod-keystore", File(target, "runtime/ubuntu/root/.mobile-harness/mobile-harness-code-release.keystore").readText())
         assertEquals("sk-1", targetStores.secrets.getJSONArray("ANTHROPIC").getJSONObject(0).getString("secret"))
         assertEquals(listOf("old", "p1", "p2"), projectIds(targetStores))
         assertFalse(File(target, "restore-staging").exists())
@@ -110,6 +116,7 @@ class BackupManagerTest {
         ZipInputStream(stream).use { zip -> while (true) names += (zip.nextEntry ?: break).name }
         assertFalse("secrets.json" in names)
         assertTrue(names.none { it.startsWith("home/") })
+        assertTrue(names.none { it.startsWith("signing/") })
         assertTrue("files/workspaces/p1/src/main.kt" in names)
 
         val targetStores = FakeStores(secrets = JSONObject().put("KEEP", JSONArray()))

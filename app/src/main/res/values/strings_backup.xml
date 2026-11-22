@@ -53,4 +53,21 @@
     <string name="backup_channel_name">Backup and restore</string>
     <string name="backup_restore_on_setup">Restore from a backup</string>
     <string name="backup_restore_on_setup_desc">Reinstalled the app? Restore your projects, chats and settings before setting up.</string>
+
+    <!-- Account (local, password-based identity; master password encrypts the backup) -->
+    <string name="account_title">Account</string>
+    <string name="account_subtitle">Sign in and never lose your work</string>
+    <string name="account_description">Create a password-protected account so you can restore everything on a new phone. The password encrypts your backup — projects, API keys and signing keys — and is never stored or sent anywhere.</string>
+    <string name="account_create">Create account</string>
+    <string name="account_signed_in_as">Signed in as %1$s</string>
+    <string name="account_last_backup">Last backup: %1$s</string>
+    <string name="account_last_backup_never">No backup yet</string>
+    <string name="account_backup_hint">Back up now and save the file to Google Drive or any cloud. On a new phone, create your account with the same password and restore it. Backups now include your signing keystore.</string>
+    <string name="account_sign_out">Sign out</string>
+    <string name="account_username">Account name</string>
+    <string name="account_password">Password</string>
+    <string name="account_password_confirm">Confirm password</string>
+    <string name="account_password_short">Use at least 8 characters</string>
+    <string name="account_password_mismatch">Passwords don\'t match</string>
+    <string name="account_username_short">Use at least 2 characters</string>
 </resources>

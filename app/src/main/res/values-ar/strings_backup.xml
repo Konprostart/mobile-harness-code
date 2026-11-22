@@ -53,4 +53,19 @@
     <string name="backup_channel_name">النسخ الاحتياطي والاستعادة</string>
     <string name="backup_restore_on_setup">الاستعادة من نسخة احتياطية</string>
     <string name="backup_restore_on_setup_desc">هل أعدت تثبيت التطبيق؟ استعد مشاريعك ودردشاتك وإعداداتك قبل الإعداد.</string>
+    <string name="account_title">الحساب</string>
+    <string name="account_subtitle">سجّل الدخول ولا تفقد عملك أبداً</string>
+    <string name="account_description">أنشئ حساباً محمياً بكلمة مرور لتتمكن من استعادة كل شيء على هاتف جديد. كلمة المرور تشفّر نسختك الاحتياطية — المشاريع ومفاتيح API ومفاتيح التوقيع — ولا تُخزَّن أو تُرسل إلى أي مكان.</string>
+    <string name="account_create">إنشاء حساب</string>
+    <string name="account_signed_in_as">مسجّل الدخول باسم %1$s</string>
+    <string name="account_last_backup">آخر نسخة احتياطية: %1$s</string>
+    <string name="account_last_backup_never">لا توجد نسخة احتياطية بعد</string>
+    <string name="account_backup_hint">انسخ الآن واحفظ الملف في Google Drive أو أي سحابة. على هاتف جديد، أنشئ حسابك بنفس كلمة المرور واستعده. النسخ الاحتياطية تشمل الآن مفتاح التوقيع الخاص بك.</string>
+    <string name="account_sign_out">تسجيل الخروج</string>
+    <string name="account_username">اسم الحساب</string>
+    <string name="account_password">كلمة المرور</string>
+    <string name="account_password_confirm">تأكيد كلمة المرور</string>
+    <string name="account_password_short">استخدم 8 أحرف على الأقل</string>
+    <string name="account_password_mismatch">كلمتا المرور غير متطابقتين</string>
+    <string name="account_username_short">استخدم حرفين على الأقل</string>
 </resources>

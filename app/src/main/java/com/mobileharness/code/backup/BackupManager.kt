@@ -158,7 +158,7 @@ class BackupManager(
                     name == PREFS -> prefs = zip.readJson()
                     name == SECRETS -> secrets = zip.readJson()
                     name == FINISH -> finish = zip.readJson()
-                    name.startsWith("$FILES_PREFIX/") || name.startsWith("$HOME_PREFIX/") -> {
+                    name.startsWith("$FILES_PREFIX/") || name.startsWith("$HOME_PREFIX/") || name.startsWith("$SIGNING_PREFIX/") -> {
                         if (manifest == null) throw InvalidBackupException("Backup file is damaged")
                         val target = File(staging, name).canonicalFile
                         require(target.toPath().startsWith(stagingPath)) { "Unsafe path in backup" }
@@ -240,6 +240,7 @@ class BackupManager(
                     check(stagedHome.renameTo(pending)) { "Could not save Linux login files" }
                     homePending = !applyPendingHome(filesDir)
                 }
+                applyPendingSigning(staging, filesDir)
             }
             return BackupSummary(added, files, done, includeSettings && secrets != null, homePending)
         } finally {
@@ -297,6 +298,13 @@ class BackupManager(
                             dir.name !in HOME_SKIPPED_DIRECTORIES
                         }
                     }
+                }
+            }
+            SIGNING_DIRS.forEach { directory ->
+                val root = File(filesDir, directory)
+                if (!root.isDirectory) return@forEach
+                walk(root, "$SIGNING_PREFIX/$directory", items, directories, checkCancelled) { dir ->
+                    dir.name !in SIGNING_SKIPPED_DIRECTORIES
                 }
             }
         }
@@ -363,6 +371,7 @@ class BackupManager(
         private const val FINISH = "meta/finish.json"
         private const val FILES_PREFIX = "files"
         private const val HOME_PREFIX = "home"
+        private const val SIGNING_PREFIX = "signing"
         private const val STAGING_DIR = "restore-staging"
         private const val PENDING_HOME_DIR = "restore-pending/home"
         private const val RUNTIME_HOME = "runtime/ubuntu/root"
@@ -384,11 +393,21 @@ class BackupManager(
             ".claude",
             ".claude.json",
             ".gemini/antigravity-cli/antigravity-oauth-token",
+            ".mobile-harness",
             ".bashrc",
             ".profile",
             ".npmrc",
         )
         private val HOME_SKIPPED_DIRECTORIES = setOf("cache", "debug", "statsig", "shell-snapshots", "ide", "downloads")
+
+        /**
+         * Host-side app-private folders holding signing material (the in-app Release & Signing
+         * keystore). Captured only in password-protected backups, since they contain a private key.
+         */
+        val SIGNING_DIRS = listOf("release")
+
+        /** Build outputs under a signing dir that are regenerable and would bloat the backup. */
+        private val SIGNING_SKIPPED_DIRECTORIES = setOf("output")
 
         /**
          * Folders a build or package manager recreates. Ambiguous names only count when the
@@ -433,6 +452,26 @@ class BackupManager(
             }
             pending.parentFile?.deleteRecursively()
             return true
+        }
+
+        /**
+         * Copies restored signing material (in-app release keystore) back into app-private storage.
+         * The keystore is small and does not depend on the runtime, so it is applied immediately.
+         */
+        fun applyPendingSigning(staging: File, filesDir: File) {
+            val staged = File(staging, SIGNING_PREFIX)
+            if (!staged.isDirectory) return
+            staged.walkTopDown().forEach { source ->
+                if (source == staged) return@forEach
+                val target = File(filesDir, source.relativeTo(staged).path)
+                if (source.isDirectory) {
+                    target.mkdirs()
+                } else {
+                    target.parentFile?.mkdirs()
+                    source.copyTo(target, overwrite = true)
+                    if (source.canExecute()) target.setExecutable(true, true)
+                }
+            }
         }
 
         private fun File.setOwnerOnly(directory: Boolean) {

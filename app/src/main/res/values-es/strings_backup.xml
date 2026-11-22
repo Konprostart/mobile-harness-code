@@ -53,4 +53,19 @@
     <string name="backup_channel_name">Copia de seguridad y restauración</string>
     <string name="backup_restore_on_setup">Restaurar desde una copia</string>
     <string name="backup_restore_on_setup_desc">¿Reinstalaste la app? Restaura tus proyectos, chats y ajustes antes de configurar.</string>
+    <string name="account_title">Cuenta</string>
+    <string name="account_subtitle">Inicia sesión y nunca pierdas tu trabajo</string>
+    <string name="account_description">Crea una cuenta protegida con contraseña para poder restaurarlo todo en un teléfono nuevo. La contraseña cifra tu copia de seguridad — proyectos, claves API y claves de firma — y nunca se almacena ni se envía a ningún sitio.</string>
+    <string name="account_create">Crear cuenta</string>
+    <string name="account_signed_in_as">Sesión iniciada como %1$s</string>
+    <string name="account_last_backup">Última copia: %1$s</string>
+    <string name="account_last_backup_never">Aún sin copia</string>
+    <string name="account_backup_hint">Haz una copia ahora y guarda el archivo en Google Drive o cualquier nube. En un teléfono nuevo, crea tu cuenta con la misma contraseña y restáurala. Las copias ahora incluyen tu clave de firma.</string>
+    <string name="account_sign_out">Cerrar sesión</string>
+    <string name="account_username">Nombre de cuenta</string>
+    <string name="account_password">Contraseña</string>
+    <string name="account_password_confirm">Confirmar contraseña</string>
+    <string name="account_password_short">Usa al menos 8 caracteres</string>
+    <string name="account_password_mismatch">Las contraseñas no coinciden</string>
+    <string name="account_username_short">Usa al menos 2 caracteres</string>
 </resources>

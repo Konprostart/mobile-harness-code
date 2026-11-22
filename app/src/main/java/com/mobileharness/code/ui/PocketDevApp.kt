@@ -2600,6 +2600,10 @@ private fun RootScreenHost(
                         viewModel.markBackupFeatureSeen()
                     },
                     openBackup = openBackup,
+                    onCreateAccount = viewModel::createAccount,
+                    onSignOutAccount = viewModel::signOutAccount,
+                    onClearAccountMessage = viewModel::clearAccountMessage,
+                    onAccountBackedUp = viewModel::markAccountBackedUp,
                     onSaveProvider = { profile, key ->
                         viewModel.updateProvider(profile, key)
                     },

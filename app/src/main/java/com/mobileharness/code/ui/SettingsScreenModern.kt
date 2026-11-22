@@ -34,6 +34,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.OpenInNew
+import androidx.compose.material.icons.filled.AccountCircle
 import androidx.compose.material.icons.filled.Backup
 import androidx.compose.material.icons.automirrored.filled.Chat
 import androidx.compose.material.icons.filled.AutoAwesome
@@ -134,7 +135,7 @@ import com.mobileharness.code.ui.theme.AppThemeMode
 import com.mobileharness.code.ui.theme.PocketOrange
 import kotlinx.coroutines.launch
 
-private enum class SettingsSection { APPEARANCE, LANGUAGE, TOOLS, RUNTIME, DIAGNOSTICS, DEVELOPER_TOOLS, BACKUP, UPDATE_CHANNEL, UPDATES, GRADLE_MEMORY, RELEASE_SIGNING, SERVER_SYNC, TELEGRAM, SIDEKICK, MCP_SERVERS, ECO_MODE, AUTO_PROMPT, MODEL_ROTATION, RAG, SSH, SHARE_INVITE }
+private enum class SettingsSection { APPEARANCE, LANGUAGE, TOOLS, RUNTIME, DIAGNOSTICS, DEVELOPER_TOOLS, ACCOUNT, BACKUP, UPDATE_CHANNEL, UPDATES, GRADLE_MEMORY, RELEASE_SIGNING, SERVER_SYNC, TELEGRAM, SIDEKICK, MCP_SERVERS, ECO_MODE, AUTO_PROMPT, MODEL_ROTATION, RAG, SSH, SHARE_INVITE }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -173,6 +174,10 @@ fun SettingsScreen(
     showBackupDot: Boolean = false,
     onBackupOpened: () -> Unit = {},
     openBackup: Boolean = false,
+    onCreateAccount: (String, String) -> Unit = { _, _ -> },
+    onSignOutAccount: () -> Unit = {},
+    onClearAccountMessage: () -> Unit = {},
+    onAccountBackedUp: () -> Unit = {},
     onSetGradleMemoryAuto: (Boolean) -> Unit = {},
     onSetGradleMemoryOverride: (Int, Int) -> Unit = { _, _ -> },
     onPickReleaseKeystore: (Uri) -> Unit = {},
@@ -455,6 +460,26 @@ fun SettingsScreen(
                             Text(it, fontSize = 12.sp, color = MaterialTheme.colorScheme.error)
                         }
                     }
+                }
+            }
+
+            item {
+                SettingsAccordion(
+                    title = stringResource(R.string.account_title),
+                    subtitle = stringResource(R.string.account_subtitle),
+                    icon = Icons.Default.AccountCircle,
+                    expanded = expanded == SettingsSection.ACCOUNT,
+                    onClick = { toggle(SettingsSection.ACCOUNT) },
+                ) {
+                    AccountSection(
+                        state = state,
+                        busy = state.isRunning || state.projectTerminalRunning || state.androidBuildRunning ||
+                            state.projectExportRunning || state.agentInstalling != null || state.devStackInstalling != null,
+                        onCreateAccount = onCreateAccount,
+                        onSignOut = onSignOutAccount,
+                        onClearMessage = onClearAccountMessage,
+                        onBackedUp = onAccountBackedUp,
+                    )
                 }
             }
 

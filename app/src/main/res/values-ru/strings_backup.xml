@@ -53,4 +53,19 @@
     <string name="backup_channel_name">Резервное копирование и восстановление</string>
     <string name="backup_restore_on_setup">Восстановить из копии</string>
     <string name="backup_restore_on_setup_desc">Переустановили приложение? Восстановите проекты, чаты и настройки перед началом настройки.</string>
+    <string name="account_title">Аккаунт</string>
+    <string name="account_subtitle">Войдите и не теряйте свою работу</string>
+    <string name="account_description">Создайте аккаунт с паролем, чтобы восстановить всё на новом телефоне. Пароль шифрует резервную копию — проекты, ключи API и ключи подписи — и нигде не хранится и не отправляется.</string>
+    <string name="account_create">Создать аккаунт</string>
+    <string name="account_signed_in_as">Вы вошли как %1$s</string>
+    <string name="account_last_backup">Последняя копия: %1$s</string>
+    <string name="account_last_backup_never">Копий пока нет</string>
+    <string name="account_backup_hint">Сделайте копию сейчас и сохраните файл в Google Drive или любом облаке. На новом телефоне создайте аккаунт с тем же паролем и восстановите её. Теперь копии включают ваш ключ подписи.</string>
+    <string name="account_sign_out">Выйти</string>
+    <string name="account_username">Имя аккаунта</string>
+    <string name="account_password">Пароль</string>
+    <string name="account_password_confirm">Подтверждение пароля</string>
+    <string name="account_password_short">Используйте не менее 8 символов</string>
+    <string name="account_password_mismatch">Пароли не совпадают</string>
+    <string name="account_username_short">Используйте не менее 2 символов</string>
 </resources>

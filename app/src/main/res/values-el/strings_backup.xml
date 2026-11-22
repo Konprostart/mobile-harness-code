@@ -53,4 +53,19 @@
     <string name="backup_channel_name">Αντίγραφο ασφαλείας και επαναφορά</string>
     <string name="backup_restore_on_setup">Επαναφορά από αντίγραφο</string>
     <string name="backup_restore_on_setup_desc">Επανεγκαταστήσατε την εφαρμογή; Επαναφέρετε τα έργα, τις συνομιλίες και τις ρυθμίσεις σας πριν από τη ρύθμιση.</string>
+    <string name="account_title">Λογαριασμός</string>
+    <string name="account_subtitle">Συνδεθείτε και μη χάσετε ποτέ τη δουλειά σας</string>
+    <string name="account_description">Δημιουργήστε έναν λογαριασμό με κωδικό πρόσβασης ώστε να μπορείτε να επαναφέρετε τα πάντα σε νέο τηλέφωνο. Ο κωδικός κρυπτογραφεί το αντίγραφο ασφαλείας — έργα, κλειδιά API και κλειδιά υπογραφής — και δεν αποθηκεύεται ούτε αποστέλλεται πουθενά.</string>
+    <string name="account_create">Δημιουργία λογαριασμού</string>
+    <string name="account_signed_in_as">Συνδεδεμένος ως %1$s</string>
+    <string name="account_last_backup">Τελευταίο αντίγραφο: %1$s</string>
+    <string name="account_last_backup_never">Κανένα αντίγραφο ακόμη</string>
+    <string name="account_backup_hint">Δημιουργήστε αντίγραφο τώρα και αποθηκεύστε το αρχείο στο Google Drive ή σε οποιοδήποτε cloud. Σε νέο τηλέφωνο, δημιουργήστε τον λογαριασμό σας με τον ίδιο κωδικό και επαναφέρετέ το. Τα αντίγραφα περιλαμβάνουν πλέον το κλειδί υπογραφής σας.</string>
+    <string name="account_sign_out">Αποσύνδεση</string>
+    <string name="account_username">Όνομα λογαριασμού</string>
+    <string name="account_password">Κωδικός πρόσβασης</string>
+    <string name="account_password_confirm">Επιβεβαίωση κωδικού</string>
+    <string name="account_password_short">Χρησιμοποιήστε τουλάχιστον 8 χαρακτήρες</string>
+    <string name="account_password_mismatch">Οι κωδικοί δεν ταιριάζουν</string>
+    <string name="account_username_short">Χρησιμοποιήστε τουλάχιστον 2 χαρακτήρες</string>
 </resources>

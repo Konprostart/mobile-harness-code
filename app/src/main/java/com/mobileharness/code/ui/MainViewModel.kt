@@ -26,6 +26,7 @@ import com.mobileharness.code.BuildConfig
 import com.mobileharness.code.R
 import com.mobileharness.code.data.ApiKeyVault
 import com.mobileharness.code.data.ApiKeyInfo
+import com.mobileharness.code.data.AccountManager
 import com.mobileharness.code.data.AppPreferences
 import com.mobileharness.code.devtools.CpuUsageReader
 import com.mobileharness.code.devtools.CrashLogStore
@@ -687,6 +688,10 @@ data class AppUiState(
     val appUpdateError: String? = null,
     val showWhatsNew: Boolean = false,
     val backupFeatureSeen: Boolean = true,
+    val accountUsername: String = "",
+    val accountCreatedAtMillis: Long = 0L,
+    val accountLastBackupMillis: Long = 0L,
+    val accountMessage: String? = null,
     val gradleMemoryAuto: Boolean = true,
     val gradleMaxHeapMb: Int = 0,
     val gradleMaxMetaspaceMb: Int = 0,
@@ -752,6 +757,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     private val vault = ApiKeyVault(application)
     private val preferences = AppPreferences(application)
+    private val accountManager = AccountManager(application)
     private val sshSecrets = sshSecretStore(application)
     private val sshController = SshController(sshSecrets) { preferences.ecoModeEnabled }
     private val resumePolicy = SessionResumePolicy()
@@ -856,6 +862,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             // Only people updating from an earlier version get the dialog; a new install has nothing "new".
             showWhatsNew = preferences.onboardingComplete && preferences.whatsNewSeenVersionCode < BuildConfig.VERSION_CODE,
             backupFeatureSeen = preferences.backupFeatureSeen,
+            accountUsername = accountManager.username,
+            accountCreatedAtMillis = accountManager.createdAtMillis,
+            accountLastBackupMillis = accountManager.lastBackupMillis,
             gradleMemoryAuto = preferences.gradleMemoryAuto,
             gradleMaxHeapMb = preferences.gradleMaxHeapMb,
             gradleMaxMetaspaceMb = preferences.gradleMaxMetaspaceMb,
@@ -905,6 +914,40 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         if (_state.value.backupFeatureSeen) return
         preferences.backupFeatureSeen = true
         _state.update { it.copy(backupFeatureSeen = true) }
+    }
+
+    /** Creates the local, password-based account. The password is used only to derive a verifier. */
+    fun createAccount(username: String, password: String) {
+        when (val result = accountManager.create(username, password.toCharArray())) {
+            is AccountManager.Result.Success -> _state.update {
+                it.copy(
+                    accountUsername = result.username,
+                    accountCreatedAtMillis = accountManager.createdAtMillis,
+                    accountLastBackupMillis = accountManager.lastBackupMillis,
+                    accountMessage = null,
+                )
+            }
+            is AccountManager.Result.Error -> _state.update { it.copy(accountMessage = result.message) }
+        }
+    }
+
+    /** Removes the local account identity. Encrypted backups elsewhere are unaffected. */
+    fun signOutAccount() {
+        accountManager.signOut()
+        _state.update {
+            it.copy(accountUsername = "", accountCreatedAtMillis = 0L, accountLastBackupMillis = 0L, accountMessage = null)
+        }
+    }
+
+    /** Records a completed password-protected backup so the account screen can show the last-backup time. */
+    fun markAccountBackedUp() {
+        if (!accountManager.hasAccount) return
+        accountManager.lastBackupMillis = System.currentTimeMillis()
+        _state.update { it.copy(accountLastBackupMillis = accountManager.lastBackupMillis) }
+    }
+
+    fun clearAccountMessage() {
+        _state.update { it.copy(accountMessage = null) }
     }
 
     private fun resolveGradleMemoryProfile(): GradleMemoryProfile =

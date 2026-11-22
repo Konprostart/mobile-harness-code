@@ -53,4 +53,19 @@
     <string name="backup_channel_name">बैकअप और रीस्टोर</string>
     <string name="backup_restore_on_setup">बैकअप से रीस्टोर करें</string>
     <string name="backup_restore_on_setup_desc">ऐप दोबारा इंस्टॉल किया? सेटअप से पहले अपने प्रोजेक्ट, चैट और सेटिंग्स रीस्टोर करें।</string>
+    <string name="account_title">खाता</string>
+    <string name="account_subtitle">साइन इन करें और अपना काम कभी न खोएँ</string>
+    <string name="account_description">पासवर्ड से सुरक्षित खाता बनाएँ ताकि आप नए फ़ोन पर सब कुछ वापस ला सकें। पासवर्ड आपके बैकअप — प्रोजेक्ट, API कुंजियाँ और साइनिंग कुंजियाँ — को एन्क्रिप्ट करता है और कहीं भी संग्रहीत या भेजा नहीं जाता।</string>
+    <string name="account_create">खाता बनाएँ</string>
+    <string name="account_signed_in_as">%1$s के रूप में साइन इन</string>
+    <string name="account_last_backup">अंतिम बैकअप: %1$s</string>
+    <string name="account_last_backup_never">अभी तक कोई बैकअप नहीं</string>
+    <string name="account_backup_hint">अभी बैकअप लें और फ़ाइल को Google Drive या किसी भी क्लाउड में सहेजें। नए फ़ोन पर उसी पासवर्ड से खाता बनाएँ और उसे वापस लाएँ। बैकअप में अब आपकी साइनिंग कुंजी भी शामिल है।</string>
+    <string name="account_sign_out">साइन आउट</string>
+    <string name="account_username">खाता नाम</string>
+    <string name="account_password">पासवर्ड</string>
+    <string name="account_password_confirm">पासवर्ड की पुष्टि करें</string>
+    <string name="account_password_short">कम से कम 8 अक्षर इस्तेमाल करें</string>
+    <string name="account_password_mismatch">पासवर्ड मेल नहीं खाते</string>
+    <string name="account_username_short">कम से कम 2 अक्षर इस्तेमाल करें</string>
 </resources>
