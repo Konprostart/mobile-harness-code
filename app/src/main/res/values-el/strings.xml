@@ -455,6 +455,16 @@
     <string name="project_type_compose_desc">Σύγχρονο UI Android</string>
     <string name="project_type_xml">XML</string>
     <string name="project_type_xml_desc">Κλασικό UI Android</string>
+    <string name="project_type_web">Διαδικτυακή εφαρμογή</string>
+    <string name="project_type_web_desc">HTML/CSS/JS σε WebView</string>
+    <string name="webapp_import">Εισαγωγή ZIP διαδικτυακής εφαρμογής</string>
+    <string name="webapp_import_desc">Μετατρέψτε μια έτοιμη εφαρμογή HTML/CSS/JS (ή χτισμένο dist React/Vue) σε εγκαταστάσιμο APK.</string>
+    <string name="webapp_needs_build">Αυτό το ZIP χρειάζεται βήμα build (npm). Εισαγάγετε αντί αυτού ένα χτισμένο φάκελο dist ή build ή μια απλή εφαρμογή HTML.</string>
+    <string name="webapp_no_entry">Δεν βρέθηκε index.html σε αυτό το ZIP. Συμπεριλάβετε ένα σημείο εισόδου HTML.</string>
+    <string name="webapp_backend">Αυτό το έργο χρειάζεται backend διακομιστή και δεν μπορεί να τρέξει ως τοπική εφαρμογή WebView.</string>
+    <string name="webapp_importing">Προετοιμασία διαδικτυακής εφαρμογής…</string>
+    <string name="webapp_imported">Η διαδικτυακή εφαρμογή "%1$s" δημιουργήθηκε.</string>
+    <string name="webapp_import_failed">Αποτυχία εισαγωγής διαδικτυακής εφαρμογής: %1$s</string>
     <string name="android_estimated_remaining">Απομένουν περίπου %1$s</string>
     <string name="android_finishing_build">Ολοκλήρωση build…</string>
     <string name="android_estimating_build">Εκτίμηση χρόνου build…</string>

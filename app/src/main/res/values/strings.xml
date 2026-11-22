@@ -358,6 +358,16 @@
     <string name="project_type_compose_desc">Modern Android UI</string>
     <string name="project_type_xml">XML</string>
     <string name="project_type_xml_desc">Classic Android UI</string>
+    <string name="project_type_web">Web App</string>
+    <string name="project_type_web_desc">HTML/CSS/JS in a WebView</string>
+    <string name="webapp_import">Import Web App ZIP</string>
+    <string name="webapp_import_desc">Package a ready HTML/CSS/JS app (or built React/Vue dist) into an installable APK.</string>
+    <string name="webapp_needs_build">This ZIP needs a build step (npm). Import a built dist/ or build/ folder or a plain HTML app instead.</string>
+    <string name="webapp_no_entry">No index.html found in this ZIP. Include an HTML entry point.</string>
+    <string name="webapp_backend">This project needs a backend server and cannot run as a local WebView app.</string>
+    <string name="webapp_importing">Packaging web app…</string>
+    <string name="webapp_imported">Web app "%1$s" created.</string>
+    <string name="webapp_import_failed">Web app import failed: %1$s</string>
     <string name="android_estimated_remaining">About %1$s remaining</string>
     <string name="android_finishing_build">Finishing build…</string>
     <string name="android_estimating_build">Learning build time…</string>

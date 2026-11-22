@@ -131,6 +131,9 @@ import com.mobileharness.code.runtime.AndroidLogLevel
 import com.mobileharness.code.runtime.AndroidLogLine
 import com.mobileharness.code.runtime.AndroidLogcatState
 import com.mobileharness.code.runtime.AndroidProjectTemplateGenerator
+import com.mobileharness.code.runtime.WebAppKind
+import com.mobileharness.code.runtime.WebAppProjectConfig
+import com.mobileharness.code.runtime.WebAppZipScanner
 import com.mobileharness.code.runtime.GradleMemory
 import com.mobileharness.code.runtime.GradleMemoryProfile
 import com.mobileharness.code.runtime.ReleasePipelineOutcome
@@ -4691,7 +4694,11 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             .first { it !in usedSlugs }
         val project = Project(
             name = cleanName,
-            description = if (template == AndroidTemplate.COMPOSE) "Android · Jetpack Compose" else "Android · Kotlin + XML",
+            description = when (template) {
+                AndroidTemplate.COMPOSE -> "Android · Jetpack Compose"
+                AndroidTemplate.XML -> "Android · Kotlin + XML"
+                AndroidTemplate.WEB -> "Android · Web App (HTML/CSS/JS)"
+            },
             language = "Kotlin",
             slug = slug,
             type = ProjectType.ANDROID,
@@ -4764,6 +4771,145 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 }
             }
         }
+    }
+
+    fun importWebAppZip(uri: Uri) {
+        if (_state.value.projectImporting || _state.value.isRunning || _state.value.projectTerminalRunning || _state.value.androidBuildRunning) return
+        _state.update { it.copy(projectImporting = true, projectImportMessage = str(R.string.webapp_importing)) }
+        viewModelScope.launch {
+            val result = withContext(Dispatchers.IO) { runCatching { buildWebAppFromZip(uri) } }
+            result.onSuccess { project ->
+                val firstChat = ProjectChat(title = str(R.string.vm_new_chat))
+                preferences.saveProjectChats(project.id, listOf(firstChat))
+                _state.update { current ->
+                    current.copy(
+                        projects = listOf(project) + current.projects,
+                        projectImporting = false,
+                        projectImportMessage = null,
+                        toastMessage = str(R.string.webapp_imported, project.name),
+                    )
+                }
+                preferences.saveProjects(_state.value.projects)
+                openProject(project)
+            }.onFailure { error ->
+                _state.update {
+                    it.copy(
+                        projectImporting = false,
+                        projectImportMessage = null,
+                        toastMessage = str(R.string.webapp_import_failed, error.message?.take(180) ?: str(R.string.vm_invalid_zip)),
+                    )
+                }
+            }
+        }
+    }
+
+    private fun buildWebAppFromZip(uri: Uri): Project {
+        val app = getApplication<Application>()
+        val resolver = app.contentResolver
+        var archiveName = "Web App.zip"
+        resolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)?.use { cursor ->
+            if (cursor.moveToFirst()) {
+                cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME).takeIf { it >= 0 }?.let { index ->
+                    archiveName = cursor.getString(index) ?: archiveName
+                }
+            }
+        }
+        val projectId = UUID.randomUUID().toString()
+        val staging = File(app.cacheDir, "web-import/$projectId")
+        staging.mkdirs()
+        val destination = File(app.filesDir, "workspaces/$projectId")
+        try {
+            safeExtractZip(uri, staging)
+            val scan = WebAppZipScanner.scan(staging)
+            require(scan.isReady) {
+                when (scan.kind) {
+                    WebAppKind.NPM_REQUIRED -> str(R.string.webapp_needs_build)
+                    WebAppKind.BACKEND_REQUIRED -> str(R.string.webapp_backend)
+                    else -> str(R.string.webapp_no_entry)
+                }
+            }
+            val manifest = scan.manifest
+            val appName = manifest?.name?.takeIf { it.isNotBlank() }
+                ?: archiveName.removeSuffix(".zip").take(60).ifBlank { "Web App" }
+            val cleanName = appName.replace(Regex("\\s+"), " ").trim().take(60)
+            val baseSlug = projectSlug(cleanName)
+            val usedSlugs = _state.value.projects.mapTo(mutableSetOf()) { it.slug }
+            val slug = generateSequence(1) { it + 1 }
+                .map { number -> if (number == 1) baseSlug else "$baseSlug-$number" }
+                .first { it !in usedSlugs }
+            val project = Project(
+                name = cleanName,
+                description = manifest?.description?.take(160)?.takeIf { it.isNotBlank() }
+                    ?: "Android · Web App (HTML/CSS/JS)",
+                language = "HTML/CSS/JS",
+                slug = slug,
+                type = ProjectType.ANDROID,
+                androidTemplate = AndroidTemplate.WEB,
+            )
+            AndroidProjectTemplateGenerator.generate(
+                destination = destination,
+                appName = cleanName,
+                template = AndroidTemplate.WEB,
+                gradleMemoryProfile = resolveGradleMemoryProfile(),
+                web = WebAppProjectConfig(
+                    sourceDir = scan.assetRoot,
+                    entryPoint = scan.entryPoint,
+                    manifest = manifest,
+                ),
+            )
+            return project
+        } catch (error: Throwable) {
+            if (destination.exists()) destination.deleteRecursively()
+            throw error
+        } finally {
+            staging.deleteRecursively()
+        }
+    }
+
+    /** Extracts a ZIP into [destination] using the same path-traversal/size/entry guards as the coding-project import. */
+    private fun safeExtractZip(uri: Uri, destination: File) {
+        val app = getApplication<Application>()
+        val resolver = app.contentResolver
+        val destinationPath = destination.canonicalFile.toPath()
+        val availableLimit = (destination.usableSpace * 8L / 10L).coerceAtMost(MAX_IMPORTED_PROJECT_BYTES)
+        var extractedBytes = 0L
+        var entries = 0
+        val source = resolver.openInputStream(uri) ?: error(str(R.string.vm_zip_open_failed))
+        source.buffered().use { input ->
+            ZipInputStream(input).use { zip ->
+                while (true) {
+                    val entry = zip.nextEntry ?: break
+                    entries++
+                    require(entries <= MAX_IMPORTED_ZIP_ENTRIES) { str(R.string.vm_zip_too_many_files) }
+                    val entryName = entry.name.replace('\\', '/').trimStart('/')
+                    require(entryName.isNotBlank() && '\u0000' !in entryName) { str(R.string.vm_zip_invalid_path) }
+                    if (entryName.startsWith("__MACOSX/") || entryName.endsWith("/.DS_Store") || entryName == ".DS_Store") {
+                        zip.closeEntry()
+                        continue
+                    }
+                    val target = File(destination, entryName).canonicalFile
+                    require(target.toPath().startsWith(destinationPath)) { str(R.string.vm_zip_unsafe_path) }
+                    if (entry.isDirectory) {
+                        target.mkdirs()
+                    } else {
+                        target.parentFile?.mkdirs()
+                        target.outputStream().buffered().use { output ->
+                            val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
+                            while (true) {
+                                val count = zip.read(buffer)
+                                if (count < 0) break
+                                extractedBytes += count
+                                require(extractedBytes <= availableLimit) { str(R.string.vm_zip_too_large) }
+                                output.write(buffer, 0, count)
+                            }
+                        }
+                        if (entry.time > 0) target.setLastModified(entry.time)
+                    }
+                    zip.closeEntry()
+                }
+            }
+        }
+        require(entries > 0 && destination.walkTopDown().any { it.isFile }) { str(R.string.vm_zip_no_files) }
     }
 
     private fun extractImportedProject(uri: Uri): ImportedZipProject {

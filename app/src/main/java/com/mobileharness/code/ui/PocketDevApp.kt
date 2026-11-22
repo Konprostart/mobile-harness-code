@@ -2558,6 +2558,7 @@ private fun RootScreenHost(
                     onCreateAndroid = viewModel::createAndroidProject,
                     onCreateQuickProject = viewModel::createQuickProject,
                     onImportZip = viewModel::importZipProject,
+                    onImportWebAppZip = viewModel::importWebAppZip,
                     onCloneGit = viewModel::clonePublicGitRepository,
                     onStartGitHubLogin = viewModel::startGitHubLogin,
                     onGenerateNewGitHubCode = viewModel::generateNewGitHubCode,
@@ -3694,6 +3695,7 @@ private fun ProjectsScreen(
     onCreateAndroid: (String, AndroidTemplate) -> Unit,
     onCreateQuickProject: () -> Unit,
     onImportZip: (Uri) -> Unit,
+    onImportWebAppZip: (Uri) -> Unit,
     onCloneGit: (String) -> Unit,
     onStartGitHubLogin: () -> Unit,
     onGenerateNewGitHubCode: () -> Unit,
@@ -3736,6 +3738,9 @@ private fun ProjectsScreen(
     }
     val importZipLauncher = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
         if (uri != null) onImportZip(uri)
+    }
+    val importWebAppZipLauncher = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
+        if (uri != null) onImportWebAppZip(uri)
     }
     LaunchedEffect(state.appUpdate?.versionCode) {
         if (state.appUpdate != null) showUpdateDialog = true
@@ -3904,6 +3909,22 @@ private fun ProjectsScreen(
                                         Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
                                     }
                                 }
+                                Surface(
+                                    modifier = Modifier.fillMaxWidth().clickable(enabled = !state.projectImporting && !state.gitCloneRunning) { importWebAppZipLauncher.launch("*/*") },
+                                    color = MaterialTheme.colorScheme.surface,
+                                    shape = RoundedCornerShape(13.dp),
+                                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+                                ) {
+                                    Row(Modifier.padding(horizontal = 12.dp, vertical = 11.dp), verticalAlignment = Alignment.CenterVertically) {
+                                        Icon(Icons.Default.Language, null, tint = PocketGreen, modifier = Modifier.size(19.dp))
+                                        Spacer(Modifier.width(10.dp))
+                                        Column(Modifier.weight(1f)) {
+                                            Text(stringResource(R.string.webapp_import), fontSize = 12.5.sp, fontWeight = FontWeight.SemiBold)
+                                            Text(stringResource(R.string.webapp_import_desc), fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                        }
+                                        Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    }
+                                }
                                 (state.projectImportMessage ?: state.gitCloneMessage)?.let { message ->
                                     Text(message, fontSize = 10.5.sp, color = MaterialTheme.colorScheme.primary)
                                 }
@@ -4020,12 +4041,18 @@ private fun ProjectsScreen(
                         label = { Text(stringResource(R.string.project_type_xml)) },
                         leadingIcon = { if (androidTemplate == AndroidTemplate.XML) Icon(Icons.Default.Check, null, Modifier.size(16.dp)) },
                     )
+                    AssistChip(
+                        onClick = { androidTemplate = AndroidTemplate.WEB },
+                        label = { Text(stringResource(R.string.project_type_web)) },
+                        leadingIcon = { if (androidTemplate == AndroidTemplate.WEB) Icon(Icons.Default.Check, null, Modifier.size(16.dp)) },
+                    )
                 }
                 Text(
                     stringResource(
                         when (androidTemplate) {
                             AndroidTemplate.COMPOSE -> R.string.project_type_compose_desc
                             AndroidTemplate.XML -> R.string.project_type_xml_desc
+                            AndroidTemplate.WEB -> R.string.project_type_web_desc
                             null -> R.string.project_type_general_desc
                         },
                     ),

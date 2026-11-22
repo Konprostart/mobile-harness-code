@@ -171,6 +171,7 @@ enum class ProjectType { GENERAL, ANDROID }
 enum class AndroidTemplate(val label: String) {
     COMPOSE("Jetpack Compose"),
     XML("Kotlin + XML"),
+    WEB("Web App (HTML/CSS/JS)"),
 }
 
 data class Project(
