@@ -1,12 +1,12 @@
 {
-  "versionCode": 30,
-  "versionName": "1.5.0",
-  "notes": "Mobile Harness Code — independent fork of Mobile Harness. v1.5.0: automatic model/provider rotation for coding agents — on transient failures (429/5xx/timeout) the DSH DeepSeek and Claude Code agents reconnect, then rotate through the next compatible model and provider (DeepSeek → Anthropic → OpenRouter), all fail-closed (mutating tools are never auto-replayed; 401/403 never cascade). Adds a Continuation Pack that preserves task, plan, recent messages, touched files and last-tool status across a model change. Rotation is opt-in under Settings → Model rotation. This APK is SIGNED (V3-only, production key); install mobile-harness-online.apk.",
+  "versionCode": 31,
+  "versionName": "1.6.0",
+  "notes": "Mobile Harness Code — independent fork of Mobile Harness. v1.6.0: local password-protected account so you can move to a new phone without losing anything. Create an account with a master password (never stored or sent anywhere) and back up; the encrypted .mhbackup now also carries your signing keystore, so restoring on a new phone brings back projects, chats, settings, API keys, Linux logins and signing keys. This APK is SIGNED (V3-only, production key); install mobile-harness-online.apk.",
   "artifacts": {
     "online": {
-      "url": "https://github.com/Konprostart/mobile-harness-code/releases/download/v1.5.0/mobile-harness-online.apk",
-      "sha256": "f49bdd1ffec2321cc1ce7d1b8a562554a42843d44e8495233fe8c004a908ce43",
-      "sizeBytes": 99655376
+      "url": "https://github.com/Konprostart/mobile-harness-code/releases/download/v1.6.0/mobile-harness-online.apk",
+      "sha256": "a9651de39479be309106a6aff8631d1f7c221055f90495282dd1b631ae7d1dc4",
+      "sizeBytes": 99737296
     }
   }
 }
