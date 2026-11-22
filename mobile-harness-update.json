@@ -1,12 +1,12 @@
 {
-  "versionCode": 31,
-  "versionName": "1.6.0",
-  "notes": "Mobile Harness Code — independent fork of Mobile Harness. v1.6.0: local password-protected account so you can move to a new phone without losing anything. Create an account with a master password (never stored or sent anywhere) and back up; the encrypted .mhbackup now also carries your signing keystore, so restoring on a new phone brings back projects, chats, settings, API keys, Linux logins and signing keys. This APK is SIGNED (V3-only, production key); install mobile-harness-online.apk.",
+  "versionCode": 32,
+  "versionName": "1.7.0",
+  "notes": "Mobile Harness Code — independent fork of Mobile Harness. v1.7.0: self-host Git providers join GitHub. Connect Gitea or OneDev with a personal access token (stored encrypted in the app vault, never in logs), then browse, search, create and clone public or private repositories — the clone reuses the existing Git + SSH stack. A central GitProviderManager keeps the providers behind one interface, so a future own Git server is just one more adapter. GitHub integration is unchanged. This APK is SIGNED (V3-only, production key); install mobile-harness-online.apk.",
   "artifacts": {
     "online": {
-      "url": "https://github.com/Konprostart/mobile-harness-code/releases/download/v1.6.0/mobile-harness-online.apk",
-      "sha256": "a9651de39479be309106a6aff8631d1f7c221055f90495282dd1b631ae7d1dc4",
-      "sizeBytes": 99737296
+      "url": "https://github.com/Konprostart/mobile-harness-code/releases/download/v1.7.0/mobile-harness-online.apk",
+      "sha256": "80a1a9988855ef05ed5121ab9b68b2e533889f5b1d6547e751a380fd32a3b050",
+      "sizeBytes": 99880656
     }
   }
 }
