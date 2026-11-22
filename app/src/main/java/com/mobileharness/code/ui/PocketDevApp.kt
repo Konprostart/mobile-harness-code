@@ -270,6 +270,9 @@ import com.mobileharness.code.network.ConnectionValidation
 import com.mobileharness.code.network.DiscoveredModel
 import com.mobileharness.code.network.ModelDiscoveryResult
 import com.mobileharness.code.network.GitHubRepository
+import com.mobileharness.code.network.GitProviderAuthStatus
+import com.mobileharness.code.network.GitProviderId
+import com.mobileharness.code.network.GitProviderRepo
 import com.mobileharness.code.ui.theme.PocketBlue
 import com.mobileharness.code.ui.theme.PocketGreen
 import com.mobileharness.code.ui.theme.PocketOrange
@@ -2561,6 +2564,11 @@ private fun RootScreenHost(
                     onRefreshGitHub = viewModel::refreshGitHubRepositories,
                     onDisconnectGitHub = viewModel::disconnectGitHub,
                     onCloneGitHub = viewModel::cloneGitHubRepository,
+                    onConnectGitProvider = viewModel::connectGitProvider,
+                    onRefreshGitProvider = viewModel::refreshGitProviderRepositories,
+                    onDisconnectGitProvider = viewModel::disconnectGitProvider,
+                    onCloneGitProvider = viewModel::cloneGitProviderRepository,
+                    onCreateGitProviderRepo = viewModel::createGitProviderRepository,
                     onRenameProject = viewModel::renameProject,
                     onDeleteProject = viewModel::deleteProject,
                     onSettings = { screen = RootScreen.SETTINGS },
@@ -3692,6 +3700,11 @@ private fun ProjectsScreen(
     onRefreshGitHub: () -> Unit,
     onDisconnectGitHub: () -> Unit,
     onCloneGitHub: (GitHubRepository) -> Unit,
+    onConnectGitProvider: (GitProviderId, String, String) -> Unit,
+    onRefreshGitProvider: (GitProviderId) -> Unit,
+    onDisconnectGitProvider: (GitProviderId) -> Unit,
+    onCloneGitProvider: (GitProviderId, GitProviderRepo) -> Unit,
+    onCreateGitProviderRepo: (GitProviderId, String, Boolean, String) -> Unit,
     onRenameProject: (String, String) -> Unit,
     onDeleteProject: (String) -> Unit,
     onSettings: () -> Unit,
@@ -3703,6 +3716,14 @@ private fun ProjectsScreen(
     var showUpdateDialog by rememberSaveable { mutableStateOf(false) }
     var showGitDialog by rememberSaveable { mutableStateOf(false) }
     var showGitHubDialog by rememberSaveable { mutableStateOf(false) }
+    var showGitProvidersDialog by rememberSaveable { mutableStateOf(false) }
+    var gitProviderId by rememberSaveable { mutableStateOf<String?>(null) }
+    var gpHost by rememberSaveable { mutableStateOf("") }
+    var gpToken by remember { mutableStateOf("") }
+    var gpRepoSearch by rememberSaveable { mutableStateOf("") }
+    var gpShowCreate by rememberSaveable { mutableStateOf(false) }
+    var gpCreateName by rememberSaveable { mutableStateOf("") }
+    var gpCreatePrivate by rememberSaveable { mutableStateOf(true) }
     var importExpanded by rememberSaveable { mutableStateOf(false) }
     var gitUrl by rememberSaveable { mutableStateOf("") }
     var repositorySearch by rememberSaveable { mutableStateOf("") }
@@ -3863,6 +3884,22 @@ private fun ProjectsScreen(
                                                 fontSize = 10.sp,
                                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                                             )
+                                        }
+                                        Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    }
+                                }
+                                Surface(
+                                    modifier = Modifier.fillMaxWidth().clickable(enabled = !state.gitCloneRunning) { showGitProvidersDialog = true },
+                                    color = MaterialTheme.colorScheme.surface,
+                                    shape = RoundedCornerShape(13.dp),
+                                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+                                ) {
+                                    Row(Modifier.padding(horizontal = 12.dp, vertical = 11.dp), verticalAlignment = Alignment.CenterVertically) {
+                                        Icon(Icons.Default.Dns, null, tint = PocketBlue, modifier = Modifier.size(19.dp))
+                                        Spacer(Modifier.width(10.dp))
+                                        Column(Modifier.weight(1f)) {
+                                            Text(stringResource(R.string.gp_providers_title), fontSize = 12.5.sp, fontWeight = FontWeight.SemiBold)
+                                            Text(stringResource(R.string.gp_browse_repositories), fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                         }
                                         Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
                                     }
@@ -4154,6 +4191,165 @@ private fun ProjectsScreen(
                 }
             },
         )
+    }
+    if (showGitProvidersDialog) {
+        val providers = listOf(GitProviderId.GITEA, GitProviderId.ONEDEV)
+        val selected = providers.firstOrNull { it.stableId == gitProviderId }
+        val providerState = selected?.let { state.gitProviders[it] }
+        AlertDialog(
+            onDismissRequest = { if (!state.gitCloneRunning) showGitProvidersDialog = false },
+            icon = { Icon(Icons.Default.Dns, null, tint = PocketBlue) },
+            title = { Text(if (selected == null) stringResource(R.string.gp_providers_title) else stringResource(R.string.gp_connect_provider)) },
+            text = {
+                if (selected == null) {
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        providers.forEach { id ->
+                            val ps = state.gitProviders[id]
+                            val label = if (id == GitProviderId.GITEA) "Gitea" else "OneDev"
+                            Surface(
+                                modifier = Modifier.fillMaxWidth().clickable { gitProviderId = id.stableId; gpRepoSearch = "" },
+                                shape = RoundedCornerShape(12.dp),
+                                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f),
+                            ) {
+                                Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                                    Column(Modifier.weight(1f)) {
+                                        Text(label, fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
+                                        Text(
+                                            ps?.login?.let { stringResource(R.string.gp_connected_as, it) } ?: stringResource(R.string.projects_sign_in_repositories),
+                                            fontSize = 10.5.sp,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        )
+                                    }
+                                    Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                                }
+                            }
+                        }
+                    }
+                } else if (providerState != null && providerState.authStatus == GitProviderAuthStatus.CONNECTED) {
+                    Column(verticalArrangement = Arrangement.spacedBy(9.dp)) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(
+                                providerState.message ?: stringResource(R.string.ws_github_select_repo),
+                                modifier = Modifier.weight(1f),
+                                fontSize = 12.sp,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                            IconButton(onClick = { onRefreshGitProvider(selected) }, enabled = !providerState.loading) {
+                                Icon(Icons.Default.Refresh, stringResource(R.string.gp_refresh))
+                            }
+                        }
+                        OutlinedTextField(
+                            value = gpRepoSearch,
+                            onValueChange = { gpRepoSearch = it },
+                            placeholder = { Text(stringResource(R.string.gp_search_repos)) },
+                            leadingIcon = { Icon(Icons.Default.Search, null) },
+                            singleLine = true,
+                            modifier = Modifier.fillMaxWidth(),
+                        )
+                        if (providerState.loading) LinearProgressIndicator(Modifier.fillMaxWidth())
+                        LazyColumn(Modifier.fillMaxWidth().heightIn(max = 300.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                            items(
+                                providerState.repositories.filter { gpRepoSearch.isBlank() || it.fullName.contains(gpRepoSearch, ignoreCase = true) },
+                                key = { it.fullName },
+                            ) { repository ->
+                                Surface(
+                                    modifier = Modifier.fillMaxWidth().clickable(enabled = !state.gitCloneRunning) {
+                                        showGitProvidersDialog = false
+                                        onCloneGitProvider(selected, repository)
+                                    },
+                                    shape = RoundedCornerShape(12.dp),
+                                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f),
+                                ) {
+                                    Row(Modifier.padding(11.dp), verticalAlignment = Alignment.CenterVertically) {
+                                        Icon(if (repository.isPrivate) Icons.Default.Key else Icons.Default.Code, null, modifier = Modifier.size(17.dp), tint = PocketOrange)
+                                        Spacer(Modifier.width(9.dp))
+                                        Column(Modifier.weight(1f)) {
+                                            Text(repository.fullName, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                            Text("${if (repository.isPrivate) stringResource(R.string.ws_repo_private) else stringResource(R.string.ws_repo_public)} · ${repository.defaultBranch}", fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                } else {
+                    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                        Text(
+                            providerState?.message ?: stringResource(R.string.ws_github_signin_desc),
+                            color = if (providerState?.authStatus == GitProviderAuthStatus.ERROR) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
+                            fontSize = 13.sp,
+                        )
+                        OutlinedTextField(
+                            value = gpHost,
+                            onValueChange = { gpHost = it },
+                            label = { Text(stringResource(R.string.gp_host_label)) },
+                            placeholder = { Text(stringResource(R.string.gp_host_hint)) },
+                            singleLine = true,
+                            modifier = Modifier.fillMaxWidth(),
+                        )
+                        OutlinedTextField(
+                            value = gpToken,
+                            onValueChange = { gpToken = it },
+                            label = { Text(stringResource(R.string.gp_token_label)) },
+                            singleLine = true,
+                            visualTransformation = PasswordVisualTransformation(),
+                            modifier = Modifier.fillMaxWidth(),
+                        )
+                        if (providerState?.authStatus == GitProviderAuthStatus.CONNECTING) {
+                            CircularProgressIndicator(Modifier.size(24.dp), strokeWidth = 2.5.dp)
+                        }
+                        Button(
+                            onClick = { onConnectGitProvider(selected, gpHost, gpToken); gpToken = "" },
+                            enabled = gpHost.isNotBlank() && gpToken.isNotBlank() && providerState?.authStatus != GitProviderAuthStatus.CONNECTING,
+                            modifier = Modifier.fillMaxWidth(),
+                        ) { Text(stringResource(R.string.gp_connect)) }
+                    }
+                }
+            },
+            confirmButton = {
+                if (selected != null && providerState?.authStatus == GitProviderAuthStatus.CONNECTED && !gpShowCreate) {
+                    TextButton(onClick = { gpShowCreate = true }) { Text(stringResource(R.string.gp_create_repo)) }
+                } else if (selected != null && providerState?.authStatus == GitProviderAuthStatus.CONNECTED) {
+                    TextButton(onClick = { showGitProvidersDialog = false; gpShowCreate = false }) { Text(stringResource(R.string.action_close)) }
+                }
+            },
+            dismissButton = {
+                if (selected != null) {
+                    val connected = providerState?.authStatus == GitProviderAuthStatus.CONNECTED
+                    TextButton(onClick = {
+                        when {
+                            connected && !gpShowCreate -> onDisconnectGitProvider(selected)
+                            gpShowCreate -> gpShowCreate = false
+                            else -> { gitProviderId = null; gpHost = ""; gpToken = "" }
+                        }
+                    }) { Text(stringResource(if (connected && !gpShowCreate) R.string.ws_disconnect else R.string.action_cancel)) }
+                } else {
+                    TextButton(onClick = { showGitProvidersDialog = false }) { Text(stringResource(R.string.action_cancel)) }
+                }
+            },
+        )
+        if (gpShowCreate && selected != null) {
+            AlertDialog(
+                onDismissRequest = { gpShowCreate = false },
+                title = { Text(stringResource(R.string.gp_create_repo)) },
+                text = {
+                    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                        OutlinedTextField(gpCreateName, { gpCreateName = it }, label = { Text(stringResource(R.string.gp_repo_name)) }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Checkbox(checked = gpCreatePrivate, onCheckedChange = { gpCreatePrivate = it })
+                            Spacer(Modifier.width(6.dp))
+                            Text(stringResource(R.string.gp_repo_private))
+                        }
+                    }
+                },
+                confirmButton = {
+                    TextButton(onClick = { onCreateGitProviderRepo(selected, gpCreateName, gpCreatePrivate, ""); gpShowCreate = false; gpCreateName = ""; gpCreatePrivate = true }, enabled = gpCreateName.isNotBlank()) {
+                        Text(stringResource(R.string.ws_create))
+                    }
+                },
+                dismissButton = { TextButton(onClick = { gpShowCreate = false; gpCreateName = "" }) { Text(stringResource(R.string.action_cancel)) } },
+            )
+        }
     }
     val update = state.appUpdate
     if (showUpdateDialog && update != null) {

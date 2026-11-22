@@ -85,6 +85,13 @@ import com.mobileharness.code.network.ModelDiscoveryResult
 import com.mobileharness.code.network.ProviderApiClient
 import com.mobileharness.code.network.RouteLog
 import com.mobileharness.code.network.GitHubRepository
+import com.mobileharness.code.network.GitHubRepositoryParser
+import com.mobileharness.code.network.GitAuthEnvironment
+import com.mobileharness.code.network.GitProviderAuthStatus
+import com.mobileharness.code.network.GitProviderConfig
+import com.mobileharness.code.network.GitProviderId
+import com.mobileharness.code.network.GitProviderManager
+import com.mobileharness.code.network.GitProviderRepo
 import com.mobileharness.code.network.isRotatableProviderFailure
 import com.mobileharness.code.network.ServerSyncConfig
 import com.mobileharness.code.network.ServerSyncMode
@@ -183,6 +190,16 @@ enum class StartupStage { CHECKING, SETUP_REQUIRED, INSTALLING, MODEL_SETUP, INI
 enum class ApiPingStatus { IDLE, PINGING, OK, FAILED }
 enum class AppUpdateStatus { AVAILABLE, PERMISSION_REQUIRED, DOWNLOADING, INSTALLING, ERROR }
 enum class GitHubAuthStatus { DISCONNECTED, STARTING, AWAITING_USER, CONNECTED, ERROR }
+
+/** Connection + repository state for a single self-host Git provider (Gitea/OneDev). */
+data class GitProviderState(
+    val authStatus: GitProviderAuthStatus = GitProviderAuthStatus.DISCONNECTED,
+    val host: String = "",
+    val login: String? = null,
+    val message: String? = null,
+    val repositories: List<GitProviderRepo> = emptyList(),
+    val loading: Boolean = false,
+)
 
 data class ExportSelection(
     val defaultIncluded: Boolean = true,
@@ -588,6 +605,7 @@ data class AppUiState(
     val githubMessage: String? = null,
     val githubRepositories: List<GitHubRepository> = emptyList(),
     val githubRepositoriesLoading: Boolean = false,
+    val gitProviders: Map<GitProviderId, GitProviderState> = emptyMap(),
     val activeProject: Project? = null,
     val workspaceVisible: Boolean = false,
     val readOnlyProject: Project? = null,
@@ -764,6 +782,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val claudeRuntime = ClaudeRuntimeBridge(application) { profile -> vault.get(profile.kind.name) }
     private val dshRuntime = DshRuntimeBridge(application) { profile -> vault.get(profile.kind.name) }
     private val installer = RuntimeInstaller(application)
+    private val gitProviderManager = GitProviderManager()
     private val antigravityRuntime = AntigravityRuntimeBridge(
         application,
         model = { _state.value.antigravityModel },
@@ -856,6 +875,14 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             projects = preferences.loadProjects(),
             githubAuthStatus = GitHubAuthStatus.DISCONNECTED,
             githubLogin = preferences.githubLogin.takeIf(String::isNotBlank),
+            gitProviders = listOf(GitProviderId.GITEA, GitProviderId.ONEDEV).associate { id ->
+                val config = preferences.loadGitProviderConfig(id)
+                id to GitProviderState(
+                    authStatus = if (vault.contains(id.stableId)) GitProviderAuthStatus.CONNECTED else GitProviderAuthStatus.DISCONNECTED,
+                    host = config.host,
+                    login = config.login.takeIf(String::isNotBlank),
+                )
+            },
             selectedDevStacks = preferences.selectedDevStacks.mapNotNull { name ->
                 runCatching { DevStack.valueOf(name) }.getOrNull()
             }.toSet() + DevStack.WEB,
@@ -4870,7 +4897,14 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         cloneGitRepository(repository.cloneUrl, repository.fullName, repository.defaultBranch, useGitHubCli = true)
     }
 
-    private fun cloneGitRepository(url: String, repositoryName: String?, branch: String?, useGitHubCli: Boolean) {
+    private fun cloneGitRepository(
+        url: String,
+        repositoryName: String?,
+        branch: String?,
+        useGitHubCli: Boolean,
+        providerLabel: String? = null,
+        authHeader: String? = null,
+    ) {
         if (_state.value.gitCloneRunning || _state.value.projectImporting || _state.value.isRunning || _state.value.projectTerminalRunning || _state.value.androidBuildRunning) return
         val normalized = runCatching { validateGitUrl(url) }.getOrElse { error ->
             _state.update { it.copy(toastMessage = error.message ?: str(R.string.vm_invalid_git_url)) }
@@ -4891,6 +4925,11 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                             "GH_PROMPT_DISABLED" to "1",
                             "GH_NO_UPDATE_NOTIFIER" to "1",
                         )
+                        if (authHeader != null) {
+                            // Authenticated git-over-HTTPS: the header travels via git config env vars,
+                            // so the token never appears on the process command line.
+                            environment.putAll(GitAuthEnvironment.forExtraHeader(authHeader))
+                        }
                         val installed = installer.installedRuntime()
                         val command = if (useGitHubCli && repositoryName != null) {
                             buildList {
@@ -4922,7 +4961,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                         Project(
                             id = projectId,
                             name = identity.displayName,
-                            description = repositoryName?.let { "GitHub · $it" } ?: "Imported Git repository",
+                            description = providerLabel ?: repositoryName?.let { "GitHub · $it" } ?: "Imported Git repository",
                             language = metadata.second,
                             slug = identity.slug,
                             kind = ProjectKind.QUICK_PROJECT,
@@ -5145,6 +5184,152 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    // --- Self-host Git providers (Gitea / OneDev / future own server) ----------------------
+
+    fun connectGitProvider(id: GitProviderId, host: String, token: String) {
+        val current = _state.value.gitProviders[id] ?: return
+        if (current.authStatus == GitProviderAuthStatus.CONNECTING) return
+        val normalizedHost = normalizeGitHost(host)
+        if (normalizedHost.isBlank() || token.isBlank()) {
+            _state.update {
+                it.copy(gitProviders = it.gitProviders + (id to current.copy(authStatus = GitProviderAuthStatus.ERROR, message = str(R.string.gp_host_token_required))))
+            }
+            return
+        }
+        _state.update {
+            it.copy(gitProviders = it.gitProviders + (id to current.copy(authStatus = GitProviderAuthStatus.CONNECTING, host = normalizedHost, message = str(R.string.gp_connecting))))
+        }
+        viewModelScope.launch {
+            val adapter = gitProviderManager.adapterFor(id)
+            val config = GitProviderConfig(host = normalizedHost, login = "")
+            val result = withContext(Dispatchers.IO) { runCatching { adapter.account(config, token) } }
+            result.onSuccess { account ->
+                vault.put(id.stableId, token)
+                preferences.saveGitProviderConfig(id, GitProviderConfig(host = normalizedHost, login = account.login))
+                _state.update {
+                    it.copy(gitProviders = it.gitProviders + (id to it.gitProviders.getValue(id).copy(
+                        authStatus = GitProviderAuthStatus.CONNECTED,
+                        host = normalizedHost,
+                        login = account.login,
+                        message = str(R.string.gp_connected_as, account.login),
+                    )))
+                }
+                refreshGitProviderRepositories(id)
+            }.onFailure { error ->
+                _state.update {
+                    it.copy(gitProviders = it.gitProviders + (id to it.gitProviders.getValue(id).copy(
+                        authStatus = GitProviderAuthStatus.ERROR,
+                        host = normalizedHost,
+                        message = error.message ?: str(R.string.gp_connect_failed),
+                    )))
+                }
+            }
+        }
+    }
+
+    fun refreshGitProviderRepositories(id: GitProviderId) {
+        val state = _state.value.gitProviders[id] ?: return
+        val token = vault.get(id.stableId)
+        if (token == null) {
+            _state.update {
+                it.copy(gitProviders = it.gitProviders + (id to state.copy(authStatus = GitProviderAuthStatus.DISCONNECTED, message = str(R.string.gp_token_missing))))
+            }
+            return
+        }
+        if (state.loading) return
+        _state.update {
+            it.copy(gitProviders = it.gitProviders + (id to state.copy(loading = true, message = str(R.string.gp_loading_repos))))
+        }
+        viewModelScope.launch {
+            val adapter = gitProviderManager.adapterFor(id)
+            val config = preferences.loadGitProviderConfig(id)
+            val result = withContext(Dispatchers.IO) { runCatching { adapter.repositories(config, token) } }
+            result.onSuccess { repositories ->
+                _state.update {
+                    it.copy(gitProviders = it.gitProviders + (id to it.gitProviders.getValue(id).copy(
+                        loading = false,
+                        repositories = repositories,
+                        authStatus = GitProviderAuthStatus.CONNECTED,
+                        message = plural(R.plurals.vm_repositories_available, repositories.size, repositories.size),
+                    )))
+                }
+            }.onFailure { error ->
+                _state.update {
+                    it.copy(gitProviders = it.gitProviders + (id to it.gitProviders.getValue(id).copy(
+                        loading = false,
+                        message = error.message ?: str(R.string.gp_repos_failed),
+                    )))
+                }
+            }
+        }
+    }
+
+    fun createGitProviderRepository(id: GitProviderId, name: String, isPrivate: Boolean, description: String) {
+        val clean = name.replace(Regex("\\s+"), "-").trim().take(100)
+        if (clean.isBlank()) return
+        val state = _state.value.gitProviders[id] ?: return
+        val token = vault.get(id.stableId) ?: return
+        viewModelScope.launch {
+            val adapter = gitProviderManager.adapterFor(id)
+            val config = preferences.loadGitProviderConfig(id)
+            val result = withContext(Dispatchers.IO) { runCatching { adapter.createRepository(config, token, clean, isPrivate, description) } }
+            result.onSuccess { repository ->
+                _state.update { current ->
+                    val existing = current.gitProviders.getValue(id)
+                    current.copy(
+                        gitProviders = current.gitProviders + (id to existing.copy(
+                            repositories = listOf(repository) + existing.repositories.filterNot { it.fullName == repository.fullName },
+                        )),
+                        toastMessage = str(R.string.gp_repo_created),
+                    )
+                }
+            }.onFailure { error ->
+                _state.update { current ->
+                    current.copy(
+                        gitProviders = current.gitProviders + (id to current.gitProviders.getValue(id).copy(message = error.message ?: str(R.string.gp_create_failed))),
+                        toastMessage = error.message ?: str(R.string.gp_create_failed),
+                    )
+                }
+            }
+        }
+    }
+
+    fun cloneGitProviderRepository(id: GitProviderId, repository: GitProviderRepo) {
+        val adapter = gitProviderManager.adapterFor(id)
+        val config = preferences.loadGitProviderConfig(id)
+        val token = vault.get(id.stableId)
+        val authHeader = token?.let { adapter.gitAuthorizationHeader(config, it) }
+        cloneGitRepository(
+            url = repository.cloneUrl,
+            repositoryName = repository.fullName,
+            branch = repository.defaultBranch,
+            useGitHubCli = false,
+            providerLabel = "${adapter.displayName} · ${repository.fullName}",
+            authHeader = authHeader,
+        )
+    }
+
+    fun disconnectGitProvider(id: GitProviderId) {
+        vault.remove(id.stableId)
+        val config = preferences.loadGitProviderConfig(id)
+        preferences.saveGitProviderConfig(id, GitProviderConfig(host = config.host, login = ""))
+        _state.update {
+            it.copy(gitProviders = it.gitProviders + (id to it.gitProviders.getValue(id).copy(
+                authStatus = GitProviderAuthStatus.DISCONNECTED,
+                login = null,
+                repositories = emptyList(),
+                message = str(R.string.gp_signed_out),
+            )))
+        }
+    }
+
+    private fun normalizeGitHost(host: String): String {
+        var value = host.trim().trimEnd('/')
+        if (value.isBlank()) return ""
+        if (!value.startsWith("http://") && !value.startsWith("https://")) value = "https://$value"
+        return value
+    }
+
     private suspend fun refreshGitHubConnection() = withContext(Dispatchers.IO) {
         if (!installer.isGitHubCliInstalled()) return@withContext
         val login = runCatching { githubAccountLogin() }.getOrNull()
@@ -5202,24 +5387,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         val endpoint = "user/repos?visibility=all&affiliation=owner,collaborator,organization_member&sort=updated&per_page=100"
         val (exit, output) = runGitHubCli(listOf("api", "--paginate", "--slurp", endpoint))
         check(exit == 0) { output.lineSequence().lastOrNull { it.isNotBlank() } ?: str(R.string.vm_github_repos_failed) }
-        val pages = JSONArray(output)
-        val repositories = LinkedHashMap<String, GitHubRepository>()
-        for (pageIndex in 0 until pages.length()) {
-            val page = pages.optJSONArray(pageIndex) ?: continue
-            for (index in 0 until page.length()) {
-                val item = page.optJSONObject(index) ?: continue
-                val fullName = item.optString("full_name").takeIf(String::isNotBlank) ?: continue
-                repositories[fullName] = GitHubRepository(
-                    fullName = fullName,
-                    cloneUrl = item.optString("clone_url", "https://github.com/$fullName.git"),
-                    private = item.optBoolean("private"),
-                    defaultBranch = item.optString("default_branch", "main"),
-                    description = item.optString("description"),
-                    updatedAt = item.optString("updated_at"),
-                )
-            }
-        }
-        return repositories.values.toList()
+        return GitHubRepositoryParser.parseSlurped(output)
     }
 
     private fun copyToClipboard(label: String, text: String) {

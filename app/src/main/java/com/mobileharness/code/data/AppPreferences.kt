@@ -16,6 +16,8 @@ import com.mobileharness.code.model.projectSlug
 import com.mobileharness.code.model.providersForAgent
 import com.mobileharness.code.mcp.McpServerCodec
 import com.mobileharness.code.mcp.McpServerConfig
+import com.mobileharness.code.network.GitProviderConfig
+import com.mobileharness.code.network.GitProviderId
 import com.mobileharness.code.network.ssh.SshProfile
 import com.mobileharness.code.network.ssh.SshProfileCodec
 import com.mobileharness.code.sidekick.RagCodec
@@ -87,6 +89,24 @@ class AppPreferences(private val context: Context) {
     var githubLogin: String
         get() = preferences.getString("github_login", "") ?: ""
         set(value) { preferences.edit().putString("github_login", value).apply() }
+
+    // --- Self-host Git providers (Gitea / OneDev / future own server) ----------------------
+    /**
+     * Non-secret connection settings for a self-host Git provider. The access token lives in
+     * [ApiKeyVault] (backed up with it), never here. Host and login are portable so they are
+     * intentionally excluded from [DEVICE_ONLY_KEYS].
+     */
+    fun saveGitProviderConfig(id: GitProviderId, config: GitProviderConfig) {
+        preferences.edit()
+            .putString("git_provider_${id.stableId}_host", config.host.trim())
+            .putString("git_provider_${id.stableId}_login", config.login.trim())
+            .apply()
+    }
+
+    fun loadGitProviderConfig(id: GitProviderId): GitProviderConfig = GitProviderConfig(
+        host = preferences.getString("git_provider_${id.stableId}_host", "").orEmpty(),
+        login = preferences.getString("git_provider_${id.stableId}_login", "").orEmpty(),
+    )
 
     fun saveAgentConversation(agent: AgentKind, projectId: String, chatId: String, conversationId: String?) {
         val key = agentConversationKey(agent, projectId, chatId)

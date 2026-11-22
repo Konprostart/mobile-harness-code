@@ -144,3 +144,31 @@ class GitHubClient(private val context: Context? = null) {
         return if (text.trimStart().startsWith("[")) JSONArray(text) else JSONObject(text)
     }
 }
+
+/**
+ * Pure parser for the `gh api --paginate --slurp` repository listing, extracted from the ViewModel so
+ * the existing GitHub integration's JSON shape is covered by a regression test. The list deduplicates
+ * by `full_name` and preserves the CLI's default branch fallback behaviour.
+ */
+object GitHubRepositoryParser {
+    fun parseSlurped(output: String): List<GitHubRepository> {
+        val pages = JSONArray(output)
+        val repositories = LinkedHashMap<String, GitHubRepository>()
+        for (pageIndex in 0 until pages.length()) {
+            val page = pages.optJSONArray(pageIndex) ?: continue
+            for (index in 0 until page.length()) {
+                val item = page.optJSONObject(index) ?: continue
+                val fullName = item.optString("full_name").takeIf(String::isNotBlank) ?: continue
+                repositories[fullName] = GitHubRepository(
+                    fullName = fullName,
+                    cloneUrl = item.optString("clone_url", "https://github.com/$fullName.git"),
+                    private = item.optBoolean("private"),
+                    defaultBranch = item.optString("default_branch", "main"),
+                    description = item.optString("description"),
+                    updatedAt = item.optString("updated_at"),
+                )
+            }
+        }
+        return repositories.values.toList()
+    }
+}
