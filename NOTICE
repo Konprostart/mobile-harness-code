@@ -23,3 +23,13 @@ or sponsored by the original Mobile Harness project or its maintainers.
 Third-party components incorporated in this project, and their respective
 licenses, are listed in THIRD_PARTY_NOTICES.md and in the per-component notice
 files under app/src/main/assets/licenses/.
+
+This product includes the Signiffia Key Vault and APK signing components
+(https://github.com/Konprostart/Signiffia), Copyright (c) 2026 Konprostart,
+licensed under the Apache License, Version 2.0. The full license text is
+preserved at app/src/main/assets/licenses/signiffia-Apache-2.0.txt.
+
+This product includes the Android apksig library
+(https://android.googlesource.com/platform/tools/apksig), licensed under the
+Apache License, Version 2.0, and BouncyCastle (https://www.bouncycastle.org/),
+licensed under the Bouncy Castle Licence (MIT-style).

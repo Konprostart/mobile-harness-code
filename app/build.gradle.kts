@@ -89,8 +89,8 @@ android {
         targetSdk = if (playBuild) 36 else 28
         // Keep literal defaults so F-Droid's static manifest parser can detect
         // the tagged release. Gradle properties may still override Play builds.
-        versionCode = 35
-        versionName = "1.10.0"
+        versionCode = 36
+        versionName = "1.11.0"
         providers.gradleProperty("appVersionCode").orNull?.toIntOrNull()?.let { versionCode = it }
         providers.gradleProperty("appVersionName").orNull?.let { versionName = it }
 
@@ -216,6 +216,15 @@ dependencies {
     implementation("dev.rikka.shizuku:api:13.1.5")
     implementation("dev.rikka.shizuku:provider:13.1.5")
 
+    // Key Vault + in-process APK/AAB signing (ported from Signiffia, Apache-2.0):
+    // apksig is the official Android signing/verification library; BouncyCastle
+    // (already present transitively via sshj) is pinned explicitly here for direct use
+    // by the signing module. Versions match the resolved transitive versions.
+    implementation("com.android.tools.build:apksig:8.13.2")
+    implementation("org.bouncycastle:bcprov-jdk18on:1.80.2")
+    implementation("org.bouncycastle:bcpkix-jdk18on:1.80")
+    implementation("org.bouncycastle:bcutil-jdk18on:1.80.2")
+
     testImplementation("junit:junit:4.13.2")
     testImplementation("org.json:json:20250107")
     debugImplementation("androidx.compose.ui:ui-tooling")
@@ -259,6 +268,10 @@ val directDependencyLicenses = mapOf(
     "com.google.zxing:core" to "Apache-2.0",
     "dev.rikka.shizuku:api" to "MIT",
     "dev.rikka.shizuku:provider" to "MIT",
+    "com.android.tools.build:apksig" to "Apache-2.0",
+    "org.bouncycastle:bcprov-jdk18on" to "MIT",
+    "org.bouncycastle:bcpkix-jdk18on" to "MIT",
+    "org.bouncycastle:bcutil-jdk18on" to "MIT",
 )
 
 val allowedSpdxLicenses = setOf(
@@ -272,7 +285,7 @@ val sbomOutputDir = layout.buildDirectory.dir("reports/sbom")
 // defaultConfig literal, overridable via -PappVersionName) instead of a stale
 // hardcoded value. Kept as a separate expression so F-Droid's static parser
 // still sees the literal versionName assignment inside defaultConfig.
-val sbomVersionName = providers.gradleProperty("appVersionName").orNull ?: "1.10.0"
+val sbomVersionName = providers.gradleProperty("appVersionName").orNull ?: "1.11.0"
 
 val generateSbom = tasks.register("generateSbom") {
     group = "verification"

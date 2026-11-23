@@ -35,6 +35,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.OpenInNew
 import androidx.compose.material.icons.filled.AccountCircle
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Backup
 import androidx.compose.material.icons.automirrored.filled.Chat
 import androidx.compose.material.icons.filled.AutoAwesome
@@ -135,7 +136,7 @@ import com.mobileharness.code.ui.theme.AppThemeMode
 import com.mobileharness.code.ui.theme.PocketOrange
 import kotlinx.coroutines.launch
 
-private enum class SettingsSection { APPEARANCE, LANGUAGE, TOOLS, RUNTIME, DIAGNOSTICS, DEVELOPER_TOOLS, ACCOUNT, BACKUP, UPDATE_CHANNEL, UPDATES, GRADLE_MEMORY, RELEASE_SIGNING, SERVER_SYNC, TELEGRAM, SIDEKICK, MCP_SERVERS, ECO_MODE, AUTO_PROMPT, MODEL_ROTATION, RAG, SSH, SHARE_INVITE }
+private enum class SettingsSection { APPEARANCE, LANGUAGE, TOOLS, RUNTIME, DIAGNOSTICS, DEVELOPER_TOOLS, ACCOUNT, BACKUP, UPDATE_CHANNEL, UPDATES, GRADLE_MEMORY, RELEASE_SIGNING, SIGNING_VAULT, SERVER_SYNC, TELEGRAM, SIDEKICK, MCP_SERVERS, ECO_MODE, AUTO_PROMPT, MODEL_ROTATION, RAG, SSH, SHARE_INVITE }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -236,6 +237,7 @@ fun SettingsScreen(
     onRecordInviteShare: () -> Unit = {},
     onRedeemInvite: (String) -> Unit = {},
     onClearInviteRedeemMessage: () -> Unit = {},
+    signingVaultActions: SigningVaultActions? = null,
 ) {
     val context = LocalContext.current
     val installPermissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) {
@@ -583,6 +585,20 @@ fun SettingsScreen(
                         onSaveDownloads = onSaveReleaseToDownloads,
                         onExport = onExportReleaseArtifact,
                     )
+                }
+            }
+
+            if (signingVaultActions != null) {
+                item {
+                    SettingsAccordion(
+                        title = stringResource(R.string.signing_vault_title),
+                        subtitle = stringResource(R.string.signing_vault_subtitle),
+                        icon = Icons.Default.Add,
+                        expanded = expanded == SettingsSection.SIGNING_VAULT,
+                        onClick = { toggle(SettingsSection.SIGNING_VAULT) },
+                    ) {
+                        SigningVaultSettings(state = state.signingVault, actions = signingVaultActions)
+                    }
                 }
             }
 

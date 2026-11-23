@@ -162,6 +162,18 @@ import com.mobileharness.code.runtime.ProviderRotationPlan
 import com.mobileharness.code.runtime.ContinuationPack
 import com.mobileharness.code.runtime.ContinuationPackBuilder
 import com.mobileharness.code.runtime.toInstruction
+import com.mobileharness.code.signing.AndroidSecretCipher
+import com.mobileharness.code.signing.BackupManager
+import com.mobileharness.code.signing.KeyImportRequest
+import com.mobileharness.code.signing.KeyRecord
+import com.mobileharness.code.signing.KeyRepository
+import com.mobileharness.code.signing.KeystoreTools
+import com.mobileharness.code.signing.SchemeOptions
+import com.mobileharness.code.signing.SignatureComparison
+import com.mobileharness.code.signing.SigningEngine
+import com.mobileharness.code.signing.SigningIdentity
+import com.mobileharness.code.signing.SplitArchive
+import com.mobileharness.code.signing.VerificationReport
 import com.mobileharness.code.update.AppUpdateInfo
 import com.mobileharness.code.update.AppUpdater
 import java.io.File
@@ -581,6 +593,18 @@ data class ReleaseUiState(
     val exportedViaSaf: Boolean = false,
 )
 
+/**
+ * State for the Signing Key Vault (ported from Signiffia) and for in-process
+ * signing/verification of arbitrary APK/AAB/split files chosen on-device.
+ */
+data class SigningVaultUiState(
+    val keys: List<KeyRecord> = emptyList(),
+    val loading: Boolean = false,
+    val busy: Boolean = false,
+    val message: String? = null,
+    val report: String? = null,
+)
+
 data class AppUiState(
     val startupStage: StartupStage = StartupStage.CHECKING,
     val startupProgress: Float = 0f,
@@ -729,6 +753,7 @@ data class AppUiState(
     val gradleEffectiveHeapMb: Int = 1536,
     val gradleEffectiveMetaspaceMb: Int = 768,
     val releaseUi: ReleaseUiState = ReleaseUiState(),
+    val signingVault: SigningVaultUiState = SigningVaultUiState(),
     val serverSyncConfig: ServerSyncConfig = ServerSyncConfig(),
     val serverSyncDukoiTokenConfigured: Boolean = false,
     val sidekickFloatingButton: Boolean = false,
@@ -796,6 +821,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val installer = RuntimeInstaller(application)
     private val gitProviderManager = GitProviderManager()
     private val templateStore = WebTemplateStore(application)
+    private val signingCipher = AndroidSecretCipher.create(application)
+    private val signingKeys by lazy {
+        KeyRepository(File(getApplication<Application>().filesDir, "signing-vault"), signingCipher)
+    }
     private val antigravityRuntime = AntigravityRuntimeBridge(
         application,
         model = { _state.value.antigravityModel },
@@ -1835,8 +1864,381 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    // --- Signing Key Vault (ported from Signiffia) + in-process APK/AAB signing ---------
+
+    private fun copyUriToTemp(uri: Uri, suffix: String): File {
+        val resolver = getApplication<Application>().contentResolver
+        val base = resolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)?.use { c ->
+            if (c.moveToFirst()) c.getColumnIndex(OpenableColumns.DISPLAY_NAME).takeIf { it >= 0 }?.let { c.getString(it) } else null
+        } ?: null
+        val file = File(getApplication<Application>().cacheDir, "signing-" + UUID.randomUUID().toString().take(8) + "-" + (base ?: "input") + suffix)
+        resolver.openInputStream(uri)?.use { input -> file.outputStream().use { output -> input.copyTo(output) } }
+            ?: throw IllegalStateException(str(R.string.signing_vault_open_failed))
+        return file
+    }
+
+    private fun writeTempToUri(uri: Uri, file: File) {
+        getApplication<Application>().contentResolver.openOutputStream(uri)?.use { output ->
+            file.inputStream().use { input -> input.copyTo(output) }
+        } ?: throw IllegalStateException(str(R.string.signing_vault_open_failed))
+    }
+
+    fun refreshSigningKeys() {
+        viewModelScope.launch(Dispatchers.IO) {
+            val keys = runCatching { signingKeys.list() }.getOrDefault(emptyList())
+            _state.update { it.copy(signingVault = it.signingVault.copy(keys = keys, loading = false)) }
+        }
+    }
+
+    fun createSigningKey(
+        displayName: String,
+        alias: String,
+        password: String,
+        algorithm: String,
+        keySize: Int,
+        validityDays: Int,
+        commonName: String,
+        organization: String,
+        organizationalUnit: String,
+        city: String,
+        state: String,
+        countryCode: String,
+    ) {
+        viewModelScope.launch(Dispatchers.IO) {
+            _state.update { it.copy(signingVault = it.signingVault.copy(busy = true, message = null)) }
+            val spec = KeystoreTools.KeyGenSpec(
+                alias = alias.trim(),
+                password = password.toCharArray(),
+                keyAlgorithm = algorithm,
+                keySize = keySize,
+                validityDays = validityDays,
+                commonName = commonName.ifBlank { "Mobile Harness Code" },
+                organization = organization.trim(),
+                organizationalUnit = organizationalUnit.trim(),
+                city = city.trim(),
+                state = state.trim(),
+                countryCode = countryCode.trim(),
+            )
+            val result = runCatching { signingKeys.createGenerated(spec, displayName.trim()) }
+            _state.update {
+                it.copy(
+                    signingVault = it.signingVault.copy(
+                        busy = false,
+                        keys = runCatching { signingKeys.list() }.getOrDefault(emptyList()),
+                        message = result.fold(
+                            onSuccess = { str(R.string.signing_vault_created) },
+                            onFailure = { e -> e.message ?: str(R.string.signing_vault_failed) },
+                        ),
+                    ),
+                )
+            }
+        }
+    }
+
+    fun importSigningKey(uri: Uri, displayName: String, storePassword: String, keyPasswords: Map<String, String>) {
+        viewModelScope.launch(Dispatchers.IO) {
+            _state.update { it.copy(signingVault = it.signingVault.copy(busy = true, message = null)) }
+            val result = runCatching {
+                val source = copyUriToTemp(uri, ".keystore")
+                try {
+                    signingKeys.importKeystore(
+                        KeyImportRequest(
+                            sourceFile = source,
+                            displayName = displayName.trim(),
+                            storePassword = storePassword.toCharArray(),
+                            keyPasswords = keyPasswords.mapValues { it.value.toCharArray() },
+                        ),
+                    )
+                } finally {
+                    source.delete()
+                }
+            }
+            _state.update {
+                it.copy(
+                    signingVault = it.signingVault.copy(
+                        busy = false,
+                        keys = runCatching { signingKeys.list() }.getOrDefault(emptyList()),
+                        message = result.fold(
+                            onSuccess = { str(R.string.signing_vault_imported) },
+                            onFailure = { e -> e.message ?: str(R.string.signing_vault_failed) },
+                        ),
+                    ),
+                )
+            }
+        }
+    }
+
+    fun deleteSigningKey(id: String) {
+        viewModelScope.launch(Dispatchers.IO) {
+            val result = runCatching { signingKeys.delete(id) }
+            _state.update {
+                it.copy(
+                    signingVault = it.signingVault.copy(
+                        keys = runCatching { signingKeys.list() }.getOrDefault(emptyList()),
+                        message = result.fold(
+                            onSuccess = { str(R.string.signing_vault_deleted) },
+                            onFailure = { e -> e.message ?: str(R.string.signing_vault_failed) },
+                        ),
+                    ),
+                )
+            }
+        }
+    }
+
+    fun exportSigningKey(id: String, uri: Uri) {
+        viewModelScope.launch(Dispatchers.IO) {
+            val result = runCatching {
+                val record = signingKeys.get(id) ?: throw IllegalStateException(str(R.string.signing_vault_missing))
+                getApplication<Application>().contentResolver.openOutputStream(uri)?.use { output ->
+                    signingKeys.exportKeystore(record, output)
+                } ?: throw IllegalStateException(str(R.string.signing_vault_open_failed))
+            }
+            _state.update {
+                it.copy(
+                    signingVault = it.signingVault.copy(
+                        message = result.fold(
+                            onSuccess = { str(R.string.signing_vault_exported) },
+                            onFailure = { e -> e.message ?: str(R.string.signing_vault_failed) },
+                        ),
+                    ),
+                )
+            }
+        }
+    }
+
+    fun backupSigningKeys(uri: Uri, passphrase: String) {
+        viewModelScope.launch(Dispatchers.IO) {
+            _state.update { it.copy(signingVault = it.signingVault.copy(busy = true, message = null)) }
+            val result = runCatching {
+                val file = File(getApplication<Application>().cacheDir, "backup-" + UUID.randomUUID().toString().take(8) + ".sgnbak")
+                try {
+                    BackupManager.write(file, passphrase.toCharArray(), signingKeys.backupEntries(signingKeys.list()))
+                    writeTempToUri(uri, file)
+                } finally {
+                    file.delete()
+                }
+            }
+            _state.update {
+                it.copy(
+                    signingVault = it.signingVault.copy(
+                        busy = false,
+                        message = result.fold(
+                            onSuccess = { str(R.string.signing_vault_backed_up) },
+                            onFailure = { e -> e.message ?: str(R.string.signing_vault_failed) },
+                        ),
+                    ),
+                )
+            }
+        }
+    }
+
+    fun restoreSigningKeys(uri: Uri, passphrase: String) {
+        viewModelScope.launch(Dispatchers.IO) {
+            _state.update { it.copy(signingVault = it.signingVault.copy(busy = true, message = null)) }
+            val result = runCatching {
+                val source = copyUriToTemp(uri, ".sgnbak")
+                try {
+                    val summary = BackupManager.read(source, passphrase.toCharArray(), tempDir = getApplication<Application>().cacheDir)
+                    signingKeys.restore(summary.keys)
+                } finally {
+                    source.delete()
+                }
+            }
+            _state.update {
+                it.copy(
+                    signingVault = it.signingVault.copy(
+                        busy = false,
+                        keys = runCatching { signingKeys.list() }.getOrDefault(emptyList()),
+                        message = result.fold(
+                            onSuccess = { str(R.string.signing_vault_restored) },
+                            onFailure = { e -> e.message ?: str(R.string.signing_vault_failed) },
+                        ),
+                    ),
+                )
+            }
+        }
+    }
+
+    /** Resolves a vault key and runs the existing guest release pipeline with it. */
+    fun runReleasePipelineWithVaultKey(keyId: String, alias: String?) {
+        val project = _state.value.activeProject
+        if (project == null) {
+            _state.update { it.copy(releaseUi = it.releaseUi.copy(message = str(R.string.release_signing_requires_project))) }
+            return
+        }
+        if (_state.value.releaseUi.running) return
+        viewModelScope.launch(Dispatchers.IO) {
+            val resolved = runCatching {
+                val record = signingKeys.get(keyId) ?: throw IllegalStateException(str(R.string.signing_vault_missing))
+                val effectiveAlias = alias?.takeIf { it.isNotBlank() } ?: record.primaryAlias
+                val (store, keys) = signingKeys.passwords(record)
+                val file = signingKeys.keystoreFile(record)
+                val keyPassword = keys[effectiveAlias] ?: store
+                ReleaseSigningConfig(
+                    keystorePath = file.absolutePath,
+                    keyAlias = effectiveAlias,
+                    storePassword = String(store),
+                    keyPassword = String(keyPassword),
+                )
+            }
+            val config = resolved.getOrElse { e ->
+                _state.update { it.copy(releaseUi = it.releaseUi.copy(message = e.message ?: str(R.string.signing_vault_failed))) }
+                return@launch
+            }
+            _state.update {
+                it.copy(releaseUi = it.releaseUi.copy(running = true, message = null, stages = emptyList(), success = false, signedApkPath = null, sha256 = null))
+            }
+            val runner = ReleasePipelineRunner(getApplication())
+            val outputDir = File(releaseKeystoreDir(), "output").apply { mkdirs() }
+            val outcome = runCatching {
+                runner.runProjectRelease(
+                    installer = installer,
+                    projectRoot = projectWorkspaceRoot(project),
+                    signing = config,
+                    outputDir = outputDir,
+                    jvmArgs = resolveGradleMemoryProfile().jvmArgs,
+                )
+            }.getOrElse { error ->
+                ReleasePipelineOutcome(success = false, stages = listOf(ReleaseStageResult(ReleasePipelineStage.FAILED, false, error.message ?: error::class.java.simpleName)))
+            }
+            _state.update { state ->
+                state.copy(
+                    releaseUi = state.releaseUi.copy(
+                        running = false,
+                        success = outcome.success,
+                        signedApkPath = if (outcome.success) File(outputDir, "signed.apk").takeIf { it.isFile }?.absolutePath else null,
+                        sha256 = outcome.sha256,
+                        stages = outcome.stages,
+                        message = if (outcome.success) str(R.string.release_signing_success) else str(R.string.release_signing_failed),
+                    ),
+                )
+            }
+        }
+    }
+
+    /** Signs an arbitrary APK/AAB/split file selected on-device, in-process via apksig. */
+    fun signExternalArtifact(inputUri: Uri, keyId: String, alias: String?, v1: Boolean, v2: Boolean, v3: Boolean, v4: Boolean, outputUri: Uri) {
+        viewModelScope.launch(Dispatchers.IO) {
+            _state.update { it.copy(signingVault = it.signingVault.copy(busy = true, message = null, report = null)) }
+            val result = runCatching {
+                val input = copyUriToTemp(inputUri, ".artifact")
+                try {
+                    val record = signingKeys.get(keyId) ?: throw IllegalStateException(str(R.string.signing_vault_missing))
+                    val effectiveAlias = alias?.takeIf { it.isNotBlank() } ?: record.primaryAlias
+                    val identity = signingKeys.resolveIdentity(record, effectiveAlias)
+                    val schemes = SchemeOptions(v1 = v1, v2 = v2, v3 = v3, v4 = v4)
+                    val output = File(getApplication<Application>().cacheDir, "signed-" + UUID.randomUUID().toString().take(8) + ".apk")
+                    try {
+                        val outcome = when {
+                            SplitArchive.isSplitArchive(input) ->
+                                SplitArchive.sign(input, output, identity, schemes, workDir = File(getApplication<Application>().cacheDir, "split-work").apply { mkdirs() }).let { split ->
+                                    formatSplitReport(split.parts.map { it.name }, split.warnings)
+                                }
+                            input.name.endsWith(".aab", ignoreCase = true) ->
+                                SigningEngine.signBundle(input, output, identity).let { formatVerificationReport(it.report) }
+                            else ->
+                                SigningEngine.signApk(input, output, identity, schemes).let { formatVerificationReport(it.report) }
+                        }
+                        writeTempToUri(outputUri, output)
+                        outcome
+                    } finally {
+                        output.delete()
+                    }
+                } finally {
+                    input.delete()
+                }
+            }
+            _state.update {
+                it.copy(
+                    signingVault = it.signingVault.copy(
+                        busy = false,
+                        report = result.getOrNull(),
+                        message = result.exceptionOrNull()?.message ?: str(R.string.signing_vault_signed),
+                    ),
+                )
+            }
+        }
+    }
+
+    fun verifyExternalArtifact(uri: Uri) {
+        viewModelScope.launch(Dispatchers.IO) {
+            _state.update { it.copy(signingVault = it.signingVault.copy(busy = true, message = null, report = null)) }
+            val result = runCatching {
+                val input = copyUriToTemp(uri, ".artifact")
+                try {
+                    when {
+                        SplitArchive.isSplitArchive(input) -> SplitArchive.verify(input, workDir = File(getApplication<Application>().cacheDir, "verify-work").apply { mkdirs() }).let { split ->
+                            split.parts.joinToString("\n\n") { (name, report) -> "$name\n" + formatVerificationReport(report) }
+                        }
+                        input.name.endsWith(".aab", ignoreCase = true) -> formatVerificationReport(SigningEngine.verifyJar(input))
+                        else -> formatVerificationReport(SigningEngine.verify(input))
+                    }
+                } finally {
+                    input.delete()
+                }
+            }
+            _state.update {
+                it.copy(
+                    signingVault = it.signingVault.copy(
+                        busy = false,
+                        report = result.getOrNull(),
+                        message = if (result.isSuccess) null else (result.exceptionOrNull()?.message ?: str(R.string.signing_vault_failed)),
+                    ),
+                )
+            }
+        }
+    }
+
+    fun compareExternalSignatures(uriA: Uri, uriB: Uri) {
+        viewModelScope.launch(Dispatchers.IO) {
+            _state.update { it.copy(signingVault = it.signingVault.copy(busy = true, message = null, report = null)) }
+            val result = runCatching {
+                val a = copyUriToTemp(uriA, ".a"); val b = copyUriToTemp(uriB, ".b")
+                try {
+                    val ra = SigningEngine.verify(a); val rb = SigningEngine.verify(b)
+                    val cmp: SignatureComparison = SigningEngine.compareSigners(ra, rb)
+                    buildString {
+                        appendLine("Old signers: " + cmp.oldFingerprints.joinToString())
+                        appendLine("New signers: " + cmp.newFingerprints.joinToString())
+                        appendLine("Same signer: " + cmp.sameSigner)
+                        appendLine("Upgrade compatible: " + cmp.upgradeCompatible)
+                        appendLine("Signer changed: " + cmp.signerChanged)
+                    }
+                } finally { a.delete(); b.delete() }
+            }
+            _state.update {
+                it.copy(
+                    signingVault = it.signingVault.copy(
+                        busy = false,
+                        report = result.getOrNull(),
+                        message = if (result.isSuccess) null else (result.exceptionOrNull()?.message ?: str(R.string.signing_vault_failed)),
+                    ),
+                )
+            }
+        }
+    }
+
+    private fun formatVerificationReport(r: VerificationReport): String = buildString {
+        appendLine("Verified: " + r.verified)
+        appendLine("Schemes — v1: " + r.v1 + ", v2: " + r.v2 + ", v3: " + r.v3 + ", v31: " + r.v31 + ", v4: " + r.v4)
+        if (r.signers.isNotEmpty()) {
+            appendLine("Signers:")
+            r.signers.forEach { s -> appendLine("  " + s.sha256 + "  " + s.subject) }
+        }
+        if (r.errors.isNotEmpty()) { appendLine("Errors:"); r.errors.forEach { appendLine("  " + it) } }
+        if (r.warnings.isNotEmpty()) { appendLine("Warnings:"); r.warnings.forEach { appendLine("  " + it) } }
+        if (r.notes.isNotEmpty()) { appendLine("Notes:"); r.notes.forEach { appendLine("  " + it) } }
+    }
+
+    private fun formatSplitReport(parts: List<String>, warnings: List<String>): String = buildString {
+        appendLine("Signed split parts:")
+        parts.forEach { appendLine("  " + it) }
+        if (warnings.isNotEmpty()) { appendLine("Warnings:"); warnings.forEach { appendLine("  " + it) } }
+    }
+
     init {
         loadTemplateCatalog()
+        refreshSigningKeys()
         viewModelScope.launch {
             AndroidAppInstaller.events.collect { event ->
                 if (event.operationId != pendingAndroidInstallId) return@collect

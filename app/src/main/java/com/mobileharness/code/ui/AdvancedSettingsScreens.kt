@@ -77,6 +77,7 @@ import com.mobileharness.code.network.ssh.SshAuthType
 import com.mobileharness.code.network.ssh.SshProfile
 import com.mobileharness.code.runtime.ProviderRotation
 import com.mobileharness.code.runtime.ReleasePipelineStage
+import com.mobileharness.code.signing.KeyRecord
 import com.mobileharness.code.sidekick.RagDocument
 import com.mobileharness.code.sidekick.RagIndex
 import com.mobileharness.code.skills.Skill
@@ -252,6 +253,373 @@ fun ReleaseSigningSettings(
                 ) {
                     Text(stringResource(R.string.release_signing_export_signiffia), maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
+            }
+        }
+    }
+}
+
+/** Callbacks for the Signing Key Vault + in-process sign/verify UI. */
+data class SigningVaultActions(
+    val refresh: () -> Unit,
+    val createKey: (displayName: String, alias: String, password: String, algorithm: String, keySize: Int, validityDays: Int, commonName: String, organization: String, organizationalUnit: String, city: String, state: String, countryCode: String) -> Unit,
+    val importKey: (Uri, displayName: String, storePassword: String, keyPasswords: Map<String, String>) -> Unit,
+    val deleteKey: (String) -> Unit,
+    val exportKey: (String, Uri) -> Unit,
+    val backup: (Uri, passphrase: String) -> Unit,
+    val restore: (Uri, passphrase: String) -> Unit,
+    val sign: (inputUri: Uri, keyId: String, alias: String?, v1: Boolean, v2: Boolean, v3: Boolean, v4: Boolean, outputUri: Uri) -> Unit,
+    val verify: (Uri) -> Unit,
+    val compare: (Uri, Uri) -> Unit,
+    val useForRelease: (String) -> Unit,
+)
+
+/**
+ * Signing Key Vault (ported from Signiffia): manage signing keys (create/import/export/
+ * backup/restore/delete) and sign or verify arbitrary APK/AAB/split files on-device.
+ */
+@Composable
+fun SigningVaultSettings(
+    state: SigningVaultUiState,
+    actions: SigningVaultActions,
+) {
+    var showCreate by rememberSaveable { mutableStateOf(false) }
+    var showImport by rememberSaveable { mutableStateOf(false) }
+    var showBackup by rememberSaveable { mutableStateOf(false) }
+    var showRestore by rememberSaveable { mutableStateOf(false) }
+    var showSign by rememberSaveable { mutableStateOf(false) }
+    var exportKeyId by rememberSaveable { mutableStateOf("") }
+    val exportLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.CreateDocument("application/octet-stream"),
+    ) { uri -> if (uri != null && exportKeyId.isNotBlank()) actions.exportKey(exportKeyId, uri) }
+
+    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            OutlinedButton(onClick = actions.refresh, modifier = Modifier.weight(1f)) {
+                Text(stringResource(R.string.signing_vault_refresh), maxLines = 1, overflow = TextOverflow.Ellipsis)
+            }
+            OutlinedButton(onClick = { showCreate = true }, modifier = Modifier.weight(1f)) {
+                Text(stringResource(R.string.signing_vault_create), maxLines = 1, overflow = TextOverflow.Ellipsis)
+            }
+        }
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            OutlinedButton(onClick = { showImport = true }, modifier = Modifier.weight(1f)) {
+                Text(stringResource(R.string.signing_vault_import), maxLines = 1, overflow = TextOverflow.Ellipsis)
+            }
+            OutlinedButton(onClick = { showBackup = true }, modifier = Modifier.weight(1f)) {
+                Text(stringResource(R.string.signing_vault_backup), maxLines = 1, overflow = TextOverflow.Ellipsis)
+            }
+        }
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            OutlinedButton(onClick = { showRestore = true }, modifier = Modifier.weight(1f)) {
+                Text(stringResource(R.string.signing_vault_restore), maxLines = 1, overflow = TextOverflow.Ellipsis)
+            }
+            OutlinedButton(onClick = { showSign = true }, modifier = Modifier.weight(1f)) {
+                Text(stringResource(R.string.signing_vault_sign), maxLines = 1, overflow = TextOverflow.Ellipsis)
+            }
+        }
+
+        if (state.keys.isEmpty() && !state.loading) {
+            Text(stringResource(R.string.signing_vault_empty), fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+
+        state.keys.forEach { key ->
+            Surface(
+                shape = RoundedCornerShape(12.dp),
+                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f),
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Column(Modifier.weight(1f)) {
+                            Text(key.displayName, fontWeight = FontWeight.SemiBold)
+                            Text(
+                                "${key.aliasCount} alias(es) · ${key.storeType} · ${key.source}",
+                                fontSize = 11.sp,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                            Text(
+                                "${stringResource(R.string.signing_vault_fingerprint)}: ${key.fingerprintSha256}",
+                                fontSize = 10.sp,
+                                fontFamily = FontFamily.Monospace,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                        IconButton(onClick = { actions.useForRelease(key.id) }) {
+                            Icon(Icons.Default.Build, stringResource(R.string.signing_vault_use_for_release), Modifier.size(17.dp))
+                        }
+                        IconButton(onClick = { exportKeyId = key.id; exportLauncher.launch("${key.displayName}.p12") }) {
+                            Icon(Icons.Default.Description, stringResource(R.string.signing_vault_export), Modifier.size(17.dp))
+                        }
+                        IconButton(onClick = { actions.deleteKey(key.id) }) {
+                            Icon(Icons.Default.Delete, stringResource(R.string.signing_vault_delete), Modifier.size(17.dp), tint = MaterialTheme.colorScheme.error)
+                        }
+                    }
+                }
+            }
+        }
+
+        state.message?.let {
+            Text(it, fontSize = 12.sp, color = if (state.busy) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.primary)
+        }
+        state.report?.let {
+            Surface(shape = RoundedCornerShape(12.dp), color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f), modifier = Modifier.fillMaxWidth()) {
+                Column(Modifier.padding(12.dp)) {
+                    Text(stringResource(R.string.signing_vault_report), fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
+                    Text(it, fontSize = 11.sp, fontFamily = FontFamily.Monospace)
+                }
+            }
+        }
+    }
+
+    if (showCreate) CreateKeyDialog(
+        onDismiss = { showCreate = false },
+        onCreate = { displayName, alias, password, algorithm, keySize, validityDays, cn, org, ou, city, state, country ->
+            actions.createKey(displayName, alias, password, algorithm, keySize, validityDays, cn, org, ou, city, state, country)
+            showCreate = false
+        },
+    )
+    if (showImport) ImportKeyDialog(
+        onDismiss = { showImport = false },
+        onImport = { uri, displayName, storePassword, keyPasswords ->
+            actions.importKey(uri, displayName, storePassword, keyPasswords)
+            showImport = false
+        },
+    )
+    if (showBackup) BackupDialog(
+        onDismiss = { showBackup = false },
+        onConfirm = { uri, passphrase -> actions.backup(uri, passphrase); showBackup = false },
+    )
+    if (showRestore) RestoreDialog(
+        onDismiss = { showRestore = false },
+        onConfirm = { uri, passphrase -> actions.restore(uri, passphrase); showRestore = false },
+    )
+    if (showSign) SignDialog(
+        keys = state.keys,
+        onDismiss = { showSign = false },
+        onSign = { inputUri, keyId, alias, v1, v2, v3, v4, outputUri ->
+            actions.sign(inputUri, keyId, alias, v1, v2, v3, v4, outputUri)
+            showSign = false
+        },
+    )
+    VerifyCompareActions(actions)
+}
+
+/** Two-step picker for comparing two signed files. */
+@Composable
+private fun VerifyCompareActions(actions: SigningVaultActions) {
+    var compareFirst by remember { mutableStateOf<Uri?>(null) }
+    val verifyLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        uri?.let(actions.verify)
+    }
+    val compareLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri == null) {
+            compareFirst = null
+        } else {
+            val first = compareFirst
+            if (first == null) {
+                compareFirst = uri
+            } else {
+                actions.compare(first, uri)
+                compareFirst = null
+            }
+        }
+    }
+    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        OutlinedButton(onClick = { verifyLauncher.launch(arrayOf("*/*")) }, modifier = Modifier.weight(1f)) {
+            Text(stringResource(R.string.signing_vault_verify), maxLines = 1, overflow = TextOverflow.Ellipsis)
+        }
+        OutlinedButton(onClick = { compareLauncher.launch(arrayOf("*/*")) }, modifier = Modifier.weight(1f)) {
+            Text(
+                if (compareFirst == null) stringResource(R.string.signing_vault_compare)
+                else stringResource(R.string.signing_vault_compare) + " (2/2)",
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
+    }
+}
+
+@Composable
+private fun CreateKeyDialog(
+    onDismiss: () -> Unit,
+    onCreate: (displayName: String, alias: String, password: String, algorithm: String, keySize: Int, validityDays: Int, cn: String, org: String, ou: String, city: String, state: String, country: String) -> Unit,
+) {
+    var displayName by rememberSaveable { mutableStateOf("") }
+    var alias by rememberSaveable { mutableStateOf("") }
+    var password by rememberSaveable { mutableStateOf("") }
+    var algorithm by rememberSaveable { mutableStateOf("RSA") }
+    var keySize by rememberSaveable { mutableStateOf("2048") }
+    var validityDays by rememberSaveable { mutableStateOf("10950") }
+    var cn by rememberSaveable { mutableStateOf("") }
+    var org by rememberSaveable { mutableStateOf("") }
+    var ou by rememberSaveable { mutableStateOf("") }
+    var city by rememberSaveable { mutableStateOf("") }
+    var state by rememberSaveable { mutableStateOf("") }
+    var country by rememberSaveable { mutableStateOf("") }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        confirmButton = {
+            Button(onClick = {
+                onCreate(displayName, alias, password, algorithm, keySize.toIntOrNull() ?: 2048, validityDays.toIntOrNull() ?: 10950, cn, org, ou, city, state, country)
+            }) { Text(stringResource(R.string.signing_vault_create)) }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) } },
+        title = { Text(stringResource(R.string.signing_vault_create)) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.verticalScroll(rememberScrollState()).heightIn(max = 480.dp)) {
+                OutlinedTextField(displayName, { displayName = it }, label = { Text(stringResource(R.string.signing_vault_display_name)) }, singleLine = true)
+                OutlinedTextField(alias, { alias = it }, label = { Text(stringResource(R.string.signing_vault_alias)) }, singleLine = true)
+                OutlinedTextField(password, { password = it }, label = { Text(stringResource(R.string.signing_vault_password)) }, singleLine = true, visualTransformation = PasswordVisualTransformation())
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    OutlinedButton(onClick = { algorithm = "RSA"; keySize = "2048" }, modifier = Modifier.weight(1f)) { Text("RSA", maxLines = 1) }
+                    OutlinedButton(onClick = { algorithm = "EC"; keySize = "256" }, modifier = Modifier.weight(1f)) { Text("EC", maxLines = 1) }
+                }
+                OutlinedTextField(keySize, { keySize = it.filter(Char::isDigit) }, label = { Text(stringResource(R.string.signing_vault_key_size)) }, singleLine = true, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number))
+                OutlinedTextField(validityDays, { validityDays = it.filter(Char::isDigit) }, label = { Text(stringResource(R.string.signing_vault_validity)) }, singleLine = true, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number))
+                OutlinedTextField(cn, { cn = it }, label = { Text(stringResource(R.string.signing_vault_common_name)) }, singleLine = true)
+                OutlinedTextField(org, { org = it }, label = { Text(stringResource(R.string.signing_vault_organization)) }, singleLine = true)
+                OutlinedTextField(ou, { ou = it }, label = { Text(stringResource(R.string.signing_vault_org_unit)) }, singleLine = true)
+                OutlinedTextField(city, { city = it }, label = { Text(stringResource(R.string.signing_vault_city)) }, singleLine = true)
+                OutlinedTextField(state, { state = it }, label = { Text(stringResource(R.string.signing_vault_state)) }, singleLine = true)
+                OutlinedTextField(country, { country = it }, label = { Text(stringResource(R.string.signing_vault_country)) }, singleLine = true)
+            }
+        },
+    )
+}
+
+@Composable
+private fun ImportKeyDialog(
+    onDismiss: () -> Unit,
+    onImport: (Uri, String, String, Map<String, String>) -> Unit,
+) {
+    var displayName by rememberSaveable { mutableStateOf("") }
+    var storePassword by rememberSaveable { mutableStateOf("") }
+    var keyPasswordsText by rememberSaveable { mutableStateOf("") }
+    val picker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri != null) {
+            val keyPasswords = keyPasswordsText.lines()
+                .mapNotNull { line -> line.split("=", limit = 2).takeIf { it.size == 2 }?.let { it[0].trim() to it[1].trim() } }
+                .filter { it.first.isNotEmpty() }.toMap()
+            onImport(uri, displayName, storePassword, keyPasswords)
+        }
+    }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        confirmButton = { Button(onClick = { picker.launch(arrayOf("*/*")) }) { Text(stringResource(R.string.signing_vault_import)) } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) } },
+        title = { Text(stringResource(R.string.signing_vault_import)) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                OutlinedTextField(displayName, { displayName = it }, label = { Text(stringResource(R.string.signing_vault_display_name)) }, singleLine = true)
+                OutlinedTextField(storePassword, { storePassword = it }, label = { Text(stringResource(R.string.signing_vault_store_password)) }, singleLine = true, visualTransformation = PasswordVisualTransformation())
+                OutlinedTextField(keyPasswordsText, { keyPasswordsText = it }, label = { Text(stringResource(R.string.signing_vault_key_passwords_hint)) }, minLines = 2)
+            }
+        },
+    )
+}
+
+@Composable
+private fun BackupDialog(onDismiss: () -> Unit, onConfirm: (Uri, String) -> Unit) {
+    var passphrase by rememberSaveable { mutableStateOf("") }
+    val picker = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/octet-stream")) { uri ->
+        if (uri != null) onConfirm(uri, passphrase)
+    }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        confirmButton = { Button(onClick = { picker.launch("mobile-harness-keys.sgnbak") }) { Text(stringResource(R.string.signing_vault_backup)) } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) } },
+        title = { Text(stringResource(R.string.signing_vault_backup)) },
+        text = {
+            OutlinedTextField(passphrase, { passphrase = it }, label = { Text(stringResource(R.string.signing_vault_backup_passphrase)) }, singleLine = true, visualTransformation = PasswordVisualTransformation())
+        },
+    )
+}
+
+@Composable
+private fun RestoreDialog(onDismiss: () -> Unit, onConfirm: (Uri, String) -> Unit) {
+    var passphrase by rememberSaveable { mutableStateOf("") }
+    val picker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri != null) onConfirm(uri, passphrase)
+    }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        confirmButton = { Button(onClick = { picker.launch(arrayOf("*/*")) }) { Text(stringResource(R.string.signing_vault_restore)) } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) } },
+        title = { Text(stringResource(R.string.signing_vault_restore)) },
+        text = {
+            OutlinedTextField(passphrase, { passphrase = it }, label = { Text(stringResource(R.string.signing_vault_backup_passphrase)) }, singleLine = true, visualTransformation = PasswordVisualTransformation())
+        },
+    )
+}
+
+@Composable
+private fun SignDialog(
+    keys: List<KeyRecord>,
+    onDismiss: () -> Unit,
+    onSign: (Uri, String, String, Boolean, Boolean, Boolean, Boolean, Uri) -> Unit,
+) {
+    var selectedKeyId by rememberSaveable { mutableStateOf("") }
+    var alias by rememberSaveable { mutableStateOf("") }
+    var v1 by rememberSaveable { mutableStateOf(true) }
+    var v2 by rememberSaveable { mutableStateOf(true) }
+    var v3 by rememberSaveable { mutableStateOf(true) }
+    var v4 by rememberSaveable { mutableStateOf(false) }
+    var inputUri by rememberSaveable { mutableStateOf<Uri?>(null) }
+    val inputPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        inputUri = uri
+    }
+    val outputPicker = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/octet-stream")) { uri ->
+        if (uri != null && inputUri != null && selectedKeyId.isNotBlank()) {
+            onSign(inputUri!!, selectedKeyId, alias, v1, v2, v3, v4, uri)
+        }
+    }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        confirmButton = {
+            Button(onClick = { outputPicker.launch("signed.apk") }, enabled = inputUri != null && selectedKeyId.isNotBlank()) {
+                Text(stringResource(R.string.signing_vault_sign))
+            }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) } },
+        title = { Text(stringResource(R.string.signing_vault_sign)) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.verticalScroll(rememberScrollState()).heightIn(max = 480.dp)) {
+                OutlinedButton(onClick = { inputPicker.launch(arrayOf("*/*")) }, modifier = Modifier.fillMaxWidth()) {
+                    Text(if (inputUri == null) stringResource(R.string.signing_vault_sign) else "Input: ${inputUri!!.lastPathSegment}", maxLines = 1, overflow = TextOverflow.Ellipsis)
+                }
+                keySelector(keys, selectedKeyId) { selectedKeyId = it }
+                OutlinedTextField(alias, { alias = it }, label = { Text(stringResource(R.string.signing_vault_alias) + " (optional)") }, singleLine = true)
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text("v1 (JAR)", fontSize = 12.sp, modifier = Modifier.weight(1f)); Switch(v1, { v1 = it })
+                }
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text("v2", fontSize = 12.sp, modifier = Modifier.weight(1f)); Switch(v2, { v2 = it })
+                }
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text("v3", fontSize = 12.sp, modifier = Modifier.weight(1f)); Switch(v3, { v3 = it })
+                }
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text("v4", fontSize = 12.sp, modifier = Modifier.weight(1f)); Switch(v4, { v4 = it })
+                }
+            }
+        },
+    )
+}
+
+@Composable
+private fun keySelector(keys: List<KeyRecord>, selected: String, onSelect: (String) -> Unit) {
+    var expanded by remember { mutableStateOf(false) }
+    Box {
+        OutlinedButton(onClick = { expanded = true }, modifier = Modifier.fillMaxWidth()) {
+            Text(keys.firstOrNull { it.id == selected }?.displayName ?: stringResource(R.string.signing_vault_choose_key), maxLines = 1, overflow = TextOverflow.Ellipsis)
+        }
+        DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+            keys.forEach { key ->
+                DropdownMenuItem(
+                    text = { Text("${key.displayName} · ${key.primaryAlias}", maxLines = 1, overflow = TextOverflow.Ellipsis) },
+                    onClick = { onSelect(key.id); expanded = false },
+                )
             }
         }
     }
