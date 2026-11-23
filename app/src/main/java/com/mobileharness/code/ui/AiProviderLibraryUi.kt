@@ -24,6 +24,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.StarBorder
@@ -33,6 +34,7 @@ import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
@@ -56,6 +58,9 @@ import com.mobileharness.code.model.AiCapability
 import com.mobileharness.code.model.AiProvider
 import com.mobileharness.code.model.AiProviderCatalog
 import com.mobileharness.code.model.AiProviderCategory
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 import com.mobileharness.code.ui.theme.PocketBlue
 import com.mobileharness.code.ui.theme.PocketOrange
 
@@ -73,6 +78,9 @@ fun AiProviderLibrarySheet(
     getFavorites: () -> Set<String>,
     getRecents: () -> List<String>,
     onToggleFavorite: (String) -> Unit,
+    catalogRefreshing: Boolean = false,
+    catalogUpdatedAtMillis: Long = 0L,
+    onRefreshCatalog: () -> Unit = {},
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     var query by remember { mutableStateOf("") }
@@ -105,10 +113,14 @@ fun AiProviderLibrarySheet(
                     Column(Modifier.weight(1f)) {
                         Text("AI Provider Library", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
                         Text(
-                            "${AiProviderCatalog.all.size} providers · pick one to auto-fill its endpoint",
+                            "${AiProviderCatalog.current().size} providers · ${catalogSubtitle(catalogUpdatedAtMillis)}",
                             fontSize = 12.sp,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
+                    }
+                    IconButton(onClick = onRefreshCatalog, enabled = !catalogRefreshing) {
+                        if (catalogRefreshing) CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp)
+                        else Icon(Icons.Filled.Refresh, "Refresh catalog", tint = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                     IconButton(onClick = onDismiss) {
                         Icon(Icons.Filled.Close, "Close", tint = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -161,7 +173,7 @@ fun AiProviderLibrarySheet(
                 Spacer(Modifier.height(8.dp))
 
                 val filtered = remember(query, category, favoritesOnly, favorites) {
-                    AiProviderCatalog.all.filter { provider ->
+                    AiProviderCatalog.current().filter { provider ->
                         (query.isBlank() || provider.matches(query)) &&
                             (category == null || provider.category == category) &&
                             (!favoritesOnly || provider.id in favorites)
@@ -341,6 +353,13 @@ private fun DetailSection(title: String, value: String, monospace: Boolean = fal
             color = MaterialTheme.colorScheme.onSurface,
         )
     }
+}
+
+/** Compact human label for the catalog's last-refresh time, used in the sheet header. */
+private fun catalogSubtitle(lastUpdatedMillis: Long): String {
+    if (lastUpdatedMillis <= 0L) return "bundled · never refreshed"
+    val whenStr = SimpleDateFormat("MMM d, HH:mm", Locale.getDefault()).format(Date(lastUpdatedMillis))
+    return "last updated $whenStr"
 }
 
 @Composable

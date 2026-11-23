@@ -2599,6 +2599,7 @@ private fun RootScreenHost(
                     providerRecents = viewModel::providerRecents,
                     onToggleProviderFavorite = viewModel::toggleProviderFavorite,
                     onRecordProviderRecent = viewModel::recordProviderRecent,
+                    onRefreshCatalog = viewModel::refreshAiCatalog,
                     onSelectAgent = viewModel::selectAgent,
                     onInstallAgent = viewModel::installAgent,
                     onCheckAgentUpdates = viewModel::checkAgentUpdates,

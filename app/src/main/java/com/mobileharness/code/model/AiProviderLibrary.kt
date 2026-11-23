@@ -466,13 +466,33 @@ object AiProviderCatalog {
 
     val categories: List<AiProviderCategory> = AiProviderCategory.entries
 
-    fun byId(id: String): AiProvider? = all.firstOrNull { it.id == id }
+    /** Last-accepted remote overlay (metadata only), applied on top of [all] by the catalog store. */
+    @Volatile
+    private var remoteOverlay: List<AiProvider> = emptyList()
 
-    fun byCategory(category: AiProviderCategory): List<AiProvider> = all.filter { it.category == category }
+    /**
+     * The catalog the app should actually show: the bundled [all] plus any remote overlay merged
+     * on top. Remote entries with an existing id override that provider; new ids are appended, and
+     * the bundled catalog is never reduced.
+     */
+    fun current(): List<AiProvider> =
+        if (remoteOverlay.isEmpty()) all else AiCatalogMerge.merge(all, remoteOverlay)
+
+    /** Installs a validated remote overlay; never touches user configs or saved keys. */
+    fun applyRemote(remote: List<AiProvider>) {
+        remoteOverlay = remote
+    }
+
+    fun byId(id: String): AiProvider? = current().firstOrNull { it.id == id }
+
+    /** Auth scheme for a library provider id; defaults to a Bearer key for unknown/custom ids. */
+    fun authTypeFor(id: String): AiAuthType = byId(id)?.authType ?: AiAuthType.API_KEY
+
+    fun byCategory(category: AiProviderCategory): List<AiProvider> = current().filter { it.category == category }
 
     fun search(query: String, category: AiProviderCategory? = null): List<AiProvider> {
         val q = query.trim()
-        return all.filter {
+        return current().filter {
             it.matches(q) && (category == null || it.category == category)
         }
     }

@@ -17,6 +17,7 @@ import com.mobileharness.code.mcp.McpToolRegistry
 import com.mobileharness.code.mcp.McpToolStage
 import com.mobileharness.code.model.ProviderKind
 import com.mobileharness.code.model.ProviderProfile
+import com.mobileharness.code.model.AiProviderCatalog
 import com.mobileharness.code.network.ChatCompletion
 import com.mobileharness.code.network.CompletionFailureKind
 import com.mobileharness.code.network.CompletionImage
@@ -319,6 +320,7 @@ class SidekickEngine(context: Context) {
 
         val ecoEnabled = preferences.ecoModeEnabled
         val maxTokensPerCall = EcoMode.recommendedMaxTokens(ecoEnabled)
+        val authType = AiProviderCatalog.authTypeFor(profile.providerId)
         val local = localModelConfig()
         val routes = buildSidekickRoutes(
             primaryModel = profile.model,
@@ -358,6 +360,7 @@ class SidekickEngine(context: Context) {
                 userMessage = userMessage,
                 maxTokens = maxTokensPerCall,
                 images = images.map { CompletionImage(it.mimeType, it.base64) },
+                authType = authType,
             )) {
                 is ChatCompletion.Success -> RouteAttempt.Success(result.text, result.reasoning)
                 is ChatCompletion.Failure -> RouteAttempt.Failure(result.kind, result.message)

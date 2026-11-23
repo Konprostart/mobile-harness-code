@@ -2,6 +2,7 @@ package com.mobileharness.code.network
 
 import android.content.Context
 import com.mobileharness.code.R
+import com.mobileharness.code.model.AiAuthType
 import com.mobileharness.code.model.ProviderProtocol
 import com.mobileharness.code.ui.AppStrings
 import org.json.JSONArray
@@ -77,6 +78,7 @@ class ProviderApiClient(private val context: Context? = null) {
         baseUrl: String,
         apiKey: String,
         protocol: ProviderProtocol,
+        authType: AiAuthType = AiAuthType.API_KEY,
     ): ModelDiscoveryResult = withContext(Dispatchers.IO) {
         if (baseUrl.isBlank()) {
             return@withContext ModelDiscoveryResult.Failure(text(R.string.rt_api_enter_base_url, "Enter a base URL first."))
@@ -94,7 +96,7 @@ class ProviderApiClient(private val context: Context? = null) {
             // not reduce discovery to the models allowed by that key's preferences.
             // The saved key is still used for validation and all inference requests.
             val discoveryKey = if (isOpenRouterCatalogEndpoint(endpoint)) "" else apiKey
-            val response = request(endpoint, "GET", discoveryKey, protocol = protocol)
+            val response = request(endpoint, "GET", discoveryKey, protocol = protocol, authType = authType)
             when {
                 response.code == 401 || response.code == 403 -> {
                     authError = true
@@ -146,6 +148,7 @@ class ProviderApiClient(private val context: Context? = null) {
         discoveredModels: List<DiscoveredModel>,
         openRouterProviderOrder: String = "",
         openRouterAllowFallbacks: Boolean = true,
+        authType: AiAuthType = AiAuthType.API_KEY,
     ): ConnectionValidation = withContext(Dispatchers.IO) {
         if (baseUrl.isBlank() || model.isBlank()) {
             return@withContext ConnectionValidation.Failure(text(R.string.rt_api_required_fields, "Base URL, model, and API key are required."))
@@ -155,7 +158,7 @@ class ProviderApiClient(private val context: Context? = null) {
         // Gateways may need to cold-start a model before returning the first token.
         // A ten-second validation timeout produced false "network" failures even
         // though discovery and the endpoint itself were healthy.
-        val response = request(endpoint, "POST", apiKey, body, protocol, connectTimeoutMs = 12_000, readTimeoutMs = 45_000)
+        val response = request(endpoint, "POST", apiKey, body, protocol, connectTimeoutMs = 12_000, readTimeoutMs = 45_000, authType = authType)
         when {
             response.code in 200..299 -> ConnectionValidation.Success(text(R.string.rt_api_connection_verified, "Connection verified."))
             response.code == 401 || response.code == 403 -> ConnectionValidation.Failure(
@@ -218,6 +221,7 @@ class ProviderApiClient(private val context: Context? = null) {
         userMessage: String,
         maxTokens: Int = COMPLETION_MAX_TOKENS,
         images: List<CompletionImage> = emptyList(),
+        authType: AiAuthType = AiAuthType.API_KEY,
     ): ChatCompletion = withContext(Dispatchers.IO) {
         if (baseUrl.isBlank() || model.isBlank()) {
             return@withContext ChatCompletion.Failure(
@@ -226,7 +230,7 @@ class ProviderApiClient(private val context: Context? = null) {
         }
         val endpoint = messagesEndpoint(baseUrl, protocol)
         val body = completionBody(model, protocol, systemPrompt, userMessage, maxTokens, images)
-        val response = request(endpoint, "POST", apiKey, body, protocol, connectTimeoutMs = 12_000, readTimeoutMs = 60_000)
+        val response = request(endpoint, "POST", apiKey, body, protocol, connectTimeoutMs = 12_000, readTimeoutMs = 60_000, authType = authType)
         when {
             response.code in 200..299 -> {
                 val payload = extractCompletion(response.body, protocol)
@@ -452,6 +456,7 @@ class ProviderApiClient(private val context: Context? = null) {
         protocol: ProviderProtocol,
         connectTimeoutMs: Int = 12_000,
         readTimeoutMs: Int = 20_000,
+        authType: AiAuthType = AiAuthType.API_KEY,
     ): HttpResult {
         if (!LocalNetwork.isPlainHttpAllowed(endpoint)) {
             return HttpResult(0, "", text(R.string.rt_api_http_public, "Plain http:// is only allowed for local network addresses. Use https:// for this server."))
@@ -463,7 +468,7 @@ class ProviderApiClient(private val context: Context? = null) {
                 readTimeout = readTimeoutMs
                 setRequestProperty("Accept", "application/json")
                 setRequestProperty("Content-Type", "application/json")
-                for ((name, value) in buildAuthHeaders(protocol, apiKey)) {
+                for ((name, value) in buildAuthHeadersFor(protocol, authType, apiKey)) {
                     setRequestProperty(name, value)
                 }
                 if (endpoint.startsWith("https://opencode.ai/zen/")) {

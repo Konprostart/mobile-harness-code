@@ -241,6 +241,11 @@
     <string name="provider_no_matching_models">No matching models</string>
     <string name="provider_free"> FREE</string>
     <string name="provider_encrypted_locally">Encrypted locally</string>
+    <string name="ai_catalog_updated">Catalog updated · %1$d providers</string>
+    <string name="ai_catalog_uptodate">Catalog is up to date</string>
+    <string name="ai_catalog_refresh">Refresh catalog</string>
+    <string name="ai_catalog_last_updated">Last updated %1$s</string>
+    <string name="ai_catalog_never_updated">Bundled catalog (never refreshed)</string>
     <string name="provider_endpoint_deepseek">DeepSeek Harness will connect through this API endpoint.</string>
     <string name="provider_endpoint_translate">Mobile Harness Code will translate Claude Code requests for this provider.</string>
     <string name="provider_endpoint_claude">Claude Code will connect through this API endpoint.</string>

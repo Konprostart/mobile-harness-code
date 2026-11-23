@@ -186,6 +186,7 @@ fun AgentScreen(
     providerRecents: () -> List<String> = { emptyList() },
     onToggleProviderFavorite: (String) -> Unit = {},
     onRecordProviderRecent: (String) -> Unit = {},
+    onRefreshCatalog: () -> Unit = {},
     onSelectAgent: (AgentKind) -> Unit = {},
     onInstallAgent: (AgentKind) -> Unit = {},
     onCheckAgentUpdates: () -> Unit = {},
@@ -493,6 +494,9 @@ fun AgentScreen(
             getFavorites = providerFavorites,
             getRecents = providerRecents,
             onToggleFavorite = onToggleProviderFavorite,
+            catalogRefreshing = state.aiCatalogRefreshing,
+            catalogUpdatedAtMillis = state.aiCatalogUpdatedAtMillis,
+            onRefreshCatalog = onRefreshCatalog,
         )
     }
 

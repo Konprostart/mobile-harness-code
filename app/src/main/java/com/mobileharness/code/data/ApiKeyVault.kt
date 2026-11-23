@@ -66,6 +66,24 @@ class ApiKeyVault(context: Context) {
         return true
     }
 
+    /** Enables or disables one key without deleting it; disabled keys are never used for requests. */
+    @Synchronized
+    fun setEnabled(providerId: String, keyId: String, enabled: Boolean): Boolean {
+        val entries = ensurePool(providerId).toMutableList()
+        val index = entries.indexOfFirst { it.id == keyId }
+        if (index < 0) return false
+        entries[index] = entries[index].copy(enabled = enabled)
+        savePool(providerId, entries)
+        // If the active key was disabled and no other enabled key is active, promote the first
+        // enabled key so a subsequent get() resolves deterministically instead of returning null.
+        val active = activeId(providerId) ?: entries.firstOrNull()?.id
+        val activeEnabled = entries.firstOrNull { it.id == active }?.enabled ?: false
+        if (!enabled && active == keyId && !activeEnabled) {
+            entries.firstOrNull { it.enabled }?.let { setActiveId(providerId, it.id) }
+        }
+        return true
+    }
+
     @Synchronized
     fun remove(providerId: String, keyId: String) {
         val remaining = ensurePool(providerId).filterNot { it.id == keyId }
@@ -86,14 +104,17 @@ class ApiKeyVault(context: Context) {
         val result = JSONObject()
         providers.distinct().forEach { providerId ->
             val keys = JSONArray()
-            credentials(providerId).forEach { credential ->
-                keys.put(
-                    JSONObject()
-                        .put("id", credential.id)
-                        .put("name", credential.name)
-                        .put("secret", credential.secret)
-                        .put("active", credential.isActive),
-                )
+            list(providerId).forEach { info ->
+                getEncrypted(secretKey(providerId, info.id))?.let { secret ->
+                    keys.put(
+                        JSONObject()
+                            .put("id", info.id)
+                            .put("name", info.name)
+                            .put("secret", secret)
+                            .put("active", info.isActive)
+                            .put("enabled", info.enabled),
+                    )
+                }
             }
             if (keys.length() > 0) result.put(providerId, keys)
         }
@@ -114,7 +135,11 @@ class ApiKeyVault(context: Context) {
                 val secret = item.optString("secret")
                 if (secret.isBlank()) continue
                 putEncrypted(secretKey(providerId, id), secret)
-                entries += ApiKeyInfo(id, item.optString("name").ifBlank { "API key" })
+                entries += ApiKeyInfo(
+                    id = id,
+                    name = item.optString("name").ifBlank { "API key" },
+                    enabled = if (item.has("enabled")) item.optBoolean("enabled") else true,
+                )
                 if (item.optBoolean("active")) activeId = id
             }
             if (entries.isEmpty()) return@forEach
@@ -148,7 +173,10 @@ class ApiKeyVault(context: Context) {
 
     @Synchronized
     fun get(providerId: String): String? {
-        val active = list(providerId).firstOrNull { it.isActive } ?: return null
+        val entries = list(providerId)
+        val active = entries.firstOrNull { it.isActive && it.enabled }
+            ?: entries.firstOrNull { it.enabled }
+            ?: return null
         return getEncrypted(secretKey(providerId, active.id))
     }
 
@@ -188,14 +216,26 @@ class ApiKeyVault(context: Context) {
         (0 until array.length()).mapNotNull { index ->
             array.optJSONObject(index)?.let { item ->
                 val id = item.optString("id")
-                if (id.isBlank()) null else ApiKeyInfo(id, item.optString("name").ifBlank { "API key" })
+                if (id.isBlank()) null else ApiKeyInfo(
+                    id = id,
+                    name = item.optString("name").ifBlank { "API key" },
+                    // Keys saved before the enabled flag existed default to enabled=true.
+                    enabled = if (item.has("enabled")) item.optBoolean("enabled") else true,
+                )
             }
         }
     }.getOrDefault(emptyList())
 
     private fun savePool(providerId: String, entries: List<ApiKeyInfo>) {
         val array = JSONArray()
-        entries.forEach { array.put(JSONObject().put("id", it.id).put("name", it.name)) }
+        entries.forEach {
+            array.put(
+                JSONObject()
+                    .put("id", it.id)
+                    .put("name", it.name)
+                    .put("enabled", it.enabled),
+            )
+        }
         preferences.edit().putString(poolKey(providerId), array.toString()).apply()
     }
 
@@ -220,6 +260,11 @@ class ApiKeyVault(context: Context) {
     }
 }
 
-data class ApiKeyInfo(val id: String, val name: String, val isActive: Boolean = false)
+data class ApiKeyInfo(
+    val id: String,
+    val name: String,
+    val isActive: Boolean = false,
+    val enabled: Boolean = true,
+)
 
 data class ApiKeyCredential(val id: String, val name: String, val secret: String, val isActive: Boolean)

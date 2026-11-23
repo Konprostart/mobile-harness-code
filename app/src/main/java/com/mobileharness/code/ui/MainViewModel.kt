@@ -28,6 +28,12 @@ import com.mobileharness.code.data.ApiKeyVault
 import com.mobileharness.code.data.ApiKeyInfo
 import com.mobileharness.code.data.AccountManager
 import com.mobileharness.code.data.AppPreferences
+import com.mobileharness.code.data.AiCatalogRefreshResult
+import com.mobileharness.code.data.AiCatalogStore
+import com.mobileharness.code.data.AiToolTarget
+import com.mobileharness.code.data.ModelDiscoveryStore
+import com.mobileharness.code.data.ProviderConfigStore
+import com.mobileharness.code.data.SavedProviderConfig
 import com.mobileharness.code.devtools.CpuUsageReader
 import com.mobileharness.code.devtools.CrashLogStore
 import com.mobileharness.code.devtools.DeviceInfo
@@ -50,6 +56,7 @@ import com.mobileharness.code.model.RuntimeEvent
 import com.mobileharness.code.model.RuntimeRecoveryContext
 import com.mobileharness.code.model.ToolRequest
 import com.mobileharness.code.model.WorkspaceEntry
+import com.mobileharness.code.model.AiProviderCatalog
 import com.mobileharness.code.model.projectSlug
 import com.mobileharness.code.model.generateQuickChatIdentity
 import com.mobileharness.code.model.providerProtocolForAgent
@@ -93,6 +100,9 @@ import com.mobileharness.code.network.GitProviderId
 import com.mobileharness.code.network.GitProviderManager
 import com.mobileharness.code.network.GitProviderRepo
 import com.mobileharness.code.network.isRotatableProviderFailure
+import com.mobileharness.code.network.classifyFailureKindFromReason
+import com.mobileharness.code.data.ApiKeyRotator
+import com.mobileharness.code.data.KeyRotationDecision
 import com.mobileharness.code.network.ServerSyncConfig
 import com.mobileharness.code.network.ServerSyncMode
 import com.mobileharness.code.runtime.ClaudeRuntimeBridge
@@ -715,6 +725,10 @@ data class AppUiState(
     val antigravityEffort: String = "high",
     val antigravityModels: List<String> = emptyList(),
     val antigravityModelsLoading: Boolean = false,
+    val aiCatalogVersion: Long = 0L,
+    val aiCatalogUpdatedAtMillis: Long = 0L,
+    val aiCatalogRefreshing: Boolean = false,
+    val aiCatalogMessage: String? = null,
     val androidBuildRunning: Boolean = false,
     val androidBuildMessage: String? = null,
     val androidBuildPhase: AndroidBuildPhase = AndroidBuildPhase.IDLE,
@@ -839,6 +853,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val agentRegistry = AgentRegistry.builtIns(claudeRuntime, dshRuntime, antigravityRuntime)
     private fun activeRuntime(): com.mobileharness.code.runtime.RuntimeBridge = agentRegistry.require(_state.value.agentKind).runtime
     private val providerApi = ProviderApiClient(application)
+    private val aiCatalogStore = AiCatalogStore(File(getApplication<Application>().filesDir, "ai-catalog"))
+    private val modelDiscoveryStore = ModelDiscoveryStore(File(getApplication<Application>().filesDir, "ai-models"))
+    private val providerConfigStore = ProviderConfigStore(File(getApplication<Application>().filesDir, "ai-configs"))
     private fun appUpdater(): AppUpdater = AppUpdater(
         getApplication(),
         if (BuildConfig.DEBUG) preferences.debugUpdateManifestUrl else "",
@@ -3972,6 +3989,82 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         return vault.list(providerId)
     }
 
+    fun setApiKeyEnabled(providerId: String, keyId: String, enabled: Boolean): List<ApiKeyInfo> {
+        vault.setEnabled(providerId, keyId, enabled)
+        refreshActiveApiKey(providerId)
+        return vault.list(providerId)
+    }
+
+    // ── Central AI provider library: remote catalog + configs + defaults ────────────────────
+
+    /** Fetches, verifies and merges the remote AI catalog; keeps the cached/bundled catalog on failure. */
+    fun refreshAiCatalog() {
+        if (_state.value.aiCatalogRefreshing) return
+        _state.update { it.copy(aiCatalogRefreshing = true, aiCatalogMessage = null) }
+        viewModelScope.launch {
+            val result = withContext(Dispatchers.IO) { aiCatalogStore.refresh() }
+            val cached = aiCatalogStore.cached()
+            when (result) {
+                is AiCatalogRefreshResult.Updated -> {
+                    AiProviderCatalog.applyRemote(aiCatalogStore.mergedProviders())
+                    _state.update {
+                        it.copy(
+                            aiCatalogRefreshing = false,
+                            aiCatalogVersion = result.version,
+                            aiCatalogUpdatedAtMillis = cached?.fetchedAtMillis ?: System.currentTimeMillis(),
+                            aiCatalogMessage = str(R.string.ai_catalog_updated, result.providerCount),
+                        )
+                    }
+                }
+                is AiCatalogRefreshResult.UpToDate -> _state.update {
+                    it.copy(
+                        aiCatalogRefreshing = false,
+                        aiCatalogVersion = cached?.version ?: 0L,
+                        aiCatalogUpdatedAtMillis = cached?.fetchedAtMillis ?: 0L,
+                        aiCatalogMessage = str(R.string.ai_catalog_uptodate),
+                    )
+                }
+                is AiCatalogRefreshResult.Unavailable -> _state.update {
+                    it.copy(
+                        aiCatalogRefreshing = false,
+                        aiCatalogVersion = cached?.version ?: 0L,
+                        aiCatalogUpdatedAtMillis = cached?.fetchedAtMillis ?: 0L,
+                        aiCatalogMessage = result.reason,
+                    )
+                }
+            }
+        }
+    }
+
+    /** Hydrates the in-memory catalog overlay from the last cached remote merge (offline-friendly). */
+    fun loadCachedAiCatalog() {
+        AiProviderCatalog.applyRemote(aiCatalogStore.mergedProviders())
+        val cached = aiCatalogStore.cached()
+        _state.update {
+            it.copy(
+                aiCatalogVersion = cached?.version ?: 0L,
+                aiCatalogUpdatedAtMillis = cached?.fetchedAtMillis ?: 0L,
+            )
+        }
+    }
+
+    // ── Per-provider named configs + per-tool default models ───────────────────────────────
+
+    fun saveProviderConfig(providerId: String, config: SavedProviderConfig): List<SavedProviderConfig> =
+        providerConfigStore.addConfig(providerId, config)
+
+    fun listProviderConfigs(providerId: String): List<SavedProviderConfig> =
+        providerConfigStore.load(providerId).configs
+
+    fun deleteProviderConfig(providerId: String, configId: String): List<SavedProviderConfig> =
+        providerConfigStore.deleteConfig(providerId, configId)
+
+    fun setProviderDefaultModel(providerId: String, tool: AiToolTarget, model: String) =
+        providerConfigStore.setDefaultModel(providerId, tool, model)
+
+    fun providerDefaultModel(providerId: String, tool: AiToolTarget): String? =
+        providerConfigStore.defaultModel(providerId, tool)
+
     private fun refreshActiveApiKey(providerId: String) {
         if (_state.value.provider.keyId != providerId) return
         val keys = vault.list(providerId)
@@ -4001,6 +4094,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     init {
+        runCatching { loadCachedAiCatalog() }
         viewModelScope.launch { RuntimeSetupController.snapshot.collect(::onSetupSnapshot) }
         viewModelScope.launch { claudeRuntime.events.collect(::onRuntimeEvent) }
         viewModelScope.launch { bootstrap() }
@@ -4782,8 +4876,22 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     suspend fun discoverModels(profile: ProviderProfile, secret: String): ModelDiscoveryResult {
         val key = secret.ifBlank { vault.get(profile.keyId).orEmpty() }
-        return providerApi.discoverModels(profile.baseUrl, key, providerProtocolForAgent(profile, _state.value.agentKind))
+        val authType = AiProviderCatalog.authTypeFor(profile.providerId)
+        val result = providerApi.discoverModels(
+            profile.baseUrl,
+            key,
+            providerProtocolForAgent(profile, _state.value.agentKind),
+            authType,
+        )
+        if (result is ModelDiscoveryResult.Success) {
+            modelDiscoveryStore.save(profile.providerId, result.models, result.endpoint)
+        }
+        return result
     }
+
+    /** Last successfully discovered model list for offline display (null when none cached). */
+    fun loadCachedModels(providerId: String): com.mobileharness.code.data.CachedModels? =
+        modelDiscoveryStore.load(providerId)
 
     suspend fun validateProvider(
         profile: ProviderProfile,
@@ -4799,6 +4907,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             models,
             profile.openRouterProviderOrder,
             profile.openRouterAllowFallbacks,
+            authType = AiProviderCatalog.authTypeFor(profile.providerId),
         )
     }
 
@@ -4835,6 +4944,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 emptyList(),
                 profile.openRouterProviderOrder,
                 profile.openRouterAllowFallbacks,
+                authType = AiProviderCatalog.authTypeFor(profile.providerId),
             )
             when (result) {
                 is ConnectionValidation.Success -> _state.update {
@@ -7712,10 +7822,20 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         if (!current.isRunning || current.activeSessionId != event.sessionId) return false
         if (!isApiKeyFailure(event.reason)) return false
         val request = activeRuntimeRequest ?: return false
-        val credentials = vault.credentials(request.provider.keyId)
-        val active = credentials.firstOrNull { it.isActive } ?: return false
-        failedApiKeyIds += active.id
-        val next = credentials.firstOrNull { it.id !in failedApiKeyIds } ?: return false
+        val keys = vault.list(request.provider.keyId)
+        val active = keys.firstOrNull { it.isActive } ?: return false
+        val decision = ApiKeyRotator.decide(active.id, classifyFailureKindFromReason(event.reason), keys)
+        val nextId = when (decision) {
+            is KeyRotationDecision.DisableAndRetry -> {
+                // An invalid key is disabled so the chain can never loop back onto it.
+                vault.setEnabled(request.provider.keyId, active.id, false)
+                decision.nextKeyId
+            }
+            is KeyRotationDecision.RetryOtherKey -> decision.nextKeyId
+            is KeyRotationDecision.DisableAndStop -> return false
+            KeyRotationDecision.KeepKey -> return false
+        }
+        val next = keys.firstOrNull { it.id == nextId } ?: return false
         if (!vault.activate(request.provider.keyId, next.id)) return false
         _state.update {
             it.copy(
