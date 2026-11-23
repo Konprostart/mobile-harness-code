@@ -1,12 +1,12 @@
 {
-  "versionCode": 35,
-  "versionName": "1.10.0",
-  "notes": "Mobile Harness Code — v1.10.0: Template Library now ships 100+ admin dashboard templates. Browse, search, filter by industry, preview, and turn any template into a signed Android APK in one tap. Templates are hosted remotely and downloaded only on demand, SHA-256 verified and kept in a persistent local cache (no APK bloat); the four bundled MIT templates remain available for fully offline use, and Chart.js is bundled locally where needed. Compose, XML, Web App, ZIP import, Android SDK, PRoot, Gradle and release flows are unchanged. This APK is SIGNED (V3-only, production key); install mobile-harness-online.apk.",
+  "versionCode": 36,
+  "versionName": "1.11.0",
+  "notes": "Mobile Harness Code — v1.11.0: adds a Signing Key Vault (create/import/export/backup/restore signing keys, RSA & EC, JKS & PKCS12) and in-process signing & verification of arbitrary APK (v1/v2/v3/v4), AAB and split (APKS/XAPK/APKM) files — powered by the official Android apksig library and BouncyCastle, ported from Signiffia (Apache-2.0). The existing release pipeline, Compose, XML, Web App, ZIP import, Android SDK, PRoot, Gradle and plugin system are unchanged. This APK is SIGNED (V3-only, production key); install mobile-harness-online.apk.",
   "artifacts": {
     "online": {
-      "url": "https://github.com/Konprostart/mobile-harness-code/releases/download/v1.10.0/mobile-harness-online.apk",
-      "sha256": "ecd682b386ff71da4c54254984e8f2f74c0f72415de455438693e7918659f47b",
-      "sizeBytes": 107446350
+      "url": "https://github.com/Konprostart/mobile-harness-code/releases/download/v1.11.0/mobile-harness-online.apk",
+      "sha256": "7bcb3119e8dc5f99341afa0e30fca363666f0e3620bd99ddc98ec699b18e8cd4",
+      "sizeBytes": 108245156
     }
   }
 }
