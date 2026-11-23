@@ -514,49 +514,49 @@
     <string name="release_signing_failed">Release pipeline failed</string>
     <string name="release_signing_saved_downloads">Saved to Downloads</string>
     <string name="release_signing_exported">Exported</string>
-    <string name="signing_vault_title">Signing Key Vault</string>
-    <string name="signing_vault_subtitle">Create, import and manage signing keys; sign or verify APK/AAB files</string>
-    <string name="signing_vault_refresh">Refresh</string>
-    <string name="signing_vault_empty">No signing keys yet. Create or import one to get started.</string>
-    <string name="signing_vault_created">Key created</string>
-    <string name="signing_vault_imported">Key imported</string>
-    <string name="signing_vault_deleted">Key deleted</string>
-    <string name="signing_vault_exported">Keystore exported</string>
-    <string name="signing_vault_backed_up">Encrypted backup written</string>
-    <string name="signing_vault_restored">Backup restored</string>
-    <string name="signing_vault_failed">Operation failed</string>
-    <string name="signing_vault_missing">Key not found</string>
-    <string name="signing_vault_open_failed">Could not read or write the selected file</string>
-    <string name="signing_vault_signed">Signed</string>
-    <string name="signing_vault_busy">Working…</string>
-    <string name="signing_vault_create">Create key</string>
-    <string name="signing_vault_import">Import</string>
-    <string name="signing_vault_export">Export</string>
-    <string name="signing_vault_backup">Backup (.sgnbak)</string>
-    <string name="signing_vault_restore">Restore</string>
-    <string name="signing_vault_delete">Delete</string>
-    <string name="signing_vault_sign">Sign APK/AAB/split</string>
-    <string name="signing_vault_verify">Verify signature</string>
-    <string name="signing_vault_compare">Compare signatures</string>
-    <string name="signing_vault_report">Report</string>
-    <string name="signing_vault_display_name">Display name</string>
-    <string name="signing_vault_alias">Key alias</string>
-    <string name="signing_vault_password">Password</string>
-    <string name="signing_vault_store_password">Keystore password</string>
-    <string name="signing_vault_key_passwords_hint">Per-alias key passwords (optional; alias=password)</string>
-    <string name="signing_vault_algorithm">Algorithm</string>
-    <string name="signing_vault_key_size">Key size</string>
-    <string name="signing_vault_validity">Validity (days)</string>
-    <string name="signing_vault_common_name">Common name (CN)</string>
-    <string name="signing_vault_organization">Organization (O)</string>
-    <string name="signing_vault_org_unit">Organizational unit (OU)</string>
-    <string name="signing_vault_city">City (L)</string>
-    <string name="signing_vault_state">State (ST)</string>
-    <string name="signing_vault_country">Country (C)</string>
-    <string name="signing_vault_backup_passphrase">Backup passphrase (min 8 chars)</string>
-    <string name="signing_vault_choose_key">Choose key</string>
-    <string name="signing_vault_use_for_release">Use for release</string>
-    <string name="signing_vault_fingerprint">SHA-256</string>
+    <string name="signing_vault_title" translatable="false">Signing Key Vault</string>
+    <string name="signing_vault_subtitle" translatable="false">Create, import and manage signing keys; sign or verify APK/AAB files</string>
+    <string name="signing_vault_refresh" translatable="false">Refresh</string>
+    <string name="signing_vault_empty" translatable="false">No signing keys yet. Create or import one to get started.</string>
+    <string name="signing_vault_created" translatable="false">Key created</string>
+    <string name="signing_vault_imported" translatable="false">Key imported</string>
+    <string name="signing_vault_deleted" translatable="false">Key deleted</string>
+    <string name="signing_vault_exported" translatable="false">Keystore exported</string>
+    <string name="signing_vault_backed_up" translatable="false">Encrypted backup written</string>
+    <string name="signing_vault_restored" translatable="false">Backup restored</string>
+    <string name="signing_vault_failed" translatable="false">Operation failed</string>
+    <string name="signing_vault_missing" translatable="false">Key not found</string>
+    <string name="signing_vault_open_failed" translatable="false">Could not read or write the selected file</string>
+    <string name="signing_vault_signed" translatable="false">Signed</string>
+    <string name="signing_vault_busy" translatable="false">Working…</string>
+    <string name="signing_vault_create" translatable="false">Create key</string>
+    <string name="signing_vault_import" translatable="false">Import</string>
+    <string name="signing_vault_export" translatable="false">Export</string>
+    <string name="signing_vault_backup" translatable="false">Backup (.sgnbak)</string>
+    <string name="signing_vault_restore" translatable="false">Restore</string>
+    <string name="signing_vault_delete" translatable="false">Delete</string>
+    <string name="signing_vault_sign" translatable="false">Sign APK/AAB/split</string>
+    <string name="signing_vault_verify" translatable="false">Verify signature</string>
+    <string name="signing_vault_compare" translatable="false">Compare signatures</string>
+    <string name="signing_vault_report" translatable="false">Report</string>
+    <string name="signing_vault_display_name" translatable="false">Display name</string>
+    <string name="signing_vault_alias" translatable="false">Key alias</string>
+    <string name="signing_vault_password" translatable="false">Password</string>
+    <string name="signing_vault_store_password" translatable="false">Keystore password</string>
+    <string name="signing_vault_key_passwords_hint" translatable="false">Per-alias key passwords (optional; alias=password)</string>
+    <string name="signing_vault_algorithm" translatable="false">Algorithm</string>
+    <string name="signing_vault_key_size" translatable="false">Key size</string>
+    <string name="signing_vault_validity" translatable="false">Validity (days)</string>
+    <string name="signing_vault_common_name" translatable="false">Common name (CN)</string>
+    <string name="signing_vault_organization" translatable="false">Organization (O)</string>
+    <string name="signing_vault_org_unit" translatable="false">Organizational unit (OU)</string>
+    <string name="signing_vault_city" translatable="false">City (L)</string>
+    <string name="signing_vault_state" translatable="false">State (ST)</string>
+    <string name="signing_vault_country" translatable="false">Country (C)</string>
+    <string name="signing_vault_backup_passphrase" translatable="false">Backup passphrase (min 8 chars)</string>
+    <string name="signing_vault_choose_key" translatable="false">Choose key</string>
+    <string name="signing_vault_use_for_release" translatable="false">Use for release</string>
+    <string name="signing_vault_fingerprint" translatable="false">SHA-256</string>
     <string name="server_sync_title">Server sync</string>
     <string name="server_sync_subtitle">Optional backup to your own server</string>
     <string name="server_sync_enabled">Enable server sync</string>
