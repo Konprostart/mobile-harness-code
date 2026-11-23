@@ -182,8 +182,8 @@ fun AgentScreen(
     onAddApiKey: (String, String, String) -> List<ApiKeyInfo>,
     onActivateApiKey: (String, String) -> List<ApiKeyInfo>,
     onRemoveApiKey: (String, String) -> List<ApiKeyInfo>,
-    providerFavorites: Set<String> = emptySet(),
-    providerRecents: List<String> = emptyList(),
+    providerFavorites: () -> Set<String> = { emptySet() },
+    providerRecents: () -> List<String> = { emptyList() },
     onToggleProviderFavorite: (String) -> Unit = {},
     onRecordProviderRecent: (String) -> Unit = {},
     onSelectAgent: (AgentKind) -> Unit = {},
@@ -490,8 +490,8 @@ fun AgentScreen(
                 onRecordProviderRecent(provider.id)
                 showProviderLibrary = false
             },
-            getFavorites = { providerFavorites },
-            getRecents = { providerRecents },
+            getFavorites = providerFavorites,
+            getRecents = providerRecents,
             onToggleFavorite = onToggleProviderFavorite,
         )
     }
