@@ -1,12 +1,12 @@
 {
-  "versionCode": 34,
-  "versionName": "1.9.0",
-  "notes": "Mobile Harness Code — v1.9.0: built-in Template Library. Browse, search and pick ready-made web apps (dashboards, e-commerce, portfolio, landing pages and more) and turn one into an installable, signed Android APK with one tap. Four MIT templates are bundled for fully offline use; build-required and server-required projects are clearly labelled and never presented as ready. The library reuses the existing Web App (WebViewAssetLoader) pipeline and build/signing system — Compose, XML, SDK, PRoot, Gradle and release flows are unchanged. This APK is SIGNED (V3-only, production key); install mobile-harness-online.apk.",
+  "versionCode": 35,
+  "versionName": "1.10.0",
+  "notes": "Mobile Harness Code — v1.10.0: Template Library now ships 100+ admin dashboard templates. Browse, search, filter by industry, preview, and turn any template into a signed Android APK in one tap. Templates are hosted remotely and downloaded only on demand, SHA-256 verified and kept in a persistent local cache (no APK bloat); the four bundled MIT templates remain available for fully offline use, and Chart.js is bundled locally where needed. Compose, XML, Web App, ZIP import, Android SDK, PRoot, Gradle and release flows are unchanged. This APK is SIGNED (V3-only, production key); install mobile-harness-online.apk.",
   "artifacts": {
     "online": {
-      "url": "https://github.com/Konprostart/mobile-harness-code/releases/download/v1.9.0/mobile-harness-online.apk",
-      "sha256": "5aa0c963274eb263f433d47d4fc1bae53666a11849f1f394fabb011792cbe909",
-      "sizeBytes": 107364430
+      "url": "https://github.com/Konprostart/mobile-harness-code/releases/download/v1.10.0/mobile-harness-online.apk",
+      "sha256": "ecd682b386ff71da4c54254984e8f2f74c0f72415de455438693e7918659f47b",
+      "sizeBytes": 107446350
     }
   }
 }
