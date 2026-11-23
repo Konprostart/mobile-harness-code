@@ -33,7 +33,7 @@ object ModelDiscoveryCodec {
 
     fun fromJson(raw: String): CachedModels? = runCatching {
         val root = JSONObject(raw)
-        val array = root.optJSONArray("models") ?: JSONArray()
+        val array = root.optJSONArray("models") ?: throw IllegalArgumentException("missing models array")
         val models = buildList {
             for (index in 0 until array.length()) {
                 val item = array.optJSONObject(index) ?: continue
