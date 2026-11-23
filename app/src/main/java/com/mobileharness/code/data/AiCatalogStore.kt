@@ -57,7 +57,7 @@ class AiCatalogStore(
 
     fun cached(): CachedAiCatalog? {
         if (!catalogFile.exists()) return null
-        val parsed = runCatching { AiCatalogCodec.parse(catalogFile.readText()) }.getOrNull() ?: return null
+        val parsed = AiCatalogCodec.parse(catalogFile.readText()).getOrNull() ?: return null
         val problems = AiCatalogValidator.validateRemote(parsed.providers)
         if (problems.isNotEmpty()) return null
         val meta = runCatching { org.json.JSONObject(metaFile.readText()) }.getOrNull()
