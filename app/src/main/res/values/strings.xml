@@ -404,6 +404,15 @@
     <string name="template_category_landing">Landing pages</string>
     <string name="template_library_open">Template Library</string>
     <string name="template_library_open_desc">Browse ready-made apps and turn one into an APK</string>
+    <string name="template_refresh">Refresh catalog</string>
+    <string name="template_industry_all">All sectors</string>
+    <string name="template_demo_data">Demo data</string>
+    <string name="template_demo_data_desc">This is a frontend demo with placeholder data. Connect your own data before using it for real work.</string>
+    <string name="template_size_label">Size</string>
+    <string name="template_cached">Downloaded</string>
+    <string name="template_delete">Delete downloaded files</string>
+    <string name="template_cache_used">Downloaded templates: %1$s</string>
+    <string name="template_thumbnail">Template preview</string>
     <string name="android_estimated_remaining">About %1$s remaining</string>
     <string name="android_finishing_build">Finishing build…</string>
     <string name="android_estimating_build">Learning build time…</string>

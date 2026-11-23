@@ -90,4 +90,40 @@ class WebTemplateStoreTest {
         assertTrue(catalog.isEmpty())
         assertEquals(0, WebTemplateCatalog.readyCount(catalog))
     }
+
+    private fun remoteTemplate(id: String = "dashboard-lex", sha256: String = "a".repeat(64)) = WebTemplate(
+        id = id,
+        name = "Law Firm",
+        category = TemplateCategory.DASHBOARD,
+        description = "d",
+        license = "MIT",
+        licenseUrl = "https://raw.githubusercontent.com/o/r/main/LICENSE",
+        sourceUrl = "https://github.com/o/r",
+        downloadUrl = "https://raw.githubusercontent.com/o/r/main/templates/lex.zip",
+        sha256 = sha256,
+    )
+
+    @Test
+    fun cachedDirForIsContentAddressedAndStable() {
+        val root = tmp.newFolder("cache")
+        val t = remoteTemplate()
+        val dir1 = WebTemplateStore.cachedDirFor(root, t)
+        val dir2 = WebTemplateStore.cachedDirFor(root, t)
+        assertEquals(dir1, dir2)
+        assertTrue(dir1.name.startsWith("template-dashboard-lex-"))
+        // A different digest produces a different cache directory.
+        val other = remoteTemplate(sha256 = "b".repeat(64))
+        assertFalse(WebTemplateStore.cachedDirFor(root, other).name == dir1.name)
+    }
+
+    @Test
+    fun isCompleteDirRequiresMarker() {
+        val root = tmp.newFolder("cache")
+        val dir = WebTemplateStore.cachedDirFor(root, remoteTemplate())
+        dir.mkdirs()
+        File(dir, "index.html").writeText("<html></html>")
+        assertFalse(WebTemplateStore.isCompleteDir(dir))
+        File(dir, WebTemplateStore.CACHE_COMPLETE_MARKER).writeText("ok")
+        assertTrue(WebTemplateStore.isCompleteDir(dir))
+    }
 }

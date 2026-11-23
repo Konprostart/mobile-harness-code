@@ -501,6 +501,15 @@
     <string name="template_category_landing">Σελίδες προορισμού</string>
     <string name="template_library_open">Βιβλιοθήκη προτύπων</string>
     <string name="template_library_open_desc">Περιηγηθείτε σε έτοιμες εφαρμογές και μετατρέψτε μία σε APK</string>
+    <string name="template_refresh">Ανανέωση καταλόγου</string>
+    <string name="template_industry_all">Όλοι οι τομείς</string>
+    <string name="template_demo_data">Δεδομένα επίδειξης</string>
+    <string name="template_demo_data_desc">Πρόκειται για demo διεπαφής με εικονικά δεδομένα. Συνδέστε τα δικά σας δεδομένα πριν την πραγματική χρήση.</string>
+    <string name="template_size_label">Μέγεθος</string>
+    <string name="template_cached">Λήφθηκε</string>
+    <string name="template_delete">Διαγραφή αρχείων που λήφθηκαν</string>
+    <string name="template_cache_used">Ληφθέντα πρότυπα: %1$s</string>
+    <string name="template_thumbnail">Προεπισκόπηση προτύπου</string>
     <string name="android_estimated_remaining">Απομένουν περίπου %1$s</string>
     <string name="android_finishing_build">Ολοκλήρωση build…</string>
     <string name="android_estimating_build">Εκτίμηση χρόνου build…</string>

@@ -18,7 +18,22 @@ object WebTemplateCatalog {
             val template = runCatching { WebTemplate.fromJson(obj) }.getOrNull() ?: continue
             if (WebTemplatePolicy.isValid(template)) result += template
         }
-        return result.sortedWith(compareBy({ it.category.ordinal }, { it.name.lowercase() }))
+        return sorted(result)
+    }
+
+    /** Stable, category-ordered sort used for both bundled and merged catalogs. */
+    fun sorted(templates: List<WebTemplate>): List<WebTemplate> =
+        templates.sortedWith(compareBy({ it.category.ordinal }, { it.name.lowercase() }))
+
+    /**
+     * Merges a bundled fallback with a remote catalog: remote entries win on id collision, while
+     * bundled-only entries (offline bundles and informational entries) are retained.
+     */
+    fun merge(bundled: List<WebTemplate>, remote: List<WebTemplate>): List<WebTemplate> {
+        val byId = linkedMapOf<String, WebTemplate>()
+        bundled.forEach { byId[it.id] = it }
+        remote.forEach { byId[it.id] = it }
+        return sorted(byId.values.toList())
     }
 
     /** Number of entries that can actually be turned into an APK today (no build/backend). */

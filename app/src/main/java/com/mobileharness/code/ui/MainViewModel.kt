@@ -137,6 +137,7 @@ import com.mobileharness.code.runtime.WebAppProjectConfig
 import com.mobileharness.code.runtime.WebAppScanResult
 import com.mobileharness.code.runtime.WebAppZipScanner
 import com.mobileharness.code.runtime.WebTemplate
+import com.mobileharness.code.runtime.WebTemplateCatalog
 import com.mobileharness.code.runtime.WebTemplateStore
 import com.mobileharness.code.runtime.GradleMemory
 import com.mobileharness.code.runtime.GradleMemoryProfile
@@ -719,6 +720,8 @@ data class AppUiState(
     val accountMessage: String? = null,
     val templateCatalog: List<WebTemplate> = emptyList(),
     val templateCatalogLoading: Boolean = false,
+    val templateCacheBytes: Long = 0L,
+    val templateCachedIds: Set<String> = emptySet(),
     val gradleMemoryAuto: Boolean = true,
     val gradleMaxHeapMb: Int = 0,
     val gradleMaxMetaspaceMb: Int = 0,
@@ -953,14 +956,81 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         _state.update { it.copy(backupFeatureSeen = true) }
     }
 
-    /** Loads the bundled Template Library catalog (idempotent; entries are validated fail-closed). */
+    /**
+     * Loads the Template Library catalog: the bundled fallback first (so the UI is never empty),
+     * then the remote catalog when reachable, then the last cached remote catalog. Entries are
+     * validated fail-closed by [WebTemplateCatalog]. Called once at startup.
+     */
     fun loadTemplateCatalog() {
-        if (_state.value.templateCatalogLoading || _state.value.templateCatalog.isNotEmpty()) return
+        if (_state.value.templateCatalogLoading) return
         _state.update { it.copy(templateCatalogLoading = true) }
         viewModelScope.launch {
-            val catalog = withContext(Dispatchers.IO) { templateStore.loadCatalog() }
-            _state.update { it.copy(templateCatalogLoading = false, templateCatalog = catalog) }
+            val bundled = withContext(Dispatchers.IO) { templateStore.loadCatalog() }
+            _state.update { it.copy(templateCatalog = bundled) }
+            val remote = withContext(Dispatchers.IO) {
+                templateStore.loadRemoteCatalog() ?: templateStore.loadCachedCatalog()
+            }
+            if (remote != null && remote.isNotEmpty()) {
+                _state.update { it.copy(templateCatalog = WebTemplateCatalog.merge(bundled, remote)) }
+            }
+            val final = _state.value.templateCatalog
+            val (bytes, cachedIds) = computeTemplateCacheState(final)
+            _state.update { it.copy(templateCatalogLoading = false, templateCacheBytes = bytes, templateCachedIds = cachedIds) }
         }
+    }
+
+    /** Re-fetches the remote catalog (user-triggered); keeps the bundled fallback on failure. */
+    fun refreshTemplateCatalog() {
+        if (_state.value.templateCatalogLoading) return
+        _state.update { it.copy(templateCatalogLoading = true) }
+        viewModelScope.launch {
+            val bundled = withContext(Dispatchers.IO) { templateStore.loadCatalog() }
+            val remote = withContext(Dispatchers.IO) {
+                templateStore.loadRemoteCatalog() ?: templateStore.loadCachedCatalog()
+            }
+            if (remote != null && remote.isNotEmpty()) {
+                _state.update { it.copy(templateCatalog = WebTemplateCatalog.merge(bundled, remote)) }
+            } else {
+                _state.update { it.copy(templateCatalog = bundled) }
+            }
+            val final = _state.value.templateCatalog
+            val (bytes, cachedIds) = computeTemplateCacheState(final)
+            _state.update { it.copy(templateCatalogLoading = false, templateCacheBytes = bytes, templateCachedIds = cachedIds) }
+        }
+    }
+
+    /** Deletes a cached remote template from persistent storage and updates the reported size. */
+    fun deleteCachedTemplate(template: WebTemplate) {
+        viewModelScope.launch {
+            val reclaimed = withContext(Dispatchers.IO) { templateStore.deleteCached(template) }
+            _state.update {
+                it.copy(
+                    templateCacheBytes = (it.templateCacheBytes - reclaimed).coerceAtLeast(0L),
+                    templateCachedIds = it.templateCachedIds - template.id,
+                )
+            }
+        }
+    }
+
+    /** Loads (and caches) a template thumbnail image; returns the local file or null on failure. */
+    suspend fun templateThumbnail(url: String): File? = withContext(Dispatchers.IO) {
+        templateStore.thumbnail(url)
+    }
+
+    /** Recomputes the on-disk size of the cached template archives and which templates are cached. */
+    fun refreshTemplateCacheSize() {
+        viewModelScope.launch {
+            val (bytes, cachedIds) = computeTemplateCacheState(_state.value.templateCatalog)
+            _state.update { it.copy(templateCacheBytes = bytes, templateCachedIds = cachedIds) }
+        }
+    }
+
+    private suspend fun computeTemplateCacheState(catalog: List<WebTemplate>): Pair<Long, Set<String>> {
+        val cachedIds = withContext(Dispatchers.IO) {
+            catalog.filter { it.isRemote && templateStore.isCached(it) }.map { it.id }.toSet()
+        }
+        val bytes = withContext(Dispatchers.IO) { templateStore.cachedBytes() }
+        return bytes to cachedIds
     }
 
     /** Creates the local, password-based account. The password is used only to derive a verifier. */
@@ -4879,6 +4949,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     )
                 }
                 preferences.saveProjects(_state.value.projects)
+                // A remote import may have populated the persistent cache; refresh its reported size.
+                refreshTemplateCacheSize()
                 openProject(project)
             }.onFailure { error ->
                 _state.update {
@@ -4895,19 +4967,19 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private fun buildWebAppFromTemplate(template: WebTemplate): Project {
         val app = getApplication<Application>()
         val projectId = UUID.randomUUID().toString()
-        val staging = File(app.cacheDir, "template-import/$projectId")
-        staging.mkdirs()
         val destination = File(app.filesDir, "workspaces/$projectId")
+        // Remote templates materialize into the persistent cache (reused on later imports);
+        // bundled templates use a short-lived staging directory the caller deletes afterward.
+        val materialized = templateStore.materialize(template)
         try {
-            templateStore.materialize(template, staging)
-            val scan = WebAppZipScanner.scan(staging)
+            val scan = WebAppZipScanner.scan(materialized.dir)
             require(scan.isReady) { scanNotReadyMessage(scan) }
             return finishWebAppProject(scan, template.name, projectId, destination)
         } catch (error: Throwable) {
             if (destination.exists()) destination.deleteRecursively()
             throw error
         } finally {
-            staging.deleteRecursively()
+            if (materialized.temporary) materialized.dir.deleteRecursively()
         }
     }
 

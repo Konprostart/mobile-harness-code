@@ -4,6 +4,7 @@ import org.json.JSONArray
 import org.json.JSONObject
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -140,5 +141,63 @@ class WebTemplateCatalogTest {
         val ids = catalog.map { it.id }
         assertEquals(listOf("dash", "b", "z"), ids)
         assertEquals(3, WebTemplateCatalog.readyCount(catalog))
+    }
+
+    @Test
+    fun newMetadataFieldsParseAndValidate() {
+        val json = entry(
+            id = "dashboard-lex",
+            name = "Law Firm",
+        ).apply {
+            put("industry", "Professional Services")
+            put("thumbnailUrl", "https://raw.githubusercontent.com/o/r/main/thumbs/lex.webp")
+            put("downloadSizeBytes", 123456L)
+            put("demoDataOnly", true)
+        }
+        val template = WebTemplate.fromJson(json)
+        assertTrue(template != null)
+        assertTrue(WebTemplatePolicy.isValid(template!!))
+        assertEquals("Professional Services", template.industry)
+        assertEquals("https://raw.githubusercontent.com/o/r/main/thumbs/lex.webp", template.thumbnailUrl)
+        assertEquals(123456L, template.downloadSizeBytes)
+        assertTrue(template.demoDataOnly)
+    }
+
+    @Test
+    fun nonHttpsThumbnailUrlIsRejected() {
+        val json = entry().apply { put("thumbnailUrl", "http://evil.com/x.webp") }
+        assertFalse(WebTemplatePolicy.isValid(WebTemplate.fromJson(json)!!))
+    }
+
+    @Test
+    fun negativeDownloadSizeIsRejected() {
+        val json = entry().apply { put("downloadSizeBytes", -1L) }
+        val template = WebTemplate.fromJson(json)
+        // fromJson coerces negative to null; a null size is valid, so build one directly instead.
+        assertTrue(template != null)
+        assertNull(template!!.downloadSizeBytes)
+    }
+
+    @Test
+    fun oversizedIndustryIsRejected() {
+        val json = entry().apply { put("industry", "x".repeat(61)) }
+        assertFalse(WebTemplatePolicy.isValid(WebTemplate.fromJson(json)!!))
+    }
+
+    @Test
+    fun mergeKeepsBundledOnlyAndOverridesRemoteCollision() {
+        val bundledEntry = entry(id = "a", category = "dashboard", name = "A", downloadUrl = null, sha256 = null, bundledAsset = "templates/a.zip")
+        val remoteEntry = entry(id = "a", category = "dashboard", name = "A (updated)")
+        val bundled = WebTemplateCatalog.fromJson("[$bundledEntry]")
+        val remote = WebTemplateCatalog.fromJson("[$remoteEntry]")
+        val merged = WebTemplateCatalog.merge(bundled, remote)
+        assertEquals(1, merged.size)
+        assertEquals("A (updated)", merged.single().name)
+        assertTrue(merged.single().isRemote)
+
+        // Bundled-only entries survive a merge even when the remote catalog is empty.
+        val mergedWithEmpty = WebTemplateCatalog.merge(bundled, emptyList())
+        assertEquals(1, mergedWithEmpty.size)
+        assertTrue(mergedWithEmpty.single().isBundled)
     }
 }

@@ -2561,6 +2561,9 @@ private fun RootScreenHost(
                     onImportZip = viewModel::importZipProject,
                     onImportWebAppZip = viewModel::importWebAppZip,
                     onCreateFromTemplate = viewModel::createProjectFromTemplate,
+                    onRefreshTemplateCatalog = viewModel::refreshTemplateCatalog,
+                    onDeleteCachedTemplate = viewModel::deleteCachedTemplate,
+                    loadTemplateThumbnail = { url -> viewModel.templateThumbnail(url) },
                     onCloneGit = viewModel::clonePublicGitRepository,
                     onStartGitHubLogin = viewModel::startGitHubLogin,
                     onGenerateNewGitHubCode = viewModel::generateNewGitHubCode,
@@ -3699,6 +3702,9 @@ private fun ProjectsScreen(
     onImportZip: (Uri) -> Unit,
     onImportWebAppZip: (Uri) -> Unit,
     onCreateFromTemplate: (WebTemplate) -> Unit,
+    onRefreshTemplateCatalog: () -> Unit,
+    onDeleteCachedTemplate: (WebTemplate) -> Unit,
+    loadTemplateThumbnail: suspend (String) -> File?,
     onCloneGit: (String) -> Unit,
     onStartGitHubLogin: () -> Unit,
     onGenerateNewGitHubCode: () -> Unit,
@@ -4406,6 +4412,9 @@ private fun ProjectsScreen(
                 onCreateFromTemplate(template)
                 showTemplateLibrary = false
             },
+            onRefresh = onRefreshTemplateCatalog,
+            onDeleteCached = onDeleteCachedTemplate,
+            loadThumbnail = loadTemplateThumbnail,
         )
     }
     val update = state.appUpdate

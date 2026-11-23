@@ -258,6 +258,15 @@
     <string name="template_category_landing">落地页</string>
     <string name="template_library_open">模板库</string>
     <string name="template_library_open_desc">浏览现成应用并把其中一个变成 APK</string>
+    <string name="template_refresh">刷新目录</string>
+    <string name="template_industry_all">所有行业</string>
+    <string name="template_demo_data">演示数据</string>
+    <string name="template_demo_data_desc">这是带有占位数据的前端演示。使用前请连接你自己的数据。</string>
+    <string name="template_size_label">大小</string>
+    <string name="template_cached">已下载</string>
+    <string name="template_delete">删除已下载的文件</string>
+    <string name="template_cache_used">已下载模板：%1$s</string>
+    <string name="template_thumbnail">模板预览</string>
 <string name="android_estimated_remaining">预计还需 %1$s</string><string name="android_finishing_build">正在完成构建…</string><string name="android_estimating_build">正在学习构建时间…</string><string name="android_usually_takes">通常约需 %1$s</string>
 <string name="diagnostics_title">开发者诊断</string><string name="diagnostics_subtitle">性能、进程和运行时存储</string><string name="diagnostics_refresh">刷新诊断</string><string name="diagnostics_memory">内存</string><string name="diagnostics_app_memory">应用内存</string><string name="diagnostics_java_heap">Java 堆</string><string name="diagnostics_processes">活动进程</string><string name="diagnostics_no_processes">没有正在运行的开发进程</string><string name="diagnostics_stop_inactive">停止非活动进程</string><string name="diagnostics_buffers">应用内缓冲区</string><string name="diagnostics_messages">聊天消息</string><string name="diagnostics_live_activity">实时活动行</string><string name="diagnostics_terminal_buffer">终端文本</string><string name="diagnostics_build_log">构建日志</string><string name="diagnostics_logcat_lines">日志行</string><string name="diagnostics_file_entries">已加载文件条目</string><string name="diagnostics_runtime_cache">运行时输出缓存</string><string name="diagnostics_cached_output">缓存输出</string><string name="diagnostics_clear_cache">清除临时输出</string><string name="diagnostics_cache_disabled">活动任务结束后可用。</string><string name="diagnostics_recent_exit">最近的应用问题</string><string name="diagnostics_no_recent_exit">没有最近的崩溃或 ANR</string><string name="diagnostics_inactive_stopped">已停止非活动进程</string><string name="diagnostics_cache_busy">请等待活动任务完成后再清除</string><string name="diagnostics_cache_cleared">已清除临时运行时输出</string>
 <string name="gradle_memory_title">Android 构建内存</string><string name="gradle_memory_subtitle">此手机上构建所用的堆和元空间</string><string name="gradle_memory_auto_label">自动（推荐）</string><string name="gradle_memory_auto_desc">根据设备 %1$d MiB 内存推导</string><string name="gradle_memory_manual_label">手动覆盖</string><string name="gradle_memory_heap_label">最大堆 (MiB)</string><string name="gradle_memory_metaspace_label">最大元空间 (MiB)</string><string name="gradle_memory_effective">当前生效：%1$s</string><string name="gradle_memory_save_override">保存覆盖</string>

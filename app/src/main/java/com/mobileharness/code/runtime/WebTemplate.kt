@@ -54,6 +54,14 @@ data class WebTemplate(
     /** Short emoji or glyph shown as the template's icon in the list. */
     val icon: String = "\uD83D\uDCC4",
     val tags: List<String> = emptyList(),
+    /** Coarse sector label (e.g. "Finance", "Healthcare") used for a secondary filter. */
+    val industry: String = "",
+    /** Remote preview image (`.webp`/`.png`) loaded lazily; null when no preview exists. */
+    val thumbnailUrl: String? = null,
+    /** Expected download size in bytes, shown before downloading (informational). */
+    val downloadSizeBytes: Long? = null,
+    /** True when the upstream project is a frontend demo with placeholder/demo data. */
+    val demoDataOnly: Boolean = false,
 ) {
     val isBundled: Boolean get() = bundledAsset != null
     /** True when the archive is fetched from a pinned remote URL (implies a SHA-256 digest). */
@@ -85,6 +93,10 @@ data class WebTemplate(
                 entryPoint = json.optString("entryPoint", "index.html").takeIf(String::isNotBlank) ?: "index.html",
                 icon = json.optString("icon", "\uD83D\uDCC4").takeIf(String::isNotBlank) ?: "\uD83D\uDCC4",
                 tags = tags,
+                industry = json.optString("industry", ""),
+                thumbnailUrl = json.optString("thumbnailUrl", "").takeIf(String::isNotBlank),
+                downloadSizeBytes = json.optLong("downloadSizeBytes", -1L).takeIf { it >= 0L },
+                demoDataOnly = json.optBoolean("demoDataOnly", false),
             )
         }
     }
@@ -100,6 +112,8 @@ object WebTemplatePolicy {
     const val MAX_NAME_CHARS = 120
     const val MAX_DESCRIPTION_CHARS = 2_000
     const val MAX_ENTRY_CHARS = 512
+    const val MAX_INDUSTRY_CHARS = 60
+    const val MAX_TAG_CHARS = 40
 
     private val ID_REGEX = Regex("^[A-Za-z0-9][A-Za-z0-9._-]{0,119}$")
     private val SHA256_REGEX = Regex("^[0-9a-fA-F]{64}$")
@@ -118,7 +132,10 @@ object WebTemplatePolicy {
         if (!isHttpsUrl(template.sourceUrl)) return false
         if (template.entryPoint.isNotBlank() && !WebAppManifestPolicy.isValidEntryPoint(template.entryPoint)) return false
         if (template.icon.length > 8 || containsControl(template.icon)) return false
-        if (template.tags.any { it.length > 40 || containsControl(it) }) return false
+        if (template.tags.any { it.length > MAX_TAG_CHARS || containsControl(it) }) return false
+        if (template.industry.length > MAX_INDUSTRY_CHARS || containsControl(template.industry)) return false
+        if (template.thumbnailUrl != null && !isHttpsUrl(template.thumbnailUrl)) return false
+        if (template.downloadSizeBytes != null && template.downloadSizeBytes < 0L) return false
 
         return when {
             template.isBundled -> {
