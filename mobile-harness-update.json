@@ -1,12 +1,12 @@
 {
-  "versionCode": 36,
-  "versionName": "1.11.0",
-  "notes": "Mobile Harness Code — v1.11.0: adds a Signing Key Vault (create/import/export/backup/restore signing keys, RSA & EC, JKS & PKCS12) and in-process signing & verification of arbitrary APK (v1/v2/v3/v4), AAB and split (APKS/XAPK/APKM) files — powered by the official Android apksig library and BouncyCastle, ported from Signiffia (Apache-2.0). The existing release pipeline, Compose, XML, Web App, ZIP import, Android SDK, PRoot, Gradle and plugin system are unchanged. This APK is SIGNED (V1+V2, production key) so OEM installers (vivo/OPPO) that reject V3-only APKs accept it; install mobile-harness-online.apk.",
+  "versionCode": 37,
+  "versionName": "1.12.0",
+  "notes": "Mobile Harness Code — v1.12.0: central AI provider library upgrade. Adds a remote AI provider catalog (SHA-256 verified, offline fallback), automatic model discovery with an offline cache, per-provider API-key rotation (enable/disable, invalid/no-credit keys disabled automatically, never cross-provider), a shared capability/compatibility gate for streaming/tool-calling/vision, per-provider named configs and per-tool default models, and Azure OpenAI api-key header support. DeepSeek, Claude Code, Sidekick, Compose/XML/Web App, SDK, PRoot, Gradle and plugin systems are unchanged. This APK is SIGNED (V1+V2, production key); install mobile-harness-online.apk.",
   "artifacts": {
     "online": {
-      "url": "https://github.com/Konprostart/mobile-harness-code/releases/download/v1.11.0/mobile-harness-online.apk",
-      "sha256": "31e7867d2b2cf8efcc2e7eef2699161392beda8329de3d3eb1f8b6e2aa67ad94",
-      "sizeBytes": 108269931
+      "url": "https://github.com/Konprostart/mobile-harness-code/releases/download/v1.12.0/mobile-harness-online.apk",
+      "sha256": "18f2292da54575a053e74b6efd93bc5dfa9b4422b8de340969a41f7a4bd69e99",
+      "sizeBytes": 108421483
     }
   }
 }
