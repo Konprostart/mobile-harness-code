@@ -420,7 +420,9 @@ class AgentProviderPresetTest {
             dshApi = "openai-completions",
         )
         assertEquals(ProviderProtocol.OPENAI_CHAT, providerProtocolForAgent(profile, AgentKind.DEEPSEEK_HARNESS))
-        assertEquals(ProviderProtocol.ANTHROPIC_GATEWAY, providerProtocolForAgent(profile, AgentKind.CLAUDE_CODE))
+        // Claude Code now also honors a custom OpenAI-completions route, translating it through
+        // the local format gateway instead of forcing every custom provider to Anthropic format.
+        assertEquals(ProviderProtocol.OPENAI_CHAT, providerProtocolForAgent(profile, AgentKind.CLAUDE_CODE))
     }
 
     @Test
