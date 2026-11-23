@@ -254,6 +254,7 @@ import com.mobileharness.code.runtime.AndroidHealthFix
 import com.mobileharness.code.runtime.AndroidHealthStatus
 import com.mobileharness.code.runtime.AndroidLogLevel
 import com.mobileharness.code.runtime.AndroidLogLine
+import com.mobileharness.code.runtime.WebTemplate
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.horizontalScroll
@@ -2559,6 +2560,7 @@ private fun RootScreenHost(
                     onCreateQuickProject = viewModel::createQuickProject,
                     onImportZip = viewModel::importZipProject,
                     onImportWebAppZip = viewModel::importWebAppZip,
+                    onCreateFromTemplate = viewModel::createProjectFromTemplate,
                     onCloneGit = viewModel::clonePublicGitRepository,
                     onStartGitHubLogin = viewModel::startGitHubLogin,
                     onGenerateNewGitHubCode = viewModel::generateNewGitHubCode,
@@ -3696,6 +3698,7 @@ private fun ProjectsScreen(
     onCreateQuickProject: () -> Unit,
     onImportZip: (Uri) -> Unit,
     onImportWebAppZip: (Uri) -> Unit,
+    onCreateFromTemplate: (WebTemplate) -> Unit,
     onCloneGit: (String) -> Unit,
     onStartGitHubLogin: () -> Unit,
     onGenerateNewGitHubCode: () -> Unit,
@@ -3719,6 +3722,7 @@ private fun ProjectsScreen(
     var showGitDialog by rememberSaveable { mutableStateOf(false) }
     var showGitHubDialog by rememberSaveable { mutableStateOf(false) }
     var showGitProvidersDialog by rememberSaveable { mutableStateOf(false) }
+    var showTemplateLibrary by rememberSaveable { mutableStateOf(false) }
     var gitProviderId by rememberSaveable { mutableStateOf<String?>(null) }
     var gpHost by rememberSaveable { mutableStateOf("") }
     var gpToken by remember { mutableStateOf("") }
@@ -3921,6 +3925,22 @@ private fun ProjectsScreen(
                                         Column(Modifier.weight(1f)) {
                                             Text(stringResource(R.string.webapp_import), fontSize = 12.5.sp, fontWeight = FontWeight.SemiBold)
                                             Text(stringResource(R.string.webapp_import_desc), fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                        }
+                                        Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    }
+                                }
+                                Surface(
+                                    modifier = Modifier.fillMaxWidth().clickable(enabled = !state.projectImporting && !state.gitCloneRunning) { showTemplateLibrary = true },
+                                    color = MaterialTheme.colorScheme.surface,
+                                    shape = RoundedCornerShape(13.dp),
+                                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+                                ) {
+                                    Row(Modifier.padding(horizontal = 12.dp, vertical = 11.dp), verticalAlignment = Alignment.CenterVertically) {
+                                        Icon(Icons.Default.AutoAwesome, null, tint = PocketOrange, modifier = Modifier.size(19.dp))
+                                        Spacer(Modifier.width(10.dp))
+                                        Column(Modifier.weight(1f)) {
+                                            Text(stringResource(R.string.template_library_open), fontSize = 12.5.sp, fontWeight = FontWeight.SemiBold)
+                                            Text(stringResource(R.string.template_library_open_desc), fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                         }
                                         Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
                                     }
@@ -4377,6 +4397,16 @@ private fun ProjectsScreen(
                 dismissButton = { TextButton(onClick = { gpShowCreate = false; gpCreateName = "" }) { Text(stringResource(R.string.action_cancel)) } },
             )
         }
+    }
+    if (showTemplateLibrary) {
+        TemplateLibraryDialog(
+            state = state,
+            onDismiss = { showTemplateLibrary = false },
+            onCreateFromTemplate = { template ->
+                onCreateFromTemplate(template)
+                showTemplateLibrary = false
+            },
+        )
     }
     val update = state.appUpdate
     if (showUpdateDialog && update != null) {

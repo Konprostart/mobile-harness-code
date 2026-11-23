@@ -131,9 +131,13 @@ import com.mobileharness.code.runtime.AndroidLogLevel
 import com.mobileharness.code.runtime.AndroidLogLine
 import com.mobileharness.code.runtime.AndroidLogcatState
 import com.mobileharness.code.runtime.AndroidProjectTemplateGenerator
+import com.mobileharness.code.runtime.TemplateCategory
 import com.mobileharness.code.runtime.WebAppKind
 import com.mobileharness.code.runtime.WebAppProjectConfig
+import com.mobileharness.code.runtime.WebAppScanResult
 import com.mobileharness.code.runtime.WebAppZipScanner
+import com.mobileharness.code.runtime.WebTemplate
+import com.mobileharness.code.runtime.WebTemplateStore
 import com.mobileharness.code.runtime.GradleMemory
 import com.mobileharness.code.runtime.GradleMemoryProfile
 import com.mobileharness.code.runtime.ReleasePipelineOutcome
@@ -713,6 +717,8 @@ data class AppUiState(
     val accountCreatedAtMillis: Long = 0L,
     val accountLastBackupMillis: Long = 0L,
     val accountMessage: String? = null,
+    val templateCatalog: List<WebTemplate> = emptyList(),
+    val templateCatalogLoading: Boolean = false,
     val gradleMemoryAuto: Boolean = true,
     val gradleMaxHeapMb: Int = 0,
     val gradleMaxMetaspaceMb: Int = 0,
@@ -786,6 +792,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val dshRuntime = DshRuntimeBridge(application) { profile -> vault.get(profile.kind.name) }
     private val installer = RuntimeInstaller(application)
     private val gitProviderManager = GitProviderManager()
+    private val templateStore = WebTemplateStore(application)
     private val antigravityRuntime = AntigravityRuntimeBridge(
         application,
         model = { _state.value.antigravityModel },
@@ -944,6 +951,16 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         if (_state.value.backupFeatureSeen) return
         preferences.backupFeatureSeen = true
         _state.update { it.copy(backupFeatureSeen = true) }
+    }
+
+    /** Loads the bundled Template Library catalog (idempotent; entries are validated fail-closed). */
+    fun loadTemplateCatalog() {
+        if (_state.value.templateCatalogLoading || _state.value.templateCatalog.isNotEmpty()) return
+        _state.update { it.copy(templateCatalogLoading = true) }
+        viewModelScope.launch {
+            val catalog = withContext(Dispatchers.IO) { templateStore.loadCatalog() }
+            _state.update { it.copy(templateCatalogLoading = false, templateCatalog = catalog) }
+        }
     }
 
     /** Creates the local, password-based account. The password is used only to derive a verifier. */
@@ -1749,6 +1766,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     init {
+        loadTemplateCatalog()
         viewModelScope.launch {
             AndroidAppInstaller.events.collect { event ->
                 if (event.operationId != pendingAndroidInstallId) return@collect
@@ -4821,49 +4839,121 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         try {
             safeExtractZip(uri, staging)
             val scan = WebAppZipScanner.scan(staging)
-            require(scan.isReady) {
-                when (scan.kind) {
-                    WebAppKind.NPM_REQUIRED -> str(R.string.webapp_needs_build)
-                    WebAppKind.BACKEND_REQUIRED -> str(R.string.webapp_backend)
-                    else -> str(R.string.webapp_no_entry)
-                }
-            }
-            val manifest = scan.manifest
-            val appName = manifest?.name?.takeIf { it.isNotBlank() }
-                ?: archiveName.removeSuffix(".zip").take(60).ifBlank { "Web App" }
-            val cleanName = appName.replace(Regex("\\s+"), " ").trim().take(60)
-            val baseSlug = projectSlug(cleanName)
-            val usedSlugs = _state.value.projects.mapTo(mutableSetOf()) { it.slug }
-            val slug = generateSequence(1) { it + 1 }
-                .map { number -> if (number == 1) baseSlug else "$baseSlug-$number" }
-                .first { it !in usedSlugs }
-            val project = Project(
-                name = cleanName,
-                description = manifest?.description?.take(160)?.takeIf { it.isNotBlank() }
-                    ?: "Android · Web App (HTML/CSS/JS)",
-                language = "HTML/CSS/JS",
-                slug = slug,
-                type = ProjectType.ANDROID,
-                androidTemplate = AndroidTemplate.WEB,
-            )
-            AndroidProjectTemplateGenerator.generate(
-                destination = destination,
-                appName = cleanName,
-                template = AndroidTemplate.WEB,
-                gradleMemoryProfile = resolveGradleMemoryProfile(),
-                web = WebAppProjectConfig(
-                    sourceDir = scan.assetRoot,
-                    entryPoint = scan.entryPoint,
-                    manifest = manifest,
-                ),
-            )
-            return project
+            require(scan.isReady) { scanNotReadyMessage(scan) }
+            return finishWebAppProject(scan, archiveName, projectId, destination)
         } catch (error: Throwable) {
             if (destination.exists()) destination.deleteRecursively()
             throw error
         } finally {
             staging.deleteRecursively()
         }
+    }
+
+    /** Turns a downloaded/selected library template into a WEB project through the same pipeline as ZIP import. */
+    fun createProjectFromTemplate(template: WebTemplate) {
+        if (_state.value.projectImporting || _state.value.isRunning || _state.value.projectTerminalRunning || _state.value.androidBuildRunning) return
+        if (!template.isReady) {
+            _state.update {
+                it.copy(
+                    toastMessage = when {
+                        template.backendRequired -> str(R.string.template_needs_backend)
+                        template.buildRequired -> str(R.string.template_needs_build)
+                        else -> str(R.string.template_not_ready)
+                    },
+                )
+            }
+            return
+        }
+        _state.update { it.copy(projectImporting = true, projectImportMessage = str(R.string.template_importing, template.name)) }
+        viewModelScope.launch {
+            val result = withContext(Dispatchers.IO) { runCatching { buildWebAppFromTemplate(template) } }
+            result.onSuccess { project ->
+                val firstChat = ProjectChat(title = str(R.string.vm_new_chat))
+                preferences.saveProjectChats(project.id, listOf(firstChat))
+                _state.update { current ->
+                    current.copy(
+                        projects = listOf(project) + current.projects,
+                        projectImporting = false,
+                        projectImportMessage = null,
+                        toastMessage = str(R.string.template_created, project.name),
+                    )
+                }
+                preferences.saveProjects(_state.value.projects)
+                openProject(project)
+            }.onFailure { error ->
+                _state.update {
+                    it.copy(
+                        projectImporting = false,
+                        projectImportMessage = null,
+                        toastMessage = str(R.string.template_import_failed, error.message?.take(180) ?: str(R.string.vm_invalid_zip)),
+                    )
+                }
+            }
+        }
+    }
+
+    private fun buildWebAppFromTemplate(template: WebTemplate): Project {
+        val app = getApplication<Application>()
+        val projectId = UUID.randomUUID().toString()
+        val staging = File(app.cacheDir, "template-import/$projectId")
+        staging.mkdirs()
+        val destination = File(app.filesDir, "workspaces/$projectId")
+        try {
+            templateStore.materialize(template, staging)
+            val scan = WebAppZipScanner.scan(staging)
+            require(scan.isReady) { scanNotReadyMessage(scan) }
+            return finishWebAppProject(scan, template.name, projectId, destination)
+        } catch (error: Throwable) {
+            if (destination.exists()) destination.deleteRecursively()
+            throw error
+        } finally {
+            staging.deleteRecursively()
+        }
+    }
+
+    private fun scanNotReadyMessage(scan: WebAppScanResult): String = when (scan.kind) {
+        WebAppKind.NPM_REQUIRED -> str(R.string.webapp_needs_build)
+        WebAppKind.BACKEND_REQUIRED -> str(R.string.webapp_backend)
+        else -> str(R.string.webapp_no_entry)
+    }
+
+    /** Shared tail: turns a scanned asset tree into a generated WEB project and returns its record. */
+    private fun finishWebAppProject(
+        scan: WebAppScanResult,
+        fallbackName: String,
+        projectId: String,
+        destination: File,
+    ): Project {
+        val manifest = scan.manifest
+        val appName = manifest?.name?.takeIf { it.isNotBlank() }
+            ?: fallbackName.removeSuffix(".zip").take(60).ifBlank { "Web App" }
+        val cleanName = appName.replace(Regex("\\s+"), " ").trim().take(60)
+        val baseSlug = projectSlug(cleanName)
+        val usedSlugs = _state.value.projects.mapTo(mutableSetOf()) { it.slug }
+        val slug = generateSequence(1) { it + 1 }
+            .map { number -> if (number == 1) baseSlug else "$baseSlug-$number" }
+            .first { it !in usedSlugs }
+        val project = Project(
+            name = cleanName,
+            description = manifest?.description?.take(160)?.takeIf { it.isNotBlank() }
+                ?: "Android · Web App (HTML/CSS/JS)",
+            language = "HTML/CSS/JS",
+            slug = slug,
+            type = ProjectType.ANDROID,
+            androidTemplate = AndroidTemplate.WEB,
+        )
+        AndroidProjectTemplateGenerator.generate(
+            destination = destination,
+            appName = cleanName,
+            template = AndroidTemplate.WEB,
+            gradleMemoryProfile = resolveGradleMemoryProfile(),
+            web = WebAppProjectConfig(
+                sourceDir = scan.assetRoot,
+                entryPoint = scan.entryPoint,
+                manifest = manifest,
+            ),
+        )
+        return project
     }
 
     /** Extracts a ZIP into [destination] using the same path-traversal/size/entry guards as the coding-project import. */

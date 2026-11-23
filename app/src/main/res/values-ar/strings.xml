@@ -228,6 +228,42 @@
     <string name="webapp_importing">جارٍ تجهيز تطبيق الويب…</string>
     <string name="webapp_imported">تم إنشاء تطبيق الويب "%1$s".</string>
     <string name="webapp_import_failed">فشل استيراد تطبيق الويب: %1$s</string>
+    <string name="template_library_title">مكتبة القوالب</string>
+    <string name="template_library_desc">تطبيقات ويب جاهزة — حوّل أحدها إلى APK</string>
+    <string name="template_search">البحث في القوالب</string>
+    <string name="template_loading">جارٍ تحميل القوالب…</string>
+    <string name="template_empty">لا توجد قوالب تطابق بحثك.</string>
+    <string name="template_ready">جاهز</string>
+    <string name="template_needs_build">يحتاج إلى بناء</string>
+    <string name="template_needs_backend">يحتاج إلى خادم</string>
+    <string name="template_needs_build_desc">يجب بناء هذا المشروع أولاً (npm/Node). استورد مجلد dist/ أو build/ مُنشأ بدلاً من ذلك.</string>
+    <string name="template_needs_backend_desc">يتطلب هذا المشروع خادماً خلفياً ولا يمكنه العمل دون اتصال كلياً كتطبيق WebView محلي.</string>
+    <string name="template_create_project">إنشاء مشروع</string>
+    <string name="template_view_source">المصدر</string>
+    <string name="template_open">فتح</string>
+    <string name="template_license">الترخيص: %1$s</string>
+    <string name="template_license_info">الترخيص</string>
+    <string name="template_availability">التوفر</string>
+    <string name="template_bundled">دون اتصال (مضمّن)</string>
+    <string name="template_download">يُنزَّل عند الطلب</string>
+    <string name="template_not_downloadable">غير قابل للتنزيل</string>
+    <string name="template_importing">جارٍ تجهيز "%1$s"…</string>
+    <string name="template_created">تم إنشاء "%1$s".</string>
+    <string name="template_import_failed">فشل استيراد القالب: %1$s</string>
+    <string name="template_not_ready">لا يمكن بناء هذا القالب بعد.</string>
+    <string name="template_category_all">الكل</string>
+    <string name="template_category_wallet">المحافظ والمالية</string>
+    <string name="template_category_dashboard">لوحات التحكم</string>
+    <string name="template_category_ecommerce">التجارة الإلكترونية</string>
+    <string name="template_category_chat">الدردشة</string>
+    <string name="template_category_media">الوسائط</string>
+    <string name="template_category_portfolio">المعرض الشخصي</string>
+    <string name="template_category_productivity">الإنتاجية</string>
+    <string name="template_category_tools">الأدوات</string>
+    <string name="template_category_files">الملفات</string>
+    <string name="template_category_landing">صفحات الهبوط</string>
+    <string name="template_library_open">مكتبة القوالب</string>
+    <string name="template_library_open_desc">تصفّح التطبيقات الجاهزة وحوّل أحدها إلى APK</string>
 <string name="android_estimated_remaining">متبقٍ نحو %1$s</string><string name="android_finishing_build">جارٍ إنهاء البناء…</string><string name="android_estimating_build">جارٍ تعلّم مدة البناء…</string><string name="android_usually_takes">عادةً نحو %1$s</string>
 <string name="diagnostics_title">تشخيصات المطور</string><string name="diagnostics_subtitle">الأداء والعمليات وتخزين بيئة التشغيل</string><string name="diagnostics_refresh">تحديث التشخيصات</string><string name="diagnostics_memory">الذاكرة</string><string name="diagnostics_app_memory">ذاكرة التطبيق</string><string name="diagnostics_java_heap">ذاكرة Java</string><string name="diagnostics_processes">العمليات النشطة</string><string name="diagnostics_no_processes">لا توجد عملية تطوير قيد التشغيل</string><string name="diagnostics_stop_inactive">إيقاف العمليات غير النشطة</string><string name="diagnostics_buffers">المخازن المؤقتة</string><string name="diagnostics_messages">رسائل المحادثة</string><string name="diagnostics_live_activity">صفوف النشاط المباشر</string><string name="diagnostics_terminal_buffer">نص الطرفية</string><string name="diagnostics_build_log">سجل البناء</string><string name="diagnostics_logcat_lines">أسطر السجل</string><string name="diagnostics_file_entries">إدخالات الملفات المحملة</string><string name="diagnostics_runtime_cache">ذاكرة مخرجات التشغيل</string><string name="diagnostics_cached_output">المخرجات المخزنة</string><string name="diagnostics_clear_cache">مسح المخرجات المؤقتة</string><string name="diagnostics_cache_disabled">يتاح بعد انتهاء العمل النشط.</string><string name="diagnostics_recent_exit">مشكلة حديثة في التطبيق</string><string name="diagnostics_no_recent_exit">لا يوجد تعطل أو عدم استجابة حديث</string><string name="diagnostics_inactive_stopped">تم إيقاف العمليات غير النشطة</string><string name="diagnostics_cache_busy">انتظر انتهاء العمل النشط قبل المسح</string><string name="diagnostics_cache_cleared">تم مسح مخرجات التشغيل المؤقتة</string>
 <string name="gradle_memory_title">ذاكرة بناء Android</string><string name="gradle_memory_subtitle">الذاكرة المؤقتة والمساحة الوصفية لعمليات البناء على هذا الهاتف</string><string name="gradle_memory_auto_label">تلقائي (موصى به)</string><string name="gradle_memory_auto_desc">مشتق من %1$d ميجابايت من ذاكرة الجهاز</string><string name="gradle_memory_manual_label">تجاوز يدوي</string><string name="gradle_memory_heap_label">الحد الأقصى للذاكرة المؤقتة (ميجابايت)</string><string name="gradle_memory_metaspace_label">الحد الأقصى للمساحة الوصفية (ميجابايت)</string><string name="gradle_memory_effective">الفعلي: %1$s</string><string name="gradle_memory_save_override">حفظ التجاوز</string>

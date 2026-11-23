@@ -222,6 +222,42 @@
     <string name="webapp_importing">वेब ऐप तैयार किया जा रहा है…</string>
     <string name="webapp_imported">वेब ऐप "%1$s" बनाया गया।</string>
     <string name="webapp_import_failed">वेब ऐप आयात विफल: %1$s</string>
+    <string name="template_library_title">टेम्पलेट लाइब्रेरी</string>
+    <string name="template_library_desc">उपयोग के लिए तैयार वेब ऐप — किसी एक को APK में बदलें</string>
+    <string name="template_search">टेम्पलेट खोजें</string>
+    <string name="template_loading">टेम्पलेट लोड हो रहे हैं…</string>
+    <string name="template_empty">आपकी खोज से कोई टेम्पलेट मेल नहीं खाता।</string>
+    <string name="template_ready">तैयार</string>
+    <string name="template_needs_build">बिल्ड आवश्यक</string>
+    <string name="template_needs_backend">सर्वर आवश्यक</string>
+    <string name="template_needs_build_desc">इस प्रोजेक्ट को पहले बिल्ड करना होगा (npm/Node)। इसके बजाय बना हुआ dist/ या build/ फ़ोल्डर आयात करें।</string>
+    <string name="template_needs_backend_desc">इस प्रोजेक्ट को बैकएंड सर्वर चाहिए और यह लोकल WebView ऐप के रूप में पूरी तरह ऑफ़लाइन नहीं चल सकता।</string>
+    <string name="template_create_project">प्रोजेक्ट बनाएँ</string>
+    <string name="template_view_source">स्रोत</string>
+    <string name="template_open">खोलें</string>
+    <string name="template_license">लाइसेंस: %1$s</string>
+    <string name="template_license_info">लाइसेंस</string>
+    <string name="template_availability">उपलब्धता</string>
+    <string name="template_bundled">ऑफ़लाइन (शामिल)</string>
+    <string name="template_download">माँग पर डाउनलोड</string>
+    <string name="template_not_downloadable">डाउनलोड नहीं किया जा सकता</string>
+    <string name="template_importing">"%1$s" तैयार किया जा रहा है…</string>
+    <string name="template_created">"%1$s" बनाया गया।</string>
+    <string name="template_import_failed">टेम्पलेट आयात विफल: %1$s</string>
+    <string name="template_not_ready">यह टेम्पलेट अभी बिल्ड नहीं किया जा सकता।</string>
+    <string name="template_category_all">सभी</string>
+    <string name="template_category_wallet">वॉलेट और वित्त</string>
+    <string name="template_category_dashboard">डैशबोर्ड</string>
+    <string name="template_category_ecommerce">ई-कॉमर्स</string>
+    <string name="template_category_chat">चैट</string>
+    <string name="template_category_media">मीडिया</string>
+    <string name="template_category_portfolio">पोर्टफोलियो</string>
+    <string name="template_category_productivity">उत्पादकता</string>
+    <string name="template_category_tools">उपकरण</string>
+    <string name="template_category_files">फ़ाइलें</string>
+    <string name="template_category_landing">लैंडिंग पेज</string>
+    <string name="template_library_open">टेम्पलेट लाइब्रेरी</string>
+    <string name="template_library_open_desc">तैयार ऐप ब्राउज़ करें और किसी एक को APK में बदलें</string>
 <string name="android_estimated_remaining">लगभग %1$s शेष</string><string name="android_finishing_build">बिल्ड पूरा हो रहा है…</string><string name="android_estimating_build">बिल्ड समय सीखा जा रहा है…</string><string name="android_usually_takes">आमतौर पर लगभग %1$s</string>
 <string name="diagnostics_title">डेवलपर डायग्नोस्टिक्स</string><string name="diagnostics_subtitle">परफ़ॉर्मेंस, प्रोसेस और रनटाइम स्टोरेज</string><string name="diagnostics_refresh">डायग्नोस्टिक्स रीफ़्रेश करें</string><string name="diagnostics_memory">मेमोरी</string><string name="diagnostics_app_memory">ऐप मेमोरी</string><string name="diagnostics_java_heap">Java हीप</string><string name="diagnostics_processes">सक्रिय प्रोसेस</string><string name="diagnostics_no_processes">कोई डेवलपमेंट प्रोसेस नहीं चल रही</string><string name="diagnostics_stop_inactive">निष्क्रिय प्रोसेस रोकें</string><string name="diagnostics_buffers">ऐप बफ़र</string><string name="diagnostics_messages">चैट संदेश</string><string name="diagnostics_live_activity">लाइव गतिविधि पंक्तियाँ</string><string name="diagnostics_terminal_buffer">टर्मिनल टेक्स्ट</string><string name="diagnostics_build_log">बिल्ड लॉग</string><string name="diagnostics_logcat_lines">लॉग पंक्तियाँ</string><string name="diagnostics_file_entries">लोड की गई फ़ाइलें</string><string name="diagnostics_runtime_cache">रनटाइम आउटपुट कैश</string><string name="diagnostics_cached_output">कैश किया आउटपुट</string><string name="diagnostics_clear_cache">अस्थायी आउटपुट साफ़ करें</string><string name="diagnostics_cache_disabled">सक्रिय काम पूरा होने के बाद उपलब्ध।</string><string name="diagnostics_recent_exit">हाल की ऐप समस्या</string><string name="diagnostics_no_recent_exit">कोई हाल का क्रैश या ANR नहीं</string><string name="diagnostics_inactive_stopped">निष्क्रिय प्रोसेस रोक दी गईं</string><string name="diagnostics_cache_busy">साफ़ करने से पहले सक्रिय काम पूरा होने दें</string><string name="diagnostics_cache_cleared">अस्थायी आउटपुट साफ़ किया गया</string>
 <string name="gradle_memory_title">Android बिल्ड मेमोरी</string><string name="gradle_memory_subtitle">इस फ़ोन पर बिल्ड के लिए हीप और मेटास्पेस</string><string name="gradle_memory_auto_label">स्वचालित (अनुशंसित)</string><string name="gradle_memory_auto_desc">डिवाइस RAM के %1$d MiB से व्युत्पन्न</string><string name="gradle_memory_manual_label">मैन्युअल ओवरराइड</string><string name="gradle_memory_heap_label">अधिकतम हीप (MiB)</string><string name="gradle_memory_metaspace_label">अधिकतम मेटास्पेस (MiB)</string><string name="gradle_memory_effective">प्रभावी: %1$s</string><string name="gradle_memory_save_override">ओवरराइड सहेजें</string>

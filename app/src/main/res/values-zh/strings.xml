@@ -222,6 +222,42 @@
     <string name="webapp_importing">正在打包 Web 应用…</string>
     <string name="webapp_imported">已创建 Web 应用 "%1$s"。</string>
     <string name="webapp_import_failed">Web 应用导入失败：%1$s</string>
+    <string name="template_library_title">模板库</string>
+    <string name="template_library_desc">现成的 Web 应用 — 把其中一个变成 APK</string>
+    <string name="template_search">搜索模板</string>
+    <string name="template_loading">正在加载模板…</string>
+    <string name="template_empty">没有与搜索匹配的模板。</string>
+    <string name="template_ready">就绪</string>
+    <string name="template_needs_build">需要构建</string>
+    <string name="template_needs_backend">需要服务器</string>
+    <string name="template_needs_build_desc">此项目需先构建（npm/Node）。请导入已构建好的 dist/ 或 build/ 文件夹。</string>
+    <string name="template_needs_backend_desc">此项目需要后端服务器，无法作为本地 WebView 应用完全离线运行。</string>
+    <string name="template_create_project">创建项目</string>
+    <string name="template_view_source">来源</string>
+    <string name="template_open">打开</string>
+    <string name="template_license">许可证：%1$s</string>
+    <string name="template_license_info">许可证</string>
+    <string name="template_availability">可用性</string>
+    <string name="template_bundled">离线（内置）</string>
+    <string name="template_download">按需下载</string>
+    <string name="template_not_downloadable">不可下载</string>
+    <string name="template_importing">正在准备 "%1$s"…</string>
+    <string name="template_created">已创建 "%1$s"。</string>
+    <string name="template_import_failed">模板导入失败：%1$s</string>
+    <string name="template_not_ready">此模板尚无法构建。</string>
+    <string name="template_category_all">全部</string>
+    <string name="template_category_wallet">钱包与金融</string>
+    <string name="template_category_dashboard">仪表盘</string>
+    <string name="template_category_ecommerce">电子商务</string>
+    <string name="template_category_chat">聊天</string>
+    <string name="template_category_media">媒体</string>
+    <string name="template_category_portfolio">作品集</string>
+    <string name="template_category_productivity">生产力</string>
+    <string name="template_category_tools">工具</string>
+    <string name="template_category_files">文件</string>
+    <string name="template_category_landing">落地页</string>
+    <string name="template_library_open">模板库</string>
+    <string name="template_library_open_desc">浏览现成应用并把其中一个变成 APK</string>
 <string name="android_estimated_remaining">预计还需 %1$s</string><string name="android_finishing_build">正在完成构建…</string><string name="android_estimating_build">正在学习构建时间…</string><string name="android_usually_takes">通常约需 %1$s</string>
 <string name="diagnostics_title">开发者诊断</string><string name="diagnostics_subtitle">性能、进程和运行时存储</string><string name="diagnostics_refresh">刷新诊断</string><string name="diagnostics_memory">内存</string><string name="diagnostics_app_memory">应用内存</string><string name="diagnostics_java_heap">Java 堆</string><string name="diagnostics_processes">活动进程</string><string name="diagnostics_no_processes">没有正在运行的开发进程</string><string name="diagnostics_stop_inactive">停止非活动进程</string><string name="diagnostics_buffers">应用内缓冲区</string><string name="diagnostics_messages">聊天消息</string><string name="diagnostics_live_activity">实时活动行</string><string name="diagnostics_terminal_buffer">终端文本</string><string name="diagnostics_build_log">构建日志</string><string name="diagnostics_logcat_lines">日志行</string><string name="diagnostics_file_entries">已加载文件条目</string><string name="diagnostics_runtime_cache">运行时输出缓存</string><string name="diagnostics_cached_output">缓存输出</string><string name="diagnostics_clear_cache">清除临时输出</string><string name="diagnostics_cache_disabled">活动任务结束后可用。</string><string name="diagnostics_recent_exit">最近的应用问题</string><string name="diagnostics_no_recent_exit">没有最近的崩溃或 ANR</string><string name="diagnostics_inactive_stopped">已停止非活动进程</string><string name="diagnostics_cache_busy">请等待活动任务完成后再清除</string><string name="diagnostics_cache_cleared">已清除临时运行时输出</string>
 <string name="gradle_memory_title">Android 构建内存</string><string name="gradle_memory_subtitle">此手机上构建所用的堆和元空间</string><string name="gradle_memory_auto_label">自动（推荐）</string><string name="gradle_memory_auto_desc">根据设备 %1$d MiB 内存推导</string><string name="gradle_memory_manual_label">手动覆盖</string><string name="gradle_memory_heap_label">最大堆 (MiB)</string><string name="gradle_memory_metaspace_label">最大元空间 (MiB)</string><string name="gradle_memory_effective">当前生效：%1$s</string><string name="gradle_memory_save_override">保存覆盖</string>

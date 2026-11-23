@@ -222,6 +222,42 @@
     <string name="webapp_importing">Preparando la app web…</string>
     <string name="webapp_imported">Se creó la app web "%1$s".</string>
     <string name="webapp_import_failed">Error al importar la app web: %1$s</string>
+    <string name="template_library_title">Biblioteca de plantillas</string>
+    <string name="template_library_desc">Aplicaciones web listas para usar: convierte una en APK</string>
+    <string name="template_search">Buscar plantillas</string>
+    <string name="template_loading">Cargando plantillas…</string>
+    <string name="template_empty">Ninguna plantilla coincide con tu búsqueda.</string>
+    <string name="template_ready">Lista</string>
+    <string name="template_needs_build">Necesita build</string>
+    <string name="template_needs_backend">Necesita servidor</string>
+    <string name="template_needs_build_desc">Este proyecto debe compilarse primero (npm/Node). Importa una carpeta dist/ o build/ ya construida.</string>
+    <string name="template_needs_backend_desc">Este proyecto requiere un backend y no puede funcionar totalmente offline como app WebView local.</string>
+    <string name="template_create_project">Crear proyecto</string>
+    <string name="template_view_source">Fuente</string>
+    <string name="template_open">Abrir</string>
+    <string name="template_license">Licencia: %1$s</string>
+    <string name="template_license_info">Licencia</string>
+    <string name="template_availability">Disponibilidad</string>
+    <string name="template_bundled">Offline (incluida)</string>
+    <string name="template_download">Descarga bajo demanda</string>
+    <string name="template_not_downloadable">No descargable</string>
+    <string name="template_importing">Preparando "%1$s"…</string>
+    <string name="template_created">Se creó "%1$s".</string>
+    <string name="template_import_failed">Error al importar la plantilla: %1$s</string>
+    <string name="template_not_ready">Esta plantilla aún no se puede compilar.</string>
+    <string name="template_category_all">Todas</string>
+    <string name="template_category_wallet">Carteras y finanzas</string>
+    <string name="template_category_dashboard">Paneles</string>
+    <string name="template_category_ecommerce">Comercio electrónico</string>
+    <string name="template_category_chat">Chat</string>
+    <string name="template_category_media">Multimedia</string>
+    <string name="template_category_portfolio">Portafolio</string>
+    <string name="template_category_productivity">Productividad</string>
+    <string name="template_category_tools">Herramientas</string>
+    <string name="template_category_files">Archivos</string>
+    <string name="template_category_landing">Páginas de inicio</string>
+    <string name="template_library_open">Biblioteca de plantillas</string>
+    <string name="template_library_open_desc">Explora apps listas y convierte una en APK</string>
 <string name="android_estimated_remaining">Quedan unos %1$s</string><string name="android_finishing_build">Finalizando compilación…</string><string name="android_estimating_build">Calculando el tiempo…</string><string name="android_usually_takes">Suele tardar unos %1$s</string>
 <string name="diagnostics_title">Diagnóstico para desarrolladores</string><string name="diagnostics_subtitle">Rendimiento, procesos y almacenamiento</string><string name="diagnostics_refresh">Actualizar diagnóstico</string><string name="diagnostics_memory">Memoria</string><string name="diagnostics_app_memory">Memoria de la app</string><string name="diagnostics_java_heap">Memoria Java</string><string name="diagnostics_processes">Procesos activos</string><string name="diagnostics_no_processes">No hay procesos de desarrollo activos</string><string name="diagnostics_stop_inactive">Detener procesos inactivos</string><string name="diagnostics_buffers">Búferes internos</string><string name="diagnostics_messages">Mensajes del chat</string><string name="diagnostics_live_activity">Filas de actividad</string><string name="diagnostics_terminal_buffer">Texto del terminal</string><string name="diagnostics_build_log">Registro de compilación</string><string name="diagnostics_logcat_lines">Líneas de registro</string><string name="diagnostics_file_entries">Archivos cargados</string><string name="diagnostics_runtime_cache">Caché de ejecución</string><string name="diagnostics_cached_output">Salida almacenada</string><string name="diagnostics_clear_cache">Borrar salida temporal</string><string name="diagnostics_cache_disabled">Disponible cuando termine el trabajo activo.</string><string name="diagnostics_recent_exit">Problema reciente</string><string name="diagnostics_no_recent_exit">No hay fallos ni ANR recientes</string><string name="diagnostics_inactive_stopped">Procesos inactivos detenidos</string><string name="diagnostics_cache_busy">Espera a que termine el trabajo activo</string><string name="diagnostics_cache_cleared">Salida temporal eliminada</string>
 <string name="gradle_memory_title">Memoria de compilación de Android</string><string name="gradle_memory_subtitle">Montículo y metaespacio para compilaciones en este teléfono</string><string name="gradle_memory_auto_label">Automático (recomendado)</string><string name="gradle_memory_auto_desc">Derivado de %1$d MiB de RAM del dispositivo</string><string name="gradle_memory_manual_label">Anulación manual</string><string name="gradle_memory_heap_label">Montículo máximo (MiB)</string><string name="gradle_memory_metaspace_label">Metaespacio máximo (MiB)</string><string name="gradle_memory_effective">Efectivo: %1$s</string><string name="gradle_memory_save_override">Guardar anulación</string>
