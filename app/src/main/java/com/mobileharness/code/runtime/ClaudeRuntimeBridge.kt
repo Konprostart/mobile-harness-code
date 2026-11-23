@@ -12,9 +12,11 @@ import com.mobileharness.code.model.ChatMessage
 import com.mobileharness.code.model.ChangeItem
 import com.mobileharness.code.model.DiffLine
 import com.mobileharness.code.model.DiffLineType
+import com.mobileharness.code.model.AgentKind
 import com.mobileharness.code.model.ProviderKind
 import com.mobileharness.code.model.ProjectKind
 import com.mobileharness.code.model.ProviderProfile
+import com.mobileharness.code.model.providerProtocolForAgent
 import com.mobileharness.code.model.RecoveryDecision
 import com.mobileharness.code.model.RecoveryFailureInfo
 import com.mobileharness.code.model.RiskLevel
@@ -258,7 +260,7 @@ class ClaudeRuntimeBridge(
             val workspace = ensureWorkspace(projectId)
             createCheckpoint(projectId, workspace)
             val before = snapshot(workspace)
-            formatGateway = if (provider.kind.protocol in setOf(
+            formatGateway = if (providerProtocolForAgent(provider, AgentKind.CLAUDE_CODE) in setOf(
                     com.mobileharness.code.model.ProviderProtocol.OPENAI_CHAT,
                     com.mobileharness.code.model.ProviderProtocol.OPENAI_RESPONSES,
                 )) LocalFormatGateway(provider, secret).start() else null

@@ -2,6 +2,8 @@ package com.mobileharness.code.sidekick
 
 import com.mobileharness.code.model.ProviderProtocol
 import com.mobileharness.code.model.ProviderProfile
+import com.mobileharness.code.model.ProviderKind
+import com.mobileharness.code.model.protocolFromDshApi
 import com.mobileharness.code.network.ModelRoute
 
 /**
@@ -68,6 +70,10 @@ fun resolveSidekickRoute(
         SidekickRouteTarget(
             baseUrl = profile.resolvedBaseUrl,
             apiKey = primaryApiKey,
-            protocol = profile.kind.protocol,
+            protocol = if (profile.kind == ProviderKind.CUSTOM) {
+                protocolFromDshApi(profile.dshApi, claudeCode = false)
+            } else {
+                profile.kind.protocol
+            },
         )
     }

@@ -222,6 +222,8 @@
     <string name="provider_title_opencode">OpenCode Zen</string>
     <string name="provider_title_nvidia">NVIDIA NIM</string>
     <string name="provider_title_custom">Custom API</string>
+    <string name="provider_browse_library" translatable="false">Browse AI provider library</string>
+    <string name="provider_browse_library_subtitle" translatable="false">OpenAI, Anthropic, Gemini, routers, gateways, local servers and more</string>
     <string name="provider_subtitle_claude">Pro, Max, Team or Enterprise</string>
     <string name="provider_subtitle_anthropic">Usage billed through Console</string>
     <string name="provider_subtitle_openrouter">Use your OpenRouter API key</string>

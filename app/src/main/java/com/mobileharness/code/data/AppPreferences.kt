@@ -407,8 +407,10 @@ class AppPreferences(private val context: Context) {
     fun saveSidekickProvider(profile: ProviderProfile) {
         preferences.edit()
             .putString("sidekick_kind", profile.kind.name)
+            .putString("sidekick_id", profile.providerId)
             .putString("sidekick_base_url", profile.baseUrl)
             .putString("sidekick_model", profile.model)
+            .putString("sidekick_dsh_api", profile.dshApi)
             .apply()
     }
 
@@ -417,17 +419,42 @@ class AppPreferences(private val context: Context) {
         val kind = runCatching {
             preferences.getString("sidekick_kind", null)?.let(ProviderKind::valueOf)
         }.getOrNull() ?: return fallback
+        val providerId = preferences.getString("sidekick_id", kind.name)?.takeIf(String::isNotBlank) ?: kind.name
         return ProviderProfile(
             kind = kind,
             baseUrl = preferences.getString("sidekick_base_url", kind.defaultBaseUrl) ?: kind.defaultBaseUrl,
             model = preferences.getString("sidekick_model", kind.defaultModel) ?: kind.defaultModel,
-            hasSecret = vault.contains(kind.name),
+            hasSecret = vault.contains(providerId),
+            providerId = providerId,
+            dshApi = preferences.getString("sidekick_dsh_api", defaultDshApiForProvider(kind)) ?: defaultDshApiForProvider(kind),
         )
     }
 
     var languageCode: String
         get() = preferences.getString("language_code", "system") ?: "system"
         set(value) { preferences.edit().putString("language_code", value).apply() }
+
+    /** Ids of the central AI library providers the user starred. */
+    var aiProviderFavorites: Set<String>
+        get() = preferences.getStringSet("ai_provider_favorites", emptySet()) ?: emptySet()
+        set(value) { preferences.edit().putStringSet("ai_provider_favorites", value).apply() }
+
+    fun toggleAiProviderFavorite(id: String) {
+        aiProviderFavorites = if (id in aiProviderFavorites) aiProviderFavorites - id else aiProviderFavorites + id
+    }
+
+    /** Most-recently used central AI library provider ids, newest first. */
+    var aiProviderRecents: List<String>
+        get() = preferences.getString("ai_provider_recents", null)
+            ?.split(',')
+            ?.map(String::trim)
+            ?.filter(String::isNotBlank)
+            ?: emptyList()
+        set(value) { preferences.edit().putString("ai_provider_recents", value.joinToString(",")).apply() }
+
+    fun recordAiProviderRecent(id: String) {
+        aiProviderRecents = (listOf(id) + aiProviderRecents.filter { it != id }).take(12)
+    }
 
     var legacySeededCredentialRemoved: Boolean
         get() = preferences.getBoolean("legacy_seeded_credential_removed", false)
@@ -521,6 +548,7 @@ class AppPreferences(private val context: Context) {
     fun saveProvider(profile: ProviderProfile, agent: AgentKind? = null) {
         val editor = preferences.edit()
             .putString("provider_kind", profile.kind.name)
+            .putString("provider_id", profile.providerId)
             .putString("provider_base_url", profile.baseUrl)
             .putString("provider_model", profile.model)
             .putString("provider_dsh_api", profile.dshApi)
@@ -530,6 +558,7 @@ class AppPreferences(private val context: Context) {
             val prefix = providerPrefix(agent)
             editor
                 .putString("${prefix}kind", profile.kind.name)
+                .putString("${prefix}id", profile.providerId)
                 .putString("${prefix}base_url", profile.baseUrl)
                 .putString("${prefix}model", profile.model)
                 .putString("${prefix}dsh_api", profile.dshApi)
@@ -585,6 +614,11 @@ class AppPreferences(private val context: Context) {
         } else {
             savedModel
         }
+        val resolvedProviderId = if (useStoredValues) {
+            preferences.getString("${sourcePrefix}id", kind.name)?.takeIf(String::isNotBlank) ?: kind.name
+        } else {
+            kind.name
+        }
         return ProviderProfile(
             kind = kind,
             baseUrl = if (useStoredValues) {
@@ -593,7 +627,8 @@ class AppPreferences(private val context: Context) {
                 kind.defaultBaseUrl
             },
             model = model,
-            hasSecret = vault.contains(kind.name),
+            hasSecret = vault.contains(resolvedProviderId),
+            providerId = resolvedProviderId,
             dshApi = if (useStoredValues) {
                 preferences.getString("${sourcePrefix}dsh_api", defaultDshApiForProvider(kind))
                     ?: defaultDshApiForProvider(kind)

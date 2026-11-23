@@ -2,8 +2,10 @@ package com.mobileharness.code.runtime
 
 import com.mobileharness.code.model.ChatMessage
 import com.mobileharness.code.model.ChangeItem
+import com.mobileharness.code.model.AgentKind
 import com.mobileharness.code.model.ProviderProfile
 import com.mobileharness.code.model.ProjectKind
+import com.mobileharness.code.model.providerProtocolForAgent
 import com.mobileharness.code.model.RecoveryDecision
 import com.mobileharness.code.model.RuntimeEvent
 import com.mobileharness.code.model.RuntimeRecoveryContext
@@ -65,7 +67,7 @@ object RuntimeLaunchConfigBuilder {
             "DISABLE_TELEMETRY" to "1",
             "DISABLE_ERROR_REPORTING" to "1",
         )
-        when (profile.kind.protocol) {
+        when (providerProtocolForAgent(profile, AgentKind.CLAUDE_CODE)) {
             com.mobileharness.code.model.ProviderProtocol.CLAUDE_LOGIN -> {
                 require(!authToken.isNullOrBlank()) { "Enter a Claude subscription token first" }
                 environment["CLAUDE_CODE_OAUTH_TOKEN"] = authToken

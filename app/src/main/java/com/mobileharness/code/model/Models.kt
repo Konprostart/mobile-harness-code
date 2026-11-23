@@ -118,17 +118,32 @@ fun inferredDshApiForUrl(baseUrl: String): String {
     }
 }
 
-/** Resolves the protocol DeepSeek Harness will actually use for this saved profile. */
+/** Resolves the protocol a coding agent will actually use for this saved profile. */
 fun providerProtocolForAgent(profile: ProviderProfile, agent: AgentKind): ProviderProtocol {
+    // Custom API profiles carry their wire protocol in dshApi for every agent, so a provider
+    // picked from the central library (which always uses the CUSTOM kind) works identically in
+    // DeepSeek Harness and Claude Code.
+    if (profile.kind == ProviderKind.CUSTOM) {
+        return protocolFromDshApi(profile.dshApi, claudeCode = agent == AgentKind.CLAUDE_CODE)
+    }
     if (agent != AgentKind.DEEPSEEK_HARNESS || profile.kind !in DSH_PROTOCOL_PROVIDERS) {
         return profile.kind.protocol
     }
     val api = if (profile.kind.fixedProtocol) defaultDshApiForProvider(profile.kind) else profile.dshApi
-    return when (api) {
-        "openai-completions" -> ProviderProtocol.OPENAI_CHAT
-        "openai-responses" -> ProviderProtocol.OPENAI_RESPONSES
-        else -> ProviderProtocol.ANTHROPIC_GATEWAY
-    }
+    return protocolFromDshApi(api, claudeCode = false)
+}
+
+/**
+ * Maps a DSH custom-route wire value to the app's [ProviderProtocol].
+ *
+ * [claudeCode] is true for the Claude Code runtime, whose local format gateway only translates
+ * Anthropic Messages to OpenAI *chat completions* — it has no Responses upstream, so a Responses
+ * custom route degrades to chat completions there.
+ */
+fun protocolFromDshApi(dshApi: String, claudeCode: Boolean): ProviderProtocol = when (dshApi) {
+    "openai-completions" -> ProviderProtocol.OPENAI_CHAT
+    "openai-responses" -> if (claudeCode) ProviderProtocol.OPENAI_CHAT else ProviderProtocol.OPENAI_RESPONSES
+    else -> ProviderProtocol.ANTHROPIC_GATEWAY
 }
 
 /**
@@ -147,6 +162,13 @@ data class ProviderProfile(
     val baseUrl: String = kind.defaultBaseUrl,
     val model: String = kind.defaultModel,
     val hasSecret: Boolean = false,
+    /**
+     * Stable identity used to store API keys and per-provider configuration separately. Defaults
+     * to the enum name so existing profiles keep their keys; a provider picked from the central
+     * [AiProviderCatalog] carries its own slug (e.g. "openai", "groq") so different providers get
+     * independent key pools and saved configs instead of sharing the generic CUSTOM pool.
+     */
+    val providerId: String = kind.name,
     /** dsh custom-route wire protocol for CUSTOM: anthropic-messages | openai-completions | openai-responses. */
     val dshApi: String = defaultDshApiForProvider(kind),
     /** Comma-separated OpenRouter provider slugs, tried in order. Blank keeps automatic routing. */
@@ -156,6 +178,9 @@ data class ProviderProfile(
 ) {
     /** Effective base URL: fixed kinds always resolve to their constant, ignoring stored drift. */
     val resolvedBaseUrl: String get() = if (kind.fixedBaseUrl) kind.defaultBaseUrl else baseUrl
+
+    /** Vault key for this profile's API keys; falls back to the enum name for legacy profiles. */
+    val keyId: String get() = providerId.ifBlank { kind.name }
 
     val openRouterProviders: List<String>
         get() = openRouterProviderOrder.split(',')

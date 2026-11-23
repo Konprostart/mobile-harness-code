@@ -816,8 +816,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val sshSecrets = sshSecretStore(application)
     private val sshController = SshController(sshSecrets) { preferences.ecoModeEnabled }
     private val resumePolicy = SessionResumePolicy()
-    private val claudeRuntime = ClaudeRuntimeBridge(application) { profile -> vault.get(profile.kind.name) }
-    private val dshRuntime = DshRuntimeBridge(application) { profile -> vault.get(profile.kind.name) }
+    private val claudeRuntime = ClaudeRuntimeBridge(application) { profile -> vault.get(profile.keyId) }
+    private val dshRuntime = DshRuntimeBridge(application) { profile -> vault.get(profile.keyId) }
     private val installer = RuntimeInstaller(application)
     private val gitProviderManager = GitProviderManager()
     private val templateStore = WebTemplateStore(application)
@@ -901,7 +901,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             agentKind = initialAgentKind,
             primaryAgentKind = initialPrimaryAgentKind,
             provider = preferences.loadProvider(vault, initialAgentKind),
-            activeApiKeyName = vault.list(preferences.loadProvider(vault, initialAgentKind).kind.name)
+            activeApiKeyName = vault.list(preferences.loadProvider(vault, initialAgentKind).keyId)
                 .firstOrNull(ApiKeyInfo::isActive)?.name,
             antigravityAuth = AntigravityAuthState(
                 status = if (preferences.antigravitySignedIn) AntigravityAuthStatus.SIGNED_IN else AntigravityAuthStatus.SIGNED_OUT,
@@ -3949,32 +3949,32 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         _state.update { it.copy(initialLanguageSelected = false) }
     }
 
-    fun getSavedApiKey(kind: ProviderKind): String = vault.get(kind.name).orEmpty()
+    fun getSavedApiKey(providerId: String): String = vault.get(providerId).orEmpty()
 
-    fun getSavedApiKeys(kind: ProviderKind): List<ApiKeyInfo> = vault.list(kind.name)
+    fun getSavedApiKeys(providerId: String): List<ApiKeyInfo> = vault.list(providerId)
 
-    fun addApiKey(kind: ProviderKind, name: String, secret: String): List<ApiKeyInfo> {
-        vault.add(kind.name, name, secret)
-        val keys = vault.list(kind.name)
-        refreshActiveApiKey(kind)
+    fun addApiKey(providerId: String, name: String, secret: String): List<ApiKeyInfo> {
+        vault.add(providerId, name, secret)
+        val keys = vault.list(providerId)
+        refreshActiveApiKey(providerId)
         return keys
     }
 
-    fun activateApiKey(kind: ProviderKind, keyId: String): List<ApiKeyInfo> {
-        vault.activate(kind.name, keyId)
-        refreshActiveApiKey(kind)
-        return vault.list(kind.name)
+    fun activateApiKey(providerId: String, keyId: String): List<ApiKeyInfo> {
+        vault.activate(providerId, keyId)
+        refreshActiveApiKey(providerId)
+        return vault.list(providerId)
     }
 
-    fun removeApiKey(kind: ProviderKind, keyId: String): List<ApiKeyInfo> {
-        vault.remove(kind.name, keyId)
-        refreshActiveApiKey(kind)
-        return vault.list(kind.name)
+    fun removeApiKey(providerId: String, keyId: String): List<ApiKeyInfo> {
+        vault.remove(providerId, keyId)
+        refreshActiveApiKey(providerId)
+        return vault.list(providerId)
     }
 
-    private fun refreshActiveApiKey(kind: ProviderKind) {
-        if (_state.value.provider.kind != kind) return
-        val keys = vault.list(kind.name)
+    private fun refreshActiveApiKey(providerId: String) {
+        if (_state.value.provider.keyId != providerId) return
+        val keys = vault.list(providerId)
         _state.update { current ->
             current.copy(
                 activeApiKeyName = keys.firstOrNull(ApiKeyInfo::isActive)?.name,
@@ -3982,6 +3982,16 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             )
         }
     }
+
+    /** Ids of central AI provider library entries the user starred. */
+    fun providerFavorites(): Set<String> = preferences.aiProviderFavorites
+
+    /** Most-recently used central AI provider library ids, newest first. */
+    fun providerRecents(): List<String> = preferences.aiProviderRecents
+
+    fun toggleProviderFavorite(id: String) = preferences.toggleAiProviderFavorite(id)
+
+    fun recordProviderRecent(id: String) = preferences.recordAiProviderRecent(id)
 
     /** Keeps both agent bridges mapped to the same workspace root; the active one is used. */
     private fun configureBridgeRoots(projectId: String, rootPath: String) {
@@ -4295,14 +4305,14 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun finishOnboarding(profile: ProviderProfile, secret: String) {
-        vault.put(profile.kind.name, secret)
+        vault.put(profile.keyId, secret)
         val saved = profile.copy(
-            hasSecret = secret.isNotBlank() || vault.contains(profile.kind.name),
+            hasSecret = secret.isNotBlank() || vault.contains(profile.keyId),
         )
         preferences.saveProvider(saved, _state.value.agentKind)
         preferences.onboardingComplete = true
         _state.update { it.copy(onboardingComplete = true, provider = saved, startupStage = StartupStage.READY) }
-        refreshActiveApiKey(profile.kind)
+        refreshActiveApiKey(profile.keyId)
         autoPingApi()
     }
 
@@ -4360,7 +4370,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 agentKind = kind,
                 primaryAgentKind = if (selectingInitialAgent) kind else current.primaryAgentKind,
                 provider = provider,
-                activeApiKeyName = vault.list(provider.kind.name).firstOrNull(ApiKeyInfo::isActive)?.name,
+                activeApiKeyName = vault.list(provider.keyId).firstOrNull(ApiKeyInfo::isActive)?.name,
                 // Ping results belong to the previous agent; never leak them across.
                 apiPingStatus = ApiPingStatus.IDLE,
                 apiPingMessage = null,
@@ -4771,7 +4781,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     suspend fun discoverModels(profile: ProviderProfile, secret: String): ModelDiscoveryResult {
-        val key = secret.ifBlank { vault.get(profile.kind.name).orEmpty() }
+        val key = secret.ifBlank { vault.get(profile.keyId).orEmpty() }
         return providerApi.discoverModels(profile.baseUrl, key, providerProtocolForAgent(profile, _state.value.agentKind))
     }
 
@@ -4780,7 +4790,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         secret: String,
         models: List<com.mobileharness.code.network.DiscoveredModel>,
     ): ConnectionValidation {
-        val key = secret.ifBlank { vault.get(profile.kind.name).orEmpty() }
+        val key = secret.ifBlank { vault.get(profile.keyId).orEmpty() }
         return providerApi.validate(
             profile.baseUrl,
             profile.model,
@@ -4816,7 +4826,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         if (_state.value.apiPingStatus == ApiPingStatus.PINGING) return
         _state.update { it.copy(apiPingStatus = ApiPingStatus.PINGING, apiPingMessage = str(R.string.vm_ping_sending)) }
         viewModelScope.launch {
-            val key = vault.get(profile.kind.name).orEmpty()
+            val key = vault.get(profile.keyId).orEmpty()
             val result = providerApi.validate(
                 profile.baseUrl,
                 profile.model,
@@ -7702,11 +7712,11 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         if (!current.isRunning || current.activeSessionId != event.sessionId) return false
         if (!isApiKeyFailure(event.reason)) return false
         val request = activeRuntimeRequest ?: return false
-        val credentials = vault.credentials(request.provider.kind.name)
+        val credentials = vault.credentials(request.provider.keyId)
         val active = credentials.firstOrNull { it.isActive } ?: return false
         failedApiKeyIds += active.id
         val next = credentials.firstOrNull { it.id !in failedApiKeyIds } ?: return false
-        if (!vault.activate(request.provider.kind.name, next.id)) return false
+        if (!vault.activate(request.provider.keyId, next.id)) return false
         _state.update {
             it.copy(
                 activeSessionId = null,

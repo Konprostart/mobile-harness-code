@@ -312,7 +312,7 @@ class SidekickEngine(context: Context) {
         if (profile.kind == ProviderKind.CLAUDE) {
             return SidekickResult(AppStrings.get(appContext, R.string.sidekick_requires_key))
         }
-        val key = vault.get(profile.kind.name)
+        val key = vault.get(profile.keyId)
         if (key.isNullOrBlank()) {
             return SidekickResult(AppStrings.get(appContext, R.string.sidekick_requires_key))
         }

@@ -177,11 +177,15 @@ fun AgentScreen(
     onDiscoverModels: suspend (ProviderProfile, String) -> ModelDiscoveryResult,
     onValidateProvider: suspend (ProviderProfile, String, List<DiscoveredModel>) -> ConnectionValidation,
     onPing: () -> Unit,
-    getSavedApiKey: (ProviderKind) -> String,
-    getSavedApiKeys: (ProviderKind) -> List<ApiKeyInfo>,
-    onAddApiKey: (ProviderKind, String, String) -> List<ApiKeyInfo>,
-    onActivateApiKey: (ProviderKind, String) -> List<ApiKeyInfo>,
-    onRemoveApiKey: (ProviderKind, String) -> List<ApiKeyInfo>,
+    getSavedApiKey: (String) -> String,
+    getSavedApiKeys: (String) -> List<ApiKeyInfo>,
+    onAddApiKey: (String, String, String) -> List<ApiKeyInfo>,
+    onActivateApiKey: (String, String) -> List<ApiKeyInfo>,
+    onRemoveApiKey: (String, String) -> List<ApiKeyInfo>,
+    providerFavorites: Set<String> = emptySet(),
+    providerRecents: List<String> = emptyList(),
+    onToggleProviderFavorite: (String) -> Unit = {},
+    onRecordProviderRecent: (String) -> Unit = {},
     onSelectAgent: (AgentKind) -> Unit = {},
     onInstallAgent: (AgentKind) -> Unit = {},
     onCheckAgentUpdates: () -> Unit = {},
@@ -196,6 +200,8 @@ fun AgentScreen(
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
     var selectedKind by rememberSaveable(state.provider.kind) { mutableStateOf(state.provider.kind) }
+    var selectedProviderId by rememberSaveable(state.provider.keyId) { mutableStateOf(state.provider.keyId) }
+    var showProviderLibrary by rememberSaveable { mutableStateOf(false) }
     val selectedProviderTitle = stringResource(selectedKind.titleRes())
     val selectedProviderVerifiedMessage = stringResource(
         R.string.agent_connection_verified,
@@ -211,13 +217,13 @@ fun AgentScreen(
     var openRouterAllowFallbacks by rememberSaveable(state.provider.openRouterAllowFallbacks) {
         mutableStateOf(state.provider.openRouterAllowFallbacks)
     }
-    var apiKey by rememberSaveable(selectedKind) { mutableStateOf(getSavedApiKey(selectedKind)) }
-    var savedKeys by remember(selectedKind, state.activeApiKeyName) {
-        mutableStateOf(getSavedApiKeys(selectedKind))
+    var apiKey by rememberSaveable(selectedProviderId) { mutableStateOf(getSavedApiKey(selectedProviderId)) }
+    var savedKeys by remember(selectedProviderId, state.activeApiKeyName) {
+        mutableStateOf(getSavedApiKeys(selectedProviderId))
     }
-    var newKeyName by rememberSaveable(selectedKind) { mutableStateOf("") }
-    var newApiKey by rememberSaveable(selectedKind) { mutableStateOf("") }
-    var newKeyVisible by rememberSaveable(selectedKind, savedKeys.isEmpty()) { mutableStateOf(savedKeys.isEmpty()) }
+    var newKeyName by rememberSaveable(selectedProviderId) { mutableStateOf("") }
+    var newApiKey by rememberSaveable(selectedProviderId) { mutableStateOf("") }
+    var newKeyVisible by rememberSaveable(selectedProviderId, savedKeys.isEmpty()) { mutableStateOf(savedKeys.isEmpty()) }
     var models by remember(selectedKind, baseUrl) { mutableStateOf(emptyList<DiscoveredModel>()) }
     var modelSearch by rememberSaveable(selectedKind) { mutableStateOf("") }
     var showModels by rememberSaveable { mutableStateOf(false) }
@@ -307,8 +313,8 @@ fun AgentScreen(
                     models = result.models
                     if (apiKey.isBlank() && newApiKey.isNotBlank()) {
                         val keyName = newKeyName.trim().ifBlank { context.getString(R.string.st_key_default_name, context.getString(kind.titleRes())) }
-                        savedKeys = onAddApiKey(kind, keyName, newApiKey.trim())
-                        apiKey = getSavedApiKey(kind)
+                        savedKeys = onAddApiKey(selectedProviderId, keyName, newApiKey.trim())
+                        apiKey = getSavedApiKey(selectedProviderId)
                         newKeyName = ""
                         newApiKey = ""
                         newKeyVisible = false
@@ -459,6 +465,35 @@ fun AgentScreen(
                 }
             }
         }
+    }
+
+    // ── Central AI Provider Library ──
+    if (showProviderLibrary) {
+        AiProviderLibrarySheet(
+            onDismiss = { showProviderLibrary = false },
+            onSelect = { provider ->
+                val dshApiValue = provider.dshApi ?: defaultDshApiForProvider(ProviderKind.CUSTOM)
+                selectedKind = ProviderKind.CUSTOM
+                selectedProviderId = provider.id
+                baseUrl = provider.baseUrl
+                model = provider.defaultModel
+                dshApi = dshApiValue
+                openRouterProviderOrder = ""
+                openRouterAllowFallbacks = true
+                models = emptyList()
+                modelSearch = ""
+                showModels = false
+                newKeyName = ""
+                newApiKey = ""
+                status = null
+                statusProviderMessage = null
+                onRecordProviderRecent(provider.id)
+                showProviderLibrary = false
+            },
+            getFavorites = { providerFavorites },
+            getRecents = { providerRecents },
+            onToggleFavorite = onToggleProviderFavorite,
+        )
     }
 
     // ── Provider Models Modal Bottom Sheet ──
@@ -1025,6 +1060,7 @@ fun AgentScreen(
                         newKeyVisible = newKeyVisible,
                         onProvider = { kind ->
                             selectedKind = kind
+                            selectedProviderId = kind.name
                             baseUrl = kind.defaultBaseUrl
                             model = kind.defaultModel
                             dshApi = defaultDshApiForProvider(kind)
@@ -1038,6 +1074,7 @@ fun AgentScreen(
                             status = null
                             statusProviderMessage = null
                         },
+                        onBrowseLibrary = { showProviderLibrary = true },
                         onBaseUrl = {
                             baseUrl = it
                             if (state.agentKind == AgentKind.DEEPSEEK_HARNESS && selectedKind == ProviderKind.CUSTOM) {
@@ -1066,22 +1103,22 @@ fun AgentScreen(
                         onNewApiKey = { newApiKey = it },
                         onToggleNewKey = { newKeyVisible = !newKeyVisible },
                         onAddKey = {
-                            savedKeys = onAddApiKey(selectedKind, newKeyName, newApiKey.trim())
+                            savedKeys = onAddApiKey(selectedProviderId, newKeyName, newApiKey.trim())
                             newKeyName = ""
                             newApiKey = ""
-                            apiKey = getSavedApiKey(selectedKind)
+                            apiKey = getSavedApiKey(selectedProviderId)
                             status = context.getString(R.string.st_api_key_added_for, context.getString(selectedKind.titleRes()))
                             statusOk = true
                         },
                         onActivateKey = { keyId ->
-                            savedKeys = onActivateApiKey(selectedKind, keyId)
-                            apiKey = getSavedApiKey(selectedKind)
+                            savedKeys = onActivateApiKey(selectedProviderId, keyId)
+                            apiKey = getSavedApiKey(selectedProviderId)
                             status = context.getString(R.string.st_active_key_changed_for, context.getString(selectedKind.titleRes()))
                             statusOk = true
                         },
                         onRemoveKey = { keyId ->
-                            savedKeys = onRemoveApiKey(selectedKind, keyId)
-                            apiKey = getSavedApiKey(selectedKind)
+                            savedKeys = onRemoveApiKey(selectedProviderId, keyId)
+                            apiKey = getSavedApiKey(selectedProviderId)
                             keyConnectionStatuses = keyConnectionStatuses - keyId
                             status = context.getString(R.string.st_api_key_removed_from, context.getString(selectedKind.titleRes()))
                             statusOk = true
@@ -1109,6 +1146,7 @@ fun AgentScreen(
                                     url,
                                     model.trim(),
                                     dshApi = dshApi,
+                                    providerId = selectedProviderId,
                                     openRouterProviderOrder = openRouterProviderOrder,
                                     openRouterAllowFallbacks = openRouterAllowFallbacks,
                                 )
@@ -1535,6 +1573,7 @@ private fun AgentProviderCard(
     newApiKey: String,
     newKeyVisible: Boolean,
     onProvider: (ProviderKind) -> Unit,
+    onBrowseLibrary: () -> Unit = {},
     onBaseUrl: (String) -> Unit,
     onModel: (String) -> Unit,
     onDshApi: (String) -> Unit,
@@ -1611,6 +1650,24 @@ private fun AgentProviderCard(
                                 }
                                 if (index != visibleKinds.lastIndex) {
                                     HorizontalDivider(Modifier.padding(start = 13.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
+                                }
+                            }
+                            HorizontalDivider(Modifier.padding(start = 13.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
+                            Row(
+                                Modifier
+                                    .fillMaxWidth()
+                                    .clickable {
+                                        onBrowseLibrary()
+                                        connectionExpanded = false
+                                    }
+                                    .padding(horizontal = 13.dp, vertical = 11.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                Icon(Icons.Default.AutoAwesome, null, tint = PocketOrange, modifier = Modifier.size(16.dp))
+                                Spacer(Modifier.width(10.dp))
+                                Column(Modifier.weight(1f)) {
+                                    Text(stringResource(R.string.provider_browse_library), fontWeight = FontWeight.Medium, fontSize = 13.sp, color = PocketOrange)
+                                    Text(stringResource(R.string.provider_browse_library_subtitle), fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
                                 }
                             }
                         }
