@@ -1,12 +1,12 @@
 {
-  "versionCode": 37,
-  "versionName": "1.12.0",
-  "notes": "Mobile Harness Code — v1.12.0: central AI provider library upgrade. Adds a remote AI provider catalog (SHA-256 verified, offline fallback), automatic model discovery with an offline cache, per-provider API-key rotation (enable/disable, invalid/no-credit keys disabled automatically, never cross-provider), a shared capability/compatibility gate for streaming/tool-calling/vision, per-provider named configs and per-tool default models, and Azure OpenAI api-key header support. DeepSeek, Claude Code, Sidekick, Compose/XML/Web App, SDK, PRoot, Gradle and plugin systems are unchanged. This APK is SIGNED (V1+V2, production key); install mobile-harness-online.apk.",
+  "versionCode": 38,
+  "versionName": "1.13.0",
+  "notes": "Mobile Harness Code — v1.13.0: AUTO PROMPT library. A dedicated Auto Prompt screen with a master on/off switch, an unlimited searchable prompt library with reordering, per-prompt enable, duplicate/delete/copy, per-prompt agent (Claude Code / DeepSeek Harness / Antigravity / Sidekick), provider and model, manual RUN or a schedule (once / every N hours / daily / weekly), run history with status and result, and an in-app scheduler that honors the master switch, per-prompt switch and Eco Mode quiet hours. All existing systems (DeepSeek, Claude Code, Antigravity, Sidekick, Compose/XML/Web App, SDK, PRoot, Gradle, plugins, signing) are unchanged. This APK is SIGNED (V1+V2, production key); install mobile-harness-online.apk.",
   "artifacts": {
     "online": {
-      "url": "https://github.com/Konprostart/mobile-harness-code/releases/download/v1.12.0/mobile-harness-online.apk",
-      "sha256": "18f2292da54575a053e74b6efd93bc5dfa9b4422b8de340969a41f7a4bd69e99",
-      "sizeBytes": 108421483
+      "url": "https://github.com/Konprostart/mobile-harness-code/releases/download/v1.13.0/mobile-harness-online.apk",
+      "sha256": "730e9e82520e6a0e16bfc5ec5dfc4cd282ea6bc103f16d4c871bab0cb9f182e2",
+      "sizeBytes": 108675435
     }
   }
 }
