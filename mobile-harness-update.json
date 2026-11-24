@@ -1,12 +1,12 @@
 {
-  "versionCode": 40,
-  "versionName": "1.15.0",
-  "notes": "Advanced Skills + Plugin system. Skills: full SKILL.md parser (YAML frontmatter), variable/template expansion ($ARGUMENTS, shell, @path), install from directory/ZIP/GitHub, search, categories/tags, enable/disable, delete, update, path-traversal protection, and a permission-gated execution engine that respects existing security policies. Plugins: safe ZIP/tar.gz extraction (path-traversal + decompression-bomb guards), format adapters for Claude Code / Codex / Cursor / Gemini bundles, runtime detection (Python/Node/Bun/Ruby/Perl/PHP), and bounded tool execution with timeout and loop-budget. MCP: OAuth 2.1 PKCE + HMAC integrity helpers. New Skills & Plugins screen with search, filters, details, permissions, and execution history. Ported/adapted from AndroidHarness 4.0 (MIT) with attribution. This APK is SIGNED (V1+V2).",
+  "versionCode": 41,
+  "versionName": "1.16.0",
+  "notes": "Advanced Voice + Live Mode. Text-to-speech (TTS) and speech-to-text (STT) across OpenAI, Groq, ElevenLabs, Deepgram, Cartesia, AssemblyAI and free Microsoft Edge TTS (no key, online). Read-aloud with pause/resume/stop, voice/language/speed selection, and automatic reading of replies (opt-in). Hands-free Live Mode (TALK / READ / START_TASKS) over the existing system microphone, with voice commands (pause/resume/mute/repeat/stop, destructive actions need confirmation). Voice settings screen with connection/playback tests, per-provider encrypted API keys, and estimated token/cost recording in the Token & Cost Manager. The existing microphone and device dictation remain the default and are unchanged. Ported/adapted from AndroidHarness 4.0 (MIT) with attribution. This APK is SIGNED (V1+V2).",
   "artifacts": {
     "online": {
-      "url": "https://github.com/Konprostart/mobile-harness-code/releases/download/v1.15.0/mobile-harness-online.apk",
-      "sha256": "d8dfc6794f31a0f550159230e8bdf4a8aa4834c374488bcd1107657544c53576",
-      "sizeBytes": 109183423
+      "url": "https://github.com/Konprostart/mobile-harness-code/releases/download/v1.16.0/mobile-harness-online.apk",
+      "sha256": "314fc83d5695329411125901080c97657b32275d3d6e0993eb84a89a36297a60",
+      "sizeBytes": 109449663
     }
   }
 }
