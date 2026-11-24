@@ -1,12 +1,12 @@
 {
-  "versionCode": 38,
-  "versionName": "1.13.0",
-  "notes": "Mobile Harness Code — v1.13.0: AUTO PROMPT library. A dedicated Auto Prompt screen with a master on/off switch, an unlimited searchable prompt library with reordering, per-prompt enable, duplicate/delete/copy, per-prompt agent (Claude Code / DeepSeek Harness / Antigravity / Sidekick), provider and model, manual RUN or a schedule (once / every N hours / daily / weekly), run history with status and result, and an in-app scheduler that honors the master switch, per-prompt switch and Eco Mode quiet hours. All existing systems (DeepSeek, Claude Code, Antigravity, Sidekick, Compose/XML/Web App, SDK, PRoot, Gradle, plugins, signing) are unchanged. This APK is SIGNED (V1+V2, production key); install mobile-harness-online.apk.",
+  "versionCode": 39,
+  "versionName": "1.14.0",
+  "notes": "Token & Cost Manager: track token usage (input, output, cached input, cache write) and API calls per agent/provider/model; estimate cost from a reference price list with user overrides; set daily/weekly/monthly and per-provider/per-model budgets with warnings and an optional stop gate; enable AUTO TOKEN OPTIMIZATION (Light/Balanced/Maximum) with prompt caching and smart model selection. Usage is captured from the in-app Sidekick assistant (external CLI agents run in their own runtime). Reference prices are marked 'verify with provider'. This APK is SIGNED (V1+V2).",
   "artifacts": {
     "online": {
-      "url": "https://github.com/Konprostart/mobile-harness-code/releases/download/v1.13.0/mobile-harness-online.apk",
-      "sha256": "730e9e82520e6a0e16bfc5ec5dfc4cd282ea6bc103f16d4c871bab0cb9f182e2",
-      "sizeBytes": 108675435
+      "url": "https://github.com/Konprostart/mobile-harness-code/releases/download/v1.14.0/mobile-harness-online.apk",
+      "sha256": "967010e4ba6d67258c71c57cda4d091d2f8311ae2e93271f9401ae9743ee977b",
+      "sizeBytes": 108958059
     }
   }
 }
