@@ -1,12 +1,12 @@
 {
-  "versionCode": 39,
-  "versionName": "1.14.0",
-  "notes": "Token & Cost Manager: track token usage (input, output, cached input, cache write) and API calls per agent/provider/model; estimate cost from a reference price list with user overrides; set daily/weekly/monthly and per-provider/per-model budgets with warnings and an optional stop gate; enable AUTO TOKEN OPTIMIZATION (Light/Balanced/Maximum) with prompt caching and smart model selection. Usage is captured from the in-app Sidekick assistant (external CLI agents run in their own runtime). Reference prices are marked 'verify with provider'. This APK is SIGNED (V1+V2).",
+  "versionCode": 40,
+  "versionName": "1.15.0",
+  "notes": "Advanced Skills + Plugin system. Skills: full SKILL.md parser (YAML frontmatter), variable/template expansion ($ARGUMENTS, shell, @path), install from directory/ZIP/GitHub, search, categories/tags, enable/disable, delete, update, path-traversal protection, and a permission-gated execution engine that respects existing security policies. Plugins: safe ZIP/tar.gz extraction (path-traversal + decompression-bomb guards), format adapters for Claude Code / Codex / Cursor / Gemini bundles, runtime detection (Python/Node/Bun/Ruby/Perl/PHP), and bounded tool execution with timeout and loop-budget. MCP: OAuth 2.1 PKCE + HMAC integrity helpers. New Skills & Plugins screen with search, filters, details, permissions, and execution history. Ported/adapted from AndroidHarness 4.0 (MIT) with attribution. This APK is SIGNED (V1+V2).",
   "artifacts": {
     "online": {
-      "url": "https://github.com/Konprostart/mobile-harness-code/releases/download/v1.14.0/mobile-harness-online.apk",
-      "sha256": "967010e4ba6d67258c71c57cda4d091d2f8311ae2e93271f9401ae9743ee977b",
-      "sizeBytes": 108958059
+      "url": "https://github.com/Konprostart/mobile-harness-code/releases/download/v1.15.0/mobile-harness-online.apk",
+      "sha256": "d8dfc6794f31a0f550159230e8bdf4a8aa4834c374488bcd1107657544c53576",
+      "sizeBytes": 109183423
     }
   }
 }
