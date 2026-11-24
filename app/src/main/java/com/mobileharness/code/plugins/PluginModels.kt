@@ -26,6 +26,16 @@ enum class PluginPermission {
     EXEC,
 }
 
+/** A single callable tool a plugin exposes to the assistant. */
+data class PluginTool(
+    val name: String,
+    val description: String = "",
+    /** Command/script inside the bundle, relative to its root. */
+    val command: String = "",
+    /** JSON-Schema of the tool's arguments. */
+    val inputSchema: String = "{}",
+)
+
 /** Declared metadata for a plugin bundle. */
 data class PluginManifest(
     val id: String,
@@ -40,6 +50,12 @@ data class PluginManifest(
     val sha256: String? = null,
     /** Minimum schema version of the manifest format. */
     val manifestVersion: Int = 1,
+    /** Source format label (e.g. "AndroidHarness", "Claude Code plugin", "Codex plugin"). */
+    val format: String = "",
+    /** Linux packages the bundle needs at run time (detected from its commands/scripts). */
+    val runtimes: List<String> = emptyList(),
+    /** Callable tools exposed to the assistant. */
+    val tools: List<PluginTool> = emptyList(),
 )
 
 /** An installed plugin's runtime state. */

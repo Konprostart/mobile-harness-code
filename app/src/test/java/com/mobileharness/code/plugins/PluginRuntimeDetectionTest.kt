@@ -1,0 +1,47 @@
+package com.mobileharness.code.plugins
+
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
+import org.junit.Test
+
+class PluginRuntimeDetectionTest {
+
+    @Test
+    fun mapsCommandsToPackages() {
+        assertEquals(listOf("python"), PluginRuntimeDetection.forCommand("python3 run.py"))
+        assertEquals(listOf("nodejs"), PluginRuntimeDetection.forCommand("node index.js"))
+        assertEquals(listOf("nodejs", "npm"), PluginRuntimeDetection.forCommand("npx -y pkg"))
+        assertEquals(listOf("php"), PluginRuntimeDetection.forCommand("php script.php"))
+        assertEquals(listOf("ruby"), PluginRuntimeDetection.forCommand("ruby x.rb"))
+        assertEquals(listOf("perl"), PluginRuntimeDetection.forCommand("perl x.pl"))
+    }
+
+    @Test
+    fun mapsScriptExtensions() {
+        assertEquals(listOf("python"), PluginRuntimeDetection.forCommand("run script.py"))
+        assertEquals(listOf("nodejs"), PluginRuntimeDetection.forCommand("run script.js"))
+    }
+
+    @Test
+    fun forManifestAggregatesEntryAndTools() {
+        val manifest = PluginManifest(
+            id = "x", name = "x", version = "1",
+            entry = "node index.js",
+            tools = listOf(PluginTool("t", command = "scripts/t.py")),
+        )
+        val runtimes = PluginRuntimeDetection.forManifest(manifest)
+        assertTrue(runtimes.contains("nodejs"))
+        assertTrue(runtimes.contains("python"))
+    }
+
+    @Test
+    fun interpreterForKnownExtensions() {
+        assertEquals("python3", PluginRuntimeDetection.interpreterFor("run.py"))
+        assertEquals("node", PluginRuntimeDetection.interpreterFor("run.js"))
+        assertEquals("ruby", PluginRuntimeDetection.interpreterFor("run.rb"))
+        assertEquals("php", PluginRuntimeDetection.interpreterFor("run.php"))
+        assertEquals("perl", PluginRuntimeDetection.interpreterFor("run.pl"))
+        assertNull(PluginRuntimeDetection.interpreterFor("run.unknown"))
+    }
+}

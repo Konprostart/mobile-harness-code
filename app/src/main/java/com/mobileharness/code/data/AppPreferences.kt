@@ -23,7 +23,11 @@ import com.mobileharness.code.network.ssh.SshProfileCodec
 import com.mobileharness.code.sidekick.RagCodec
 import com.mobileharness.code.sidekick.RagDocument
 import com.mobileharness.code.sidekick.RagIndex
+import com.mobileharness.code.plugins.Plugin
+import com.mobileharness.code.plugins.PluginCodec
 import com.mobileharness.code.skills.BuiltinSkills
+import com.mobileharness.code.skills.InstalledSkill
+import com.mobileharness.code.skills.InstalledSkillCodec
 import com.mobileharness.code.skills.Skill
 import com.mobileharness.code.skills.SkillCodec
 import com.mobileharness.code.token.BudgetConfig
@@ -429,6 +433,35 @@ class AppPreferences(private val context: Context) {
         val raw = preferences.getString("skills_json", null) ?: return BuiltinSkills.defaults()
         val loaded = SkillCodec.fromJson(raw)
         return if (loaded.isEmpty()) BuiltinSkills.defaults() else loaded
+    }
+
+    // --- Advanced SKILL.md skills + plugin registry (Faza 2) --------------------------------
+    /** Persists the installed SKILL.md skill metadata (device-only, excluded from backup). */
+    fun saveInstalledSkills(skills: List<InstalledSkill>) {
+        preferences.edit().putString("installed_skills_json", InstalledSkillCodec.toJson(skills)).apply()
+    }
+
+    fun loadInstalledSkills(): List<InstalledSkill> {
+        val raw = preferences.getString("installed_skills_json", null) ?: return emptyList()
+        return InstalledSkillCodec.fromJson(raw)
+    }
+
+    fun installedSkillsRaw(): String? = preferences.getString("installed_skills_json", null)
+
+    /** Persists the installed plugin registry (device-only, excluded from backup). */
+    fun saveInstalledPlugins(plugins: List<Plugin>) {
+        preferences.edit().putString("installed_plugins_json", PluginCodec.encodeRegistry(plugins)).apply()
+    }
+
+    fun loadInstalledPlugins(): List<Plugin> {
+        val raw = preferences.getString("installed_plugins_json", null) ?: return emptyList()
+        return PluginCodec.decodeRegistry(raw)
+    }
+
+    fun installedPluginsRaw(): String? = preferences.getString("installed_plugins_json", null)
+
+    fun saveInstalledPluginsRaw(json: String) {
+        preferences.edit().putString("installed_plugins_json", json).apply()
     }
 
     // --- SSH servers (Faza 1: sshj client + tunnel) ----------------------------------------
@@ -1020,6 +1053,8 @@ class AppPreferences(private val context: Context) {
             "wireless_adb_endpoint",
             "privileged_root_opt_in",
             "skills_json",
+            "installed_skills_json",
+            "installed_plugins_json",
         )
     }
 }

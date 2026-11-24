@@ -94,6 +94,11 @@ import com.mobileharness.code.token.OptimizationConfig
 import com.mobileharness.code.token.TokenUsageEntry
 import com.mobileharness.code.token.TokenUsageStore
 import com.mobileharness.code.skills.Skill
+import com.mobileharness.code.skills.InstalledSkill
+import com.mobileharness.code.skills.AdvancedSkillStore
+import com.mobileharness.code.plugins.Plugin
+import com.mobileharness.code.plugins.PluginCodec
+import com.mobileharness.code.plugins.PluginRegistry
 import com.mobileharness.code.share.InviteCode
 import com.mobileharness.code.device.PrivilegeController
 import com.mobileharness.code.device.PrivilegeEventLog
@@ -818,6 +823,9 @@ data class AppUiState(
     val workspaceToolsEnabled: Boolean = false,
     val skillsEnabled: Boolean = false,
     val skills: List<Skill> = emptyList(),
+    val installedSkills: List<InstalledSkill> = emptyList(),
+    val installedPlugins: List<Plugin> = emptyList(),
+    val skillsPluginsMessage: String? = null,
     val sshProfiles: List<SshProfile> = emptyList(),
     val sshTestingProfileId: String? = null,
     val sshRunningTunnelIds: Set<String> = emptySet(),
@@ -863,6 +871,17 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val signingCipher = AndroidSecretCipher.create(application)
     private val signingKeys by lazy {
         KeyRepository(File(getApplication<Application>().filesDir, "signing-vault"), signingCipher)
+    }
+    private val advancedSkills by lazy {
+        AdvancedSkillStore(
+            File(getApplication<Application>().filesDir, "skills-vault").apply { mkdirs() },
+            persist = { preferences.saveInstalledSkills(it) },
+        ).apply { load(preferences.installedSkillsRaw()) }
+    }
+    private val pluginRegistry by lazy {
+        PluginRegistry(
+            persist = { preferences.saveInstalledPluginsRaw(it) },
+        ).apply { load(preferences.installedPluginsRaw()) }
     }
     private val antigravityRuntime = AntigravityRuntimeBridge(
         application,
@@ -1070,6 +1089,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             workspaceToolsEnabled = preferences.workspaceToolsEnabled,
             skillsEnabled = preferences.skillsEnabled,
             skills = preferences.loadSkills(),
+            installedSkills = preferences.loadInstalledSkills(),
+            installedPlugins = preferences.loadInstalledPlugins(),
             sshProfiles = preferences.loadSshProfiles(),
             inviteCode = preferences.inviteCode.ifBlank {
                 InviteCode.generate().also { preferences.inviteCode = it }
@@ -1716,6 +1737,119 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         val updated = _state.value.skills.map { if (it.id == id) it.copy(enabled = enabled) else it }
         preferences.saveSkills(updated)
         _state.update { it.copy(skills = updated) }
+    }
+
+    // --- Advanced SKILL.md skills + plugins (Faza 2) ----------------------------------------
+    private fun reloadInstalled() {
+        _state.update { it.copy(installedSkills = advancedSkills.list(), installedPlugins = pluginRegistry.snapshot()) }
+    }
+
+    /** Installs a skill from a local directory (with a SKILL.md). */
+    fun installSkillFromDirectory(sourceDir: java.io.File, sourceRef: String = "local") {
+        viewModelScope.launch {
+            val message = withContext(Dispatchers.IO) {
+                runCatching { advancedSkills.installFromDir(sourceDir, sourceRef) }
+                    .fold(
+                        onSuccess = { str(R.string.skills_installed, it.name) },
+                        onFailure = { str(R.string.skills_install_failed, it.message ?: "unknown") },
+                    )
+            }
+            _state.update { it.copy(skillsPluginsMessage = message) }
+            reloadInstalled()
+        }
+    }
+
+    /** Installs skills from a ZIP archive. */
+    fun installSkillFromZip(zip: java.io.File, sourceRef: String = "zip") {
+        viewModelScope.launch {
+            val message = withContext(Dispatchers.IO) {
+                runCatching { advancedSkills.installFromZip(zip, sourceRef) }
+                    .fold(
+                        onSuccess = { str(R.string.skills_zip_installed, it.size) },
+                        onFailure = { str(R.string.skills_install_failed, it.message ?: "unknown") },
+                    )
+            }
+            _state.update { it.copy(skillsPluginsMessage = message) }
+            reloadInstalled()
+        }
+    }
+
+    fun setInstalledSkillEnabled(id: String, enabled: Boolean) {
+        advancedSkills.setEnabled(id, enabled)
+        reloadInstalled()
+    }
+
+    fun updateInstalledSkillTags(id: String, tags: List<String>) {
+        advancedSkills.updateTags(id, tags)
+        reloadInstalled()
+    }
+
+    fun deleteInstalledSkill(id: String) {
+        advancedSkills.remove(id)
+        reloadInstalled()
+    }
+
+    /** Installs (or replaces) a plugin into the in-memory registry. */
+    fun installPlugin(plugin: Plugin): Boolean {
+        val ok = pluginRegistry.install(plugin)
+        if (ok) reloadInstalled()
+        return ok
+    }
+
+    /** Installs a plugin from a raw plugin.json manifest string. */
+    fun installPluginFromJson(json: String): Boolean {
+        val manifest = PluginCodec.decodeManifest(json) ?: run {
+            _state.update { it.copy(skillsPluginsMessage = str(R.string.skills_install_failed, "invalid manifest")) }
+            return false
+        }
+        val plugin = Plugin(
+            manifest = manifest,
+            source = com.mobileharness.code.plugins.PluginSource.ZIP,
+            sourceRef = "inline-json",
+            installPath = manifest.id,
+        )
+        val ok = pluginRegistry.install(plugin)
+        if (ok) reloadInstalled()
+        return ok
+    }
+
+    /** Adapts a foreign plugin directory (Claude Code/Codex/Cursor/Gemini/generic) into the internal format. */
+    fun adaptPluginFromDirectory(path: String) {
+        viewModelScope.launch {
+            val message = withContext(Dispatchers.IO) {
+                runCatching {
+                    val adapted = com.mobileharness.code.plugins.PluginFormats.adapt(java.io.File(path))
+                    val ok = pluginRegistry.install(
+                        Plugin(adapted.manifest, com.mobileharness.code.plugins.PluginSource.GITHUB, path, adapted.manifest.id),
+                    )
+                    if (ok) {
+                        str(R.string.skills_installed, adapted.manifest.name) +
+                            if (adapted.warnings.isNotEmpty()) " · ${adapted.warnings.first()}" else ""
+                    } else {
+                        str(R.string.skills_install_failed, "manifest rejected")
+                    }
+                }.fold(
+                    onSuccess = { it },
+                    onFailure = { str(R.string.skills_install_failed, it.message ?: "unknown") },
+                )
+            }
+            _state.update { it.copy(skillsPluginsMessage = message) }
+            reloadInstalled()
+        }
+    }
+
+    fun setPluginEnabled(id: String, enabled: Boolean) {
+        pluginRegistry.setEnabled(id, enabled)
+        reloadInstalled()
+    }
+
+    fun deletePlugin(id: String) {
+        pluginRegistry.remove(id)
+        reloadInstalled()
+    }
+
+    fun clearSkillsPluginsMessage() {
+        _state.update { it.copy(skillsPluginsMessage = null) }
     }
 
     // --- MCP servers (Faza 3) --------------------------------------------------------------

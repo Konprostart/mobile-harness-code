@@ -137,7 +137,7 @@ import com.mobileharness.code.ui.theme.AppThemeMode
 import com.mobileharness.code.ui.theme.PocketOrange
 import kotlinx.coroutines.launch
 
-private enum class SettingsSection { APPEARANCE, LANGUAGE, TOOLS, RUNTIME, DIAGNOSTICS, DEVELOPER_TOOLS, ACCOUNT, BACKUP, UPDATE_CHANNEL, UPDATES, GRADLE_MEMORY, RELEASE_SIGNING, SIGNING_VAULT, SERVER_SYNC, TELEGRAM, SIDEKICK, MCP_SERVERS, ECO_MODE, AUTO_PROMPT, AUTO_PROMPT_LIBRARY, TOKEN_COST_MANAGER, MODEL_ROTATION, RAG, SSH, SHARE_INVITE }
+private enum class SettingsSection { APPEARANCE, LANGUAGE, TOOLS, RUNTIME, DIAGNOSTICS, DEVELOPER_TOOLS, ACCOUNT, BACKUP, UPDATE_CHANNEL, UPDATES, GRADLE_MEMORY, RELEASE_SIGNING, SIGNING_VAULT, SERVER_SYNC, TELEGRAM, SIDEKICK, MCP_SERVERS, ECO_MODE, AUTO_PROMPT, AUTO_PROMPT_LIBRARY, TOKEN_COST_MANAGER, SKILLS_PLUGINS, MODEL_ROTATION, RAG, SSH, SHARE_INVITE }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -208,6 +208,7 @@ fun SettingsScreen(
     onSetAutoPromptSystemEnabled: (Boolean) -> Unit = {},
     onOpenAutoPrompt: () -> Unit = {},
     onOpenTokenCostManager: () -> Unit = {},
+    onOpenSkillsPlugins: () -> Unit = {},
     onSetAgentRotationEnabled: (Boolean) -> Unit = {},
     onSetAgentRotationMaxAttempts: (Int) -> Unit = {},
     onCheckForAppUpdate: () -> Unit = {},
@@ -746,6 +747,31 @@ fun SettingsScreen(
                             Icon(Icons.Default.PlayArrow, null)
                             Spacer(Modifier.width(6.dp))
                             Text(stringResource(R.string.autoprompt_open))
+                        }
+                    }
+                }
+            }
+
+            item {
+                SettingsAccordion(
+                    title = stringResource(R.string.skills_plugins_title),
+                    subtitle = stringResource(
+                        R.string.skills_plugins_subtitle,
+                    ),
+                    icon = Icons.Default.Extension,
+                    expanded = expanded == SettingsSection.SKILLS_PLUGINS,
+                    onClick = { toggle(SettingsSection.SKILLS_PLUGINS) },
+                ) {
+                    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                        Text(
+                            "${state.installedSkills.size} skills · ${state.installedPlugins.size} plugins installed.",
+                            fontSize = 11.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        Button(onClick = onOpenSkillsPlugins) {
+                            Icon(Icons.Default.Extension, null)
+                            Spacer(Modifier.width(6.dp))
+                            Text(stringResource(R.string.skills_plugins_open))
                         }
                     }
                 }

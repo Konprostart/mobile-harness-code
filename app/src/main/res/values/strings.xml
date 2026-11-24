@@ -953,4 +953,10 @@
     <string name="workspace_tools_subtitle">Let the assistant search, read and map your private workspace files (read-only, never leaves the device).</string>
     <string name="skills_title">Skills</string>
     <string name="skills_subtitle">Opt-in instruction packs that shape how the assistant answers.</string>
+    <string name="skills_installed" translatable="false">Installed skill "%1$s".</string>
+    <string name="skills_install_failed" translatable="false">Skill install failed: %1$s</string>
+    <string name="skills_zip_installed" translatable="false">Installed %1$d skill(s) from archive.</string>
+    <string name="skills_plugins_title" translatable="false">Skills &amp; Plugins</string>
+    <string name="skills_plugins_subtitle" translatable="false">Install and manage SKILL.md skills, plugins and MCP servers.</string>
+    <string name="skills_plugins_open" translatable="false">Open Skills &amp; Plugins</string>
 </resources>

@@ -19,6 +19,19 @@ object PluginCodec {
         .put("permissions", JSONArray().apply { manifest.permissions.forEach { put(it.name) } })
         .put("sha256", manifest.sha256 ?: JSONObject.NULL)
         .put("manifestVersion", manifest.manifestVersion)
+        .put("format", manifest.format)
+        .put("runtimes", JSONArray().apply { manifest.runtimes.forEach { put(it) } })
+        .put("tools", JSONArray().apply {
+            manifest.tools.forEach { tool ->
+                put(
+                    JSONObject()
+                        .put("name", tool.name)
+                        .put("description", tool.description)
+                        .put("command", tool.command)
+                        .put("inputSchema", tool.inputSchema),
+                )
+            }
+        })
         .toString()
 
     fun decodeManifest(json: String?): PluginManifest? {
@@ -37,6 +50,27 @@ object PluginCodec {
             }
         }
         val sha = obj.optString("sha256").takeIf { it.isNotBlank() }
+        val tools = mutableListOf<PluginTool>()
+        obj.optJSONArray("tools")?.let { arr ->
+            for (i in 0 until arr.length()) {
+                val tool = arr.optJSONObject(i) ?: continue
+                val toolName = tool.optString("name")
+                if (toolName.isBlank()) continue
+                tools += PluginTool(
+                    name = toolName,
+                    description = tool.optString("description"),
+                    command = tool.optString("command"),
+                    inputSchema = tool.optJSONObject("inputSchema")?.toString() ?: "{}",
+                )
+            }
+        }
+        val runtimes = mutableListOf<String>()
+        obj.optJSONArray("runtimes")?.let { arr ->
+            for (i in 0 until arr.length()) {
+                val value = arr.optString(i)
+                if (value.isNotBlank()) runtimes += value
+            }
+        }
         return PluginManifest(
             id = id,
             name = name,
@@ -46,6 +80,9 @@ object PluginCodec {
             permissions = permissions.distinct(),
             sha256 = sha,
             manifestVersion = obj.optInt("manifestVersion", 1),
+            format = obj.optString("format"),
+            runtimes = runtimes.distinct(),
+            tools = tools,
         )
     }
 

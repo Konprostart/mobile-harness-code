@@ -23,6 +23,7 @@ than as source, the corresponding notice is preserved in
 | Kotlin stdlib & kotlinx-coroutines | Apache-2.0 | https://kotlinlang.org/ | — |
 | JUnit (test scope) | EPL-1.0 | https://junit.org/ | — |
 | org.json (test scope) | JSON License | https://www.json.org/ | — |
+| AndroidHarness (skills/plugin/MCP logic) | MIT | https://github.com/Sanuu7/AndroidHarness | `app/src/main/assets/licenses/androidharness-MIT.txt` |
 | Signiffia (Key Vault & signing components) | Apache-2.0 | https://github.com/Konprostart/Signiffia | `app/src/main/assets/licenses/signiffia-Apache-2.0.txt` |
 | Android apksig | Apache-2.0 | https://android.googlesource.com/platform/tools/apksig | — |
 | BouncyCastle (bcprov/bcpkix/bcutil) | Bouncy Castle Licence (MIT-style) | https://www.bouncycastle.org/ | — |

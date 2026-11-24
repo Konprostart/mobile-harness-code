@@ -2499,6 +2499,7 @@ private fun RootScreenHost(
     var openBackup by rememberSaveable { mutableStateOf(false) }
     var showAutoPromptScreen by rememberSaveable { mutableStateOf(false) }
     var showTokenCostManager by rememberSaveable { mutableStateOf(false) }
+    var showSkillsPlugins by rememberSaveable { mutableStateOf(false) }
 
     if (state.showWhatsNew) {
         WhatsNewDialog(
@@ -2698,6 +2699,7 @@ private fun RootScreenHost(
                     onSetAutoPromptSystemEnabled = viewModel::setAutoPromptSystemEnabled,
                     onOpenAutoPrompt = { showAutoPromptScreen = true },
                     onOpenTokenCostManager = { showTokenCostManager = true },
+                    onOpenSkillsPlugins = { showSkillsPlugins = true },
                     onSetAgentRotationEnabled = viewModel::setAgentRotationEnabled,
                     onSetAgentRotationMaxAttempts = viewModel::setAgentRotationMaxAttempts,
                     onCheckForAppUpdate = { viewModel.checkForAppUpdate(force = true) },
@@ -2767,6 +2769,21 @@ private fun RootScreenHost(
             onClearUsage = viewModel::clearTokenUsage,
             onResetSavings = viewModel::resetTokenSavings,
             onReload = viewModel::reloadTokenUsage,
+        )
+    }
+    if (showSkillsPlugins) {
+        SkillsPluginsScreen(
+            state = state,
+            onClose = { showSkillsPlugins = false },
+            onSetSkillEnabled = viewModel::setInstalledSkillEnabled,
+            onDeleteSkill = viewModel::deleteInstalledSkill,
+            onInstallSkillDir = { path -> viewModel.installSkillFromDirectory(java.io.File(path)) },
+            onInstallSkillZip = { path -> viewModel.installSkillFromZip(java.io.File(path)) },
+            onSetPluginEnabled = viewModel::setPluginEnabled,
+            onDeletePlugin = viewModel::deletePlugin,
+            onInstallPluginJson = viewModel::installPluginFromJson,
+            onAdaptPluginDir = viewModel::adaptPluginFromDirectory,
+            onClearMessage = viewModel::clearSkillsPluginsMessage,
         )
     }
     if (showQuickTerminal) {

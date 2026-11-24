@@ -33,3 +33,10 @@ This product includes the Android apksig library
 (https://android.googlesource.com/platform/tools/apksig), licensed under the
 Apache License, Version 2.0, and BouncyCastle (https://www.bouncycastle.org/),
 licensed under the Bouncy Castle Licence (MIT-style).
+
+This product includes the SKILL.md parser, skill variable/template expansion,
+plugin archive extraction, plugin format adapters (Claude Code / Codex / Cursor /
+Gemini), plugin runtime detection, and MCP OAuth PKCE helpers, ported and adapted
+from the AndroidHarness project (https://github.com/Sanuu7/AndroidHarness),
+Copyright (c) 2026 Sanuu7, licensed under the MIT License. The full license text
+is preserved at app/src/main/assets/licenses/androidharness-MIT.txt.
