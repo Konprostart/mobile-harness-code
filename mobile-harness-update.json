@@ -1,12 +1,12 @@
 {
-  "versionCode": 44,
-  "versionName": "1.19.0",
-  "notes": "Advanced Agent Intelligence & Development Environment. Multi-Agent Orchestrator: decompose one goal into a dependency-ordered plan, assign tasks to Claude Code / DeepSeek Harness / Antigravity / Sidekick by capability, schedule independent tasks in parallel and dependent tasks sequentially, with file locking, conflict detection, result aggregation and an agent message bus. Language Server Protocol support: server registry, stdio transport, document sync and diagnostics store for Kotlin/Java/JS/TS/Python/Rust/Go/C/C++/JSON/YAML/HTML/CSS (optional, install on demand in PRoot). Advanced Workspace Management: multiple groups per project, READ/WRITE/EXECUTE/ADMIN grants, enforced read-only roles, path/symlink isolation, workspace locks and an audit log. Autonomous Testing & Repair: Gradle/Maven/npm/pnpm/yarn/pytest/Cargo/Go/CMake discovery, a bounded repair loop with regression checking and a history store. Sidekick hook engine (PreToolUse/PostToolUse/PostToolUseFailure/PermissionRequest/Stop/SessionStart/SessionEnd/PreCompact/SubagentStart/SubagentStop with ALLOW/ASK/BLOCK/REWRITE/CONTINUE/STOP, most-restrictive-wins; CLI agents keep their native hooks). Reliability & Recovery engine: heartbeat, stall detection, exponential-backoff retry, task checkpoints and an idempotency guard. Multi-Agent Dashboard. This APK is SIGNED (V1+V2).",
+  "versionCode": 45,
+  "versionName": "1.19.1",
+  "notes": "FreeLLMAPI — a fourth AI provider. Adds a self-hosted free-provider gateway (MIT, github.com/tashfeenahmed/freellmapi) alongside DeepSeek, Claude Code and Antigravity — as a provider, not a new coding agent. Claude Code connects through FreeLLMAPI's Anthropic Messages surface (/v1/messages); DeepSeek Harness and Sidekick connect through the OpenAI-compatible /v1/chat/completions endpoint. Pick a model (default 'auto'), set your server URL and unified token (stored in the encrypted ApiKeyVault). Experimental · Personal use · Upstream provider terms apply. This APK is SIGNED (V2).",
   "artifacts": {
     "online": {
-      "url": "https://github.com/Konprostart/mobile-harness-code/releases/download/v1.19.0/mobile-harness-online.apk",
-      "sha256": "93fae5797055a73d61a84623723174082802171592c8014c5a4f74b83925ad7e",
-      "sizeBytes": 110358975
+      "url": "https://github.com/Konprostart/mobile-harness-code/releases/download/v1.19.1/mobile-harness-online.apk",
+      "sha256": "dc8911e92e48879e9c397b44624f32bf748f0e2759d1cc87bd0e090f7422a98b",
+      "sizeBytes": 110338296
     }
   }
 }
