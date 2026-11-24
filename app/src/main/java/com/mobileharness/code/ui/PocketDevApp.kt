@@ -2616,6 +2616,7 @@ private fun RootScreenHost(
                     onRefreshAntigravityModels = viewModel::refreshAntigravityModels,
                     onSetAntigravityModel = viewModel::setAntigravityModel,
                     onSetAntigravityEffort = viewModel::setAntigravityEffort,
+                    onOpenOrchestrator = { showMultiAgentDashboard = true },
                 )
                 RootScreen.SETTINGS -> SettingsScreen(
                     state = state,
@@ -2825,6 +2826,7 @@ private fun RootScreenHost(
             onPlanOrchestration = viewModel::planOrchestration,
             onAdvanceOrchestration = viewModel::advanceOrchestration,
             onCancelOrchestration = viewModel::cancelOrchestration,
+            onSetOrchestratorEnabled = viewModel::setOrchestratorEnabled,
             onSaveHookRule = viewModel::saveHookRule,
             onDeleteHookRule = viewModel::deleteHookRule,
             onToggleHookRule = viewModel::setHookRuleEnabled,

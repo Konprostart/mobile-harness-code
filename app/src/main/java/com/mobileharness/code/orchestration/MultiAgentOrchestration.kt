@@ -61,6 +61,7 @@ data class OrchestrationTask(
     val result: String = "",
     val error: String = "",
     val expectedOutput: String = "",
+    val lockPaths: List<String> = emptyList(),
 ) {
     val ready: Boolean get() = status == TaskStatus.PENDING
 }

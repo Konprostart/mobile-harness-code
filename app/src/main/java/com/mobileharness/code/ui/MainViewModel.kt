@@ -225,13 +225,19 @@ import com.mobileharness.code.update.AppUpdateInfo
 import com.mobileharness.code.update.AppUpdater
 import com.mobileharness.code.hooks.HookRule
 import com.mobileharness.code.lsp.LspServerDefinition
+import com.mobileharness.code.orchestration.AgentExecution
+import com.mobileharness.code.orchestration.AgentExecutor
 import com.mobileharness.code.orchestration.AgentIds
 import com.mobileharness.code.orchestration.AgentMessage
 import com.mobileharness.code.orchestration.AgentMessageBus
 import com.mobileharness.code.orchestration.AgentProfile
 import com.mobileharness.code.orchestration.DefaultAgentProfiles
+import com.mobileharness.code.orchestration.ExecutionContext
 import com.mobileharness.code.orchestration.OrchestrationTask
 import com.mobileharness.code.orchestration.OrchestratorEngine
+import com.mobileharness.code.orchestration.OrchestratorRunner
+import com.mobileharness.code.orchestration.RuntimeBridgeExecutor
+import com.mobileharness.code.orchestration.SidekickExecutor
 import com.mobileharness.code.orchestration.TaskPlanner
 import com.mobileharness.code.orchestration.TaskStatus
 import com.mobileharness.code.testing.BuildSystem
@@ -261,7 +267,9 @@ import java.util.concurrent.TimeUnit
 import java.util.zip.ZipEntry
 import java.util.zip.ZipInputStream
 import java.util.zip.ZipOutputStream
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -270,6 +278,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
 import org.json.JSONArray
 import org.json.JSONObject
 
@@ -890,10 +899,14 @@ data class AppUiState(
 
 /** Multi-Agent Orchestration UI state: the active plan/snapshot and a status message. */
 data class OrchestrationUiState(
+    val enabled: Boolean = false,
+    val running: Boolean = false,
     val goal: String = "",
     val tasks: List<OrchestrationTask> = emptyList(),
     val runningAgentIds: Set<String> = emptySet(),
     val message: String? = null,
+    val lastResult: String? = null,
+    val lastError: String? = null,
 ) {
     val done: Boolean get() = tasks.isNotEmpty() && tasks.all { it.status in setOf(TaskStatus.SUCCEEDED, TaskStatus.FAILED, TaskStatus.CANCELLED) }
 }
@@ -1053,6 +1066,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private var transportRetryGeneration: Long = 0
     private var transportRetryJob: kotlinx.coroutines.Job? = null
     private var autoPromptTickerJob: kotlinx.coroutines.Job? = null
+    private var orchestrationJob: kotlinx.coroutines.Job? = null
     private var transportRetryWaiting: Boolean = false
     private var transportRetryingFromSessionId: String? = null
     private val pendingFollowUps = java.util.ArrayDeque<QueuedFollowUp>()
@@ -1178,6 +1192,14 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             workspaceGrants = preferences.loadWorkspaceGrants(),
             lspServers = preferences.loadLspServers(),
             testingHistory = preferences.loadTestingHistory(),
+            orchestration = run {
+                val (goal, tasks) = preferences.loadOrchestrationPlan()
+                OrchestrationUiState(
+                    enabled = preferences.orchestratorEnabled,
+                    goal = goal,
+                    tasks = tasks,
+                )
+            },
         ),
     ).also {
         if (!preferences.onboardingComplete) preferences.whatsNewSeenVersionCode = BuildConfig.VERSION_CODE
@@ -2089,55 +2111,175 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         _state.update { it.copy(testingHistory = emptyList()) }
     }
 
-    /** Decomposes a goal into a plan and shows it in the dashboard (no agent is launched yet). */
-    fun planOrchestration(goal: String) {
-        val plan = TaskPlanner.decompose(goal)
-        if (plan.validationError != null) {
-            _state.update { it.copy(orchestration = it.orchestration.copy(goal = goal, message = plan.validationError)) }
-            return
-        }
-        _state.update {
-            it.copy(orchestration = OrchestrationUiState(goal = goal, tasks = plan.tasks, message = null))
-        }
+    /** Toggles the optional Orchestrator Mode (default OFF; Standard Mode is never routed through it). */
+    fun setOrchestratorEnabled(enabled: Boolean) {
+        preferences.orchestratorEnabled = enabled
+        _state.update { it.copy(orchestration = it.orchestration.copy(enabled = enabled)) }
     }
 
-    /**
-     * Advances the plan one deterministic step: assign the ready task to a capable agent, mark it
-     * running, then complete it with a summary. This drives the real [OrchestratorEngine] ordering,
-     * capability-based assignment and aggregation without launching a CLI — the actual agent launch
-     * stays with the existing RuntimeBridge/Sidekick paths.
-     */
-    fun advanceOrchestration() {
-        val state = _state.value.orchestration
-        if (state.tasks.isEmpty() || state.done) return
-        val engine = OrchestratorEngine(state.tasks)
-        val ready = engine.readyTasks()
-        if (ready.isEmpty() && !engine.tasks().all { it.status == TaskStatus.SUCCEEDED }) {
-            // A failed/blocked task with unmet dependents: surface the aggregation.
-            _state.update { it.copy(orchestration = it.orchestration.copy(message = engine.aggregateResult())) }
+    /** Decomposes a goal into a plan and persists it (no agent is launched yet). */
+    fun planOrchestration(goal: String) {
+        cancelOrchestrationRun()
+        val plan = TaskPlanner.decompose(goal)
+        if (plan.validationError != null) {
+            _state.update {
+                it.copy(orchestration = it.orchestration.copy(goal = goal, tasks = emptyList(), message = plan.validationError, lastResult = null, lastError = null))
+            }
             return
         }
-        val (assignments, _) = com.mobileharness.code.orchestration.AgentAssignment.assign(ready, DefaultAgentProfiles.PROFILES)
-        engine.advance(ready, assignments)
-        for (task in ready) {
-            val agentId = assignments.firstOrNull { it.taskId == task.id }?.agentId ?: AgentIds.SIDEKICK
-            engine.completeTask(task.id, "Completed by $agentId", agentId)
-        }
-        val snapshot = engine.snapshot(emptySet())
+        preferences.saveOrchestrationPlan(goal, plan.tasks)
         _state.update {
             it.copy(
                 orchestration = OrchestrationUiState(
-                    goal = state.goal,
-                    tasks = engine.tasks(),
-                    runningAgentIds = emptySet(),
-                    message = if (snapshot.done) engine.aggregateResult() else null,
+                    enabled = it.orchestration.enabled,
+                    goal = goal,
+                    tasks = plan.tasks,
+                    message = null,
                 ),
             )
         }
     }
 
+    /**
+     * Runs the next ready orchestration step with a *real* agent: assigns it, marks it running,
+     * acquires its file locks, launches the actual executor (Sidekick in-process, or the existing
+     * RuntimeBridge for CLI agents) and records the real result/failure. This replaces the previous
+     * simulation. The plan is persisted after each step so it can be resumed across restarts.
+     */
+    fun advanceOrchestration() {
+        val current = _state.value.orchestration
+        if (!current.enabled) {
+            _state.update { it.copy(orchestration = it.orchestration.copy(message = "Orchestrator is OFF. Enable it to run tasks.")) }
+            return
+        }
+        if (current.tasks.isEmpty() || current.done) return
+        if (orchestrationJob?.isActive == true) return
+        val engine = OrchestratorEngine(current.tasks)
+        val executors = buildOrchestrationExecutors() ?: run {
+            _state.update { it.copy(orchestration = it.orchestration.copy(message = "Open a project to run orchestration tasks.")) }
+            return
+        }
+        val runner = OrchestratorRunner(engine, executors, DefaultAgentProfiles.PROFILES)
+        orchestrationJob = viewModelScope.launch {
+            _state.update { it.copy(orchestration = it.orchestration.copy(running = true, message = null)) }
+            try {
+                val result = runner.step(ExecutionContext(goal = current.goal))
+                persistOrchestration(engine)
+                _state.update { ui ->
+                    ui.copy(
+                        orchestration = OrchestrationUiState(
+                            enabled = ui.orchestration.enabled,
+                            running = false,
+                            goal = current.goal,
+                            tasks = engine.tasks(),
+                            runningAgentIds = engine.snapshot().runningAgentIds,
+                            message = result.message ?: if (result.done) engine.aggregateResult() else null,
+                            lastResult = result.output.takeIf { result.success && it.isNotBlank() },
+                            lastError = result.error.takeIf { !result.success && it.isNotBlank() },
+                        ),
+                    )
+                }
+            } catch (error: Exception) {
+                _state.update { ui ->
+                    ui.copy(
+                        orchestration = ui.orchestration.copy(
+                            running = false,
+                            message = error.message ?: "Orchestration step failed.",
+                            lastError = error.message,
+                        ),
+                    )
+                }
+            }
+        }
+    }
+
+    /** Cancels any in-flight orchestration step and clears the plan. */
     fun cancelOrchestration() {
-        _state.update { it.copy(orchestration = OrchestrationUiState()) }
+        cancelOrchestrationRun()
+        preferences.saveOrchestrationPlan("", emptyList())
+        _state.update { it.copy(orchestration = OrchestrationUiState(enabled = it.orchestration.enabled)) }
+    }
+
+    private fun cancelOrchestrationRun() {
+        orchestrationJob?.cancel()
+        orchestrationJob = null
+    }
+
+    private fun persistOrchestration(engine: OrchestratorEngine) {
+        preferences.saveOrchestrationPlan(_state.value.orchestration.goal, engine.tasks())
+    }
+
+    /**
+     * Builds the real executor for each orchestrator agent id from the existing launch paths.
+     * Sidekick runs in-process via [SidekickEngine.ask]; the CLI agents reuse their existing
+     * [com.mobileharness.code.runtime.RuntimeBridge.startSession] with the current project/provider
+     * and capture the streamed result from the bridge's event flow. Returns null when there is no
+     * active project to run against.
+     */
+    private fun buildOrchestrationExecutors(): Map<String, AgentExecutor>? {
+        val project = _state.value.activeProject ?: _state.value.projects.firstOrNull() ?: return null
+        val provider = _state.value.provider
+        return mapOf(
+            AgentIds.SIDEKICK to SidekickExecutor(ask = { prompt ->
+                sidekickEngine.ask(prompt).text
+            }),
+            AgentIds.CLAUDE_CODE to RuntimeBridgeExecutor(AgentIds.CLAUDE_CODE) { prompt ->
+                runRuntimeSession(AgentIds.CLAUDE_CODE, claudeRuntime, project, provider, prompt)
+            },
+            AgentIds.DEEPSEEK_HARNESS to RuntimeBridgeExecutor(AgentIds.DEEPSEEK_HARNESS) { prompt ->
+                runRuntimeSession(AgentIds.DEEPSEEK_HARNESS, dshRuntime, project, provider, prompt)
+            },
+            AgentIds.ANTIGRAVITY to RuntimeBridgeExecutor(AgentIds.ANTIGRAVITY) { prompt ->
+                runRuntimeSession(AgentIds.ANTIGRAVITY, antigravityRuntime, project, provider, prompt)
+            },
+        )
+    }
+
+    /**
+     * Runs one real CLI-agent session and returns the normalized result. It launches a collector
+     * for the bridge's event flow before [startSession] begins, then waits for the terminal event
+     * ([RuntimeEvent.SessionCompleted] / [RuntimeEvent.SessionFailed]) and aggregates the streamed
+     * assistant text as the task output. This path does NOT set `isRunning`, so the shared
+     * runtime-event handler only records token/cost usage without mutating the main chat UI.
+     */
+    private suspend fun runRuntimeSession(
+        agentId: String,
+        runtime: com.mobileharness.code.runtime.RuntimeBridge,
+        project: Project,
+        provider: ProviderProfile,
+        prompt: String,
+    ): AgentExecution = coroutineScope {
+        val text = StringBuilder()
+        val terminal = CompletableDeferred<Pair<Boolean, String?>>()
+        var observedSessionId: String? = null
+        // UNDISPATCHED subscribes to the bridge's SharedFlow synchronously before startSession
+        // begins, so the SessionStarted/AssistantDelta stream cannot race the launch below.
+        val collector = launch(start = kotlinx.coroutines.CoroutineStart.UNDISPATCHED) {
+            runtime.events.collect { event ->
+                when (event) {
+                    is RuntimeEvent.SessionStarted -> observedSessionId = event.sessionId
+                    is RuntimeEvent.AssistantDelta ->
+                        if (observedSessionId == null || event.sessionId == observedSessionId) text.append(event.text)
+                    is RuntimeEvent.SessionCompleted ->
+                        if (observedSessionId == null || event.sessionId == observedSessionId) terminal.complete(true to null)
+                    is RuntimeEvent.SessionFailed ->
+                        if (observedSessionId == null || event.sessionId == observedSessionId) terminal.complete(false to event.reason)
+                    else -> Unit
+                }
+            }
+        }
+        try {
+            runtime.startSession(project.id, project.slug, project.kind, prompt, emptyList(), provider)
+        } catch (error: Exception) {
+            terminal.complete(false to (error.message ?: "Agent failed"))
+        }
+        val outcome = withTimeoutOrNull(5_000L) { terminal.await() }
+        collector.cancel()
+        when (outcome?.first) {
+            true -> AgentExecution(agentId, true, text.toString().trim())
+            false -> AgentExecution(agentId, false, text.toString().trim(), outcome.second ?: "Agent reported a failure.")
+            null -> AgentExecution(agentId, false, text.toString().trim(), "Agent produced no terminal event.")
+        }
     }
 
     // --- MCP servers (Faza 3) --------------------------------------------------------------

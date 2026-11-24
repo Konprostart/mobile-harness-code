@@ -4,6 +4,9 @@ import com.mobileharness.code.hooks.HookAction
 import com.mobileharness.code.hooks.HookEvent
 import com.mobileharness.code.hooks.HookRule
 import com.mobileharness.code.lsp.LspServerDefinition
+import com.mobileharness.code.orchestration.AgentCapability
+import com.mobileharness.code.orchestration.OrchestrationTask
+import com.mobileharness.code.orchestration.TaskStatus
 import com.mobileharness.code.testing.BuildSystem
 import com.mobileharness.code.testing.TestHistoryEntry
 import com.mobileharness.code.workspace.WorkspaceGrant
@@ -67,5 +70,39 @@ class Phase6CodecsTest {
         assertTrue(WorkspaceManagementCodec.grantsFromJson("").isEmpty())
         assertTrue(LspServerCodec.fromJson("[]").isEmpty())
         assertTrue(TestingHistoryCodec.fromJson("garbage").isEmpty())
+    }
+
+    @Test
+    fun orchestrationPlan_roundTrip() {
+        val tasks = listOf(
+            OrchestrationTask(
+                id = "a",
+                title = "Implement",
+                description = "code",
+                dependencies = emptyList(),
+                requiredCapability = AgentCapability.CODE,
+                priority = 4,
+                assignedAgentId = "claude-code",
+                status = TaskStatus.SUCCEEDED,
+                result = "implemented",
+                error = "",
+                lockPaths = listOf("src/A.kt"),
+            ),
+            OrchestrationTask(id = "b", title = "Review", description = "review", dependencies = listOf("a")),
+        )
+        val json = OrchestrationPlanCodec.toJson("build app", tasks)
+        val (goal, decoded) = OrchestrationPlanCodec.fromJson(json)
+        assertEquals("build app", goal)
+        assertEquals(tasks, decoded)
+    }
+
+    @Test
+    fun orchestrationPlan_toleratesEmptyAndMalformed() {
+        assertTrue(OrchestrationPlanCodec.fromJson(null).second.isEmpty())
+        assertTrue(OrchestrationPlanCodec.fromJson("").second.isEmpty())
+        assertTrue(OrchestrationPlanCodec.fromJson("garbage").second.isEmpty())
+        // A task missing an id/title is skipped rather than resurrected half-valid.
+        val malformed = """{"goal":"g","tasks":[{"status":"SUCCEEDED"}]}"""
+        assertTrue(OrchestrationPlanCodec.fromJson(malformed).second.isEmpty())
     }
 }

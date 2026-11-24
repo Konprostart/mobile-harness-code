@@ -252,3 +252,72 @@ object TestingHistoryCodec {
         return entries
     }
 }
+
+/**
+ * Codec for the persisted multi-agent orchestration plan. Stores the goal plus the current DAG
+ * (tasks with status, assignment, result, error and declared lock paths) so a running plan can
+ * survive an app restart and be resumed or inspected. Fail-safe on decode: malformed tasks are
+ * skipped and never resurrect a half-valid plan. No secrets are stored — results may contain agent
+ * output, which is device-local only.
+ */
+object OrchestrationPlanCodec {
+    fun toJson(goal: String, tasks: List<com.mobileharness.code.orchestration.OrchestrationTask>): String {
+        val array = JSONArray()
+        tasks.forEach { task ->
+            array.put(
+                JSONObject()
+                    .put("id", task.id)
+                    .put("title", task.title)
+                    .put("description", task.description)
+                    .put("dependencies", JSONArray(task.dependencies))
+                    .put("requiredCapability", task.requiredCapability?.name)
+                    .put("priority", task.priority)
+                    .put("assignedAgentId", task.assignedAgentId ?: JSONObject.NULL)
+                    .put("status", task.status.name)
+                    .put("result", task.result)
+                    .put("error", task.error)
+                    .put("expectedOutput", task.expectedOutput)
+                    .put("lockPaths", JSONArray(task.lockPaths)),
+            )
+        }
+        return JSONObject().put("goal", goal).put("tasks", array).toString()
+    }
+
+    fun fromJson(json: String?): Pair<String, List<com.mobileharness.code.orchestration.OrchestrationTask>> {
+        if (json.isNullOrBlank()) return "" to emptyList()
+        val root = runCatching { JSONObject(json) }.getOrNull() ?: return "" to emptyList()
+        val goal = root.optString("goal")
+        val array = root.optJSONArray("tasks") ?: return goal to emptyList()
+        val tasks = mutableListOf<com.mobileharness.code.orchestration.OrchestrationTask>()
+        for (i in 0 until array.length()) {
+            val obj = runCatching { array.optJSONObject(i) }.getOrNull() ?: continue
+            val id = obj.optString("id")
+            val title = obj.optString("title")
+            if (id.isBlank() || title.isBlank()) continue
+            tasks += com.mobileharness.code.orchestration.OrchestrationTask(
+                id = id,
+                title = title,
+                description = obj.optString("description"),
+                dependencies = jsonStringArray(obj.optJSONArray("dependencies")),
+                requiredCapability = runCatching {
+                    com.mobileharness.code.orchestration.AgentCapability.valueOf(obj.optString("requiredCapability"))
+                }.getOrNull(),
+                priority = obj.optInt("priority"),
+                assignedAgentId = obj.optString("assignedAgentId").takeIf { it.isNotBlank() && obj.opt("assignedAgentId") != JSONObject.NULL },
+                status = runCatching {
+                    com.mobileharness.code.orchestration.TaskStatus.valueOf(obj.optString("status"))
+                }.getOrNull() ?: com.mobileharness.code.orchestration.TaskStatus.PENDING,
+                result = obj.optString("result"),
+                error = obj.optString("error"),
+                expectedOutput = obj.optString("expectedOutput"),
+                lockPaths = jsonStringArray(obj.optJSONArray("lockPaths")),
+            )
+        }
+        return goal to tasks
+    }
+
+    private fun jsonStringArray(array: JSONArray?): List<String> {
+        if (array == null) return emptyList()
+        return buildList { for (i in 0 until array.length()) add(array.optString(i)) }
+    }
+}

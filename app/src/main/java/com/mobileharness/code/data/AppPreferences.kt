@@ -552,6 +552,28 @@ class AppPreferences(private val context: Context) {
     fun loadTestingHistory(): List<TestHistoryEntry> =
         TestingHistoryCodec.fromJson(preferences.getString("testing_history_json", null))
 
+    // --- Phase 6.1: optional multi-agent orchestrator (device-only, no secrets) -------------
+    /**
+     * Master switch for the optional Orchestrator Mode. Defaults to OFF so the existing
+     * Standard Mode (direct agent launches) is never routed through the orchestrator until the
+     * user explicitly enables it.
+     */
+    var orchestratorEnabled: Boolean
+        get() = preferences.getBoolean("orchestrator_enabled", false)
+        set(value) { preferences.edit().putBoolean("orchestrator_enabled", value).apply() }
+
+    /** Persisted orchestration plan (goal + DAG) for resume/inspection across app restarts. */
+    var orchestrationPlanJson: String
+        get() = preferences.getString("orchestration_plan_json", "") ?: ""
+        set(value) { preferences.edit().putString("orchestration_plan_json", value).apply() }
+
+    fun saveOrchestrationPlan(goal: String, tasks: List<com.mobileharness.code.orchestration.OrchestrationTask>) {
+        preferences.edit().putString("orchestration_plan_json", OrchestrationPlanCodec.toJson(goal, tasks)).apply()
+    }
+
+    fun loadOrchestrationPlan(): Pair<String, List<com.mobileharness.code.orchestration.OrchestrationTask>> =
+        OrchestrationPlanCodec.fromJson(preferences.getString("orchestration_plan_json", null))
+
     // --- SSH servers (Faza 1: sshj client + tunnel) ----------------------------------------
     /**
      * Persists the saved SSH server profiles as a single JSON document. Secrets (password,

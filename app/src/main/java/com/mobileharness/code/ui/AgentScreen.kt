@@ -197,6 +197,7 @@ fun AgentScreen(
     onRefreshAntigravityModels: () -> Unit = {},
     onSetAntigravityModel: (String) -> Unit = {},
     onSetAntigravityEffort: (String) -> Unit = {},
+    onOpenOrchestrator: () -> Unit = {},
 ) {
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
@@ -1017,6 +1018,34 @@ fun AgentScreen(
                                 ) {
                                     Text(stringResource(R.string.agent_install_action, viewedAgentTitle), fontWeight = FontWeight.Bold)
                                 }
+                            }
+                        }
+                    }
+                }
+            }
+
+            // ── Orchestrator entry (optional multi-agent mode, visible and reachable) ──
+            item {
+                Surface(
+                    shape = RoundedCornerShape(16.dp),
+                    color = MaterialTheme.colorScheme.surface,
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f)),
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Column(Modifier.padding(16.dp)) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Column(Modifier.weight(1f)) {
+                                Text("Orchestrator", fontWeight = FontWeight.Bold, fontSize = 15.sp)
+                                Spacer(Modifier.height(2.dp))
+                                Text(
+                                    "Optional multi-agent mode: split a large goal into a plan and run it across the agents. Default OFF.",
+                                    fontSize = 12.sp,
+                                    lineHeight = 17.sp,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
+                            OutlinedButton(onClick = onOpenOrchestrator, shape = RoundedCornerShape(12.dp)) {
+                                Text("Open")
                             }
                         }
                     }

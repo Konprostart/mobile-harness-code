@@ -67,6 +67,7 @@ fun MultiAgentDashboardScreen(
     onPlanOrchestration: (String) -> Unit,
     onAdvanceOrchestration: () -> Unit,
     onCancelOrchestration: () -> Unit,
+    onSetOrchestratorEnabled: (Boolean) -> Unit,
     onSaveHookRule: (HookRule) -> Unit,
     onDeleteHookRule: (String) -> Unit,
     onToggleHookRule: (String, Boolean) -> Unit,
@@ -98,7 +99,7 @@ fun MultiAgentDashboardScreen(
                 }
             }
             when (selectedTab) {
-                0 -> OrchestratorTab(state, onPlanOrchestration, onAdvanceOrchestration, onCancelOrchestration)
+                0 -> OrchestratorTab(state, onPlanOrchestration, onAdvanceOrchestration, onCancelOrchestration, onSetOrchestratorEnabled)
                 1 -> AgentsTab()
                 2 -> WorkspacesTab(state, onAddWorkspaceGroup, onDeleteWorkspaceGroup, onAddWorkspaceGrant, onDeleteWorkspaceGrant)
                 3 -> LspTab(state, onSaveLspServer, onDeleteLspServer, onToggleLspServer)
@@ -115,22 +116,35 @@ private fun OrchestratorTab(
     onPlan: (String) -> Unit,
     onAdvance: () -> Unit,
     onCancel: () -> Unit,
+    onSetEnabled: (Boolean) -> Unit,
 ) {
     var goal by remember { mutableStateOf(state.orchestration.goal) }
     LazyColumn(Modifier.fillMaxSize().padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         item {
-            Text("Orchestrator", fontWeight = FontWeight.Bold, fontSize = 18.sp)
-            Text("Decompose one large goal into a dependency-ordered plan and advance it through the agents.", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp)
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Text("Orchestrator", fontWeight = FontWeight.Bold, fontSize = 18.sp)
+                    Text("Optional multi-agent mode. Default OFF — direct agent launches are unchanged.", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp)
+                }
+                Switch(checked = state.orchestration.enabled, onCheckedChange = onSetEnabled)
+            }
+        }
+        item {
+            Text("Decompose one large goal into a dependency-ordered plan and run it through the real agents (Sidekick in-process; CLI agents via the existing runtime).", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp)
         }
         item {
             OutlinedTextField(value = goal, onValueChange = { goal = it }, modifier = Modifier.fillMaxWidth(), label = { Text("Goal") }, placeholder = { Text("e.g. Build a crypto wallet app") })
             Row(Modifier.padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Button(onClick = { onPlan(goal) }, enabled = goal.isNotBlank()) { Text("Plan") }
-                OutlinedButton(onClick = onAdvance, enabled = state.orchestration.tasks.isNotEmpty() && !state.orchestration.done) { Text("Run next step") }
+                OutlinedButton(
+                    onClick = onAdvance,
+                    enabled = state.orchestration.enabled && state.orchestration.tasks.isNotEmpty() && !state.orchestration.done && !state.orchestration.running,
+                ) { Text(if (state.orchestration.running) "Running…" else "Run next step") }
                 TextButton(onClick = onCancel) { Text("Reset") }
             }
         }
         state.orchestration.message?.let { item { Text(it, fontSize = 13.sp, color = MaterialTheme.colorScheme.primary) } }
+        state.orchestration.lastError?.let { item { Text("Last error: $it", fontSize = 12.sp, color = statusColor(TaskStatus.FAILED)) } }
         item { Text("Tasks", fontWeight = FontWeight.SemiBold) }
         items(state.orchestration.tasks) { task ->
             Card(Modifier.fillMaxWidth()) {
@@ -141,7 +155,8 @@ private fun OrchestratorTab(
                     }
                     Text(task.description, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 2, overflow = TextOverflow.Ellipsis)
                     if (task.assignedAgentId != null) Text("Agent: ${task.assignedAgentId}", fontSize = 12.sp)
-                    if (task.result.isNotBlank()) Text("Result: ${task.result}", fontSize = 12.sp, color = MaterialTheme.colorScheme.primary)
+                    if (task.result.isNotBlank()) Text("Result: ${task.result}", fontSize = 12.sp, color = MaterialTheme.colorScheme.primary, maxLines = 8, overflow = TextOverflow.Ellipsis)
+                    if (task.error.isNotBlank()) Text("Error: ${task.error}", fontSize = 12.sp, color = statusColor(TaskStatus.FAILED))
                     if (task.dependencies.isNotEmpty()) Text("Deps: ${task.dependencies.joinToString()}", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
@@ -411,11 +426,11 @@ private fun HooksTab(
 }
 
 private fun statusLabel(status: TaskStatus): String = when (status) {
-    TaskStatus.PENDING -> "Pending"
+    TaskStatus.PENDING -> "Planned"
     TaskStatus.QUEUED -> "Queued"
     TaskStatus.RUNNING -> "Running"
     TaskStatus.WAITING -> "Waiting"
-    TaskStatus.SUCCEEDED -> "Succeeded"
+    TaskStatus.SUCCEEDED -> "Completed"
     TaskStatus.FAILED -> "Failed"
     TaskStatus.CANCELLED -> "Cancelled"
     TaskStatus.BLOCKED -> "Blocked"
