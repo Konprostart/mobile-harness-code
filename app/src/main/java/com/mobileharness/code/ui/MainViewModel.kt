@@ -93,6 +93,8 @@ import com.mobileharness.code.token.ModelPricing
 import com.mobileharness.code.token.OptimizationConfig
 import com.mobileharness.code.token.TokenUsageEntry
 import com.mobileharness.code.token.TokenUsageStore
+import com.mobileharness.code.voice.VoiceProviderKind
+import com.mobileharness.code.voice.VoiceSettings
 import com.mobileharness.code.skills.Skill
 import com.mobileharness.code.skills.InstalledSkill
 import com.mobileharness.code.skills.AdvancedSkillStore
@@ -826,6 +828,7 @@ data class AppUiState(
     val installedSkills: List<InstalledSkill> = emptyList(),
     val installedPlugins: List<Plugin> = emptyList(),
     val skillsPluginsMessage: String? = null,
+    val voiceSettings: VoiceSettings = VoiceSettings(),
     val sshProfiles: List<SshProfile> = emptyList(),
     val sshTestingProfileId: String? = null,
     val sshRunningTunnelIds: Set<String> = emptySet(),
@@ -1091,6 +1094,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             skills = preferences.loadSkills(),
             installedSkills = preferences.loadInstalledSkills(),
             installedPlugins = preferences.loadInstalledPlugins(),
+            voiceSettings = preferences.voiceSettings,
             sshProfiles = preferences.loadSshProfiles(),
             inviteCode = preferences.inviteCode.ifBlank {
                 InviteCode.generate().also { preferences.inviteCode = it }
@@ -1451,6 +1455,34 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     fun setAutoPromptSystemEnabled(enabled: Boolean) {
         preferences.autoPromptSystemEnabled = enabled
         _state.update { it.copy(autoPromptSystemEnabled = enabled) }
+    }
+
+    // --- Voice (STT/TTS + Live Mode) ---------------------------------------------------
+
+    fun setVoiceSettings(settings: VoiceSettings) {
+        preferences.voiceSettings = settings
+        _state.update { it.copy(voiceSettings = settings) }
+    }
+
+    /** Reads a voice API key from the encrypted vault under a per-provider slot. */
+    fun getVoiceApiKey(kind: VoiceProviderKind): String? = vault.get(voiceKeyId(kind))
+
+    /** Stores a voice API key in the encrypted vault under a per-provider slot. */
+    fun setVoiceApiKey(kind: VoiceProviderKind, key: String) {
+        if (key.isBlank()) vault.remove(voiceKeyId(kind)) else vault.put(voiceKeyId(kind), key.trim())
+    }
+
+    private fun voiceKeyId(kind: VoiceProviderKind): String = "voice-" + kind.name.lowercase()
+
+    /** Hands a Live Mode task brief to the coding agent in the active project. */
+    fun runLiveModeTask(brief: String) {
+        val project = _state.value.activeProject ?: _state.value.projects.firstOrNull()
+        if (project == null) {
+            _state.update { it.copy(toastMessage = str(R.string.autoprompt_no_project)) }
+            return
+        }
+        openProject(project)
+        sendPrompt(brief)
     }
 
     /** Creates or updates an auto prompt. Returns false (and does not persist) when it fails policy. */

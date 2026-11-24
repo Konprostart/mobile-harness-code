@@ -2500,6 +2500,7 @@ private fun RootScreenHost(
     var showAutoPromptScreen by rememberSaveable { mutableStateOf(false) }
     var showTokenCostManager by rememberSaveable { mutableStateOf(false) }
     var showSkillsPlugins by rememberSaveable { mutableStateOf(false) }
+    var showVoiceSettings by rememberSaveable { mutableStateOf(false) }
 
     if (state.showWhatsNew) {
         WhatsNewDialog(
@@ -2700,6 +2701,7 @@ private fun RootScreenHost(
                     onOpenAutoPrompt = { showAutoPromptScreen = true },
                     onOpenTokenCostManager = { showTokenCostManager = true },
                     onOpenSkillsPlugins = { showSkillsPlugins = true },
+                    onOpenVoiceSettings = { showVoiceSettings = true },
                     onSetAgentRotationEnabled = viewModel::setAgentRotationEnabled,
                     onSetAgentRotationMaxAttempts = viewModel::setAgentRotationMaxAttempts,
                     onCheckForAppUpdate = { viewModel.checkForAppUpdate(force = true) },
@@ -2784,6 +2786,16 @@ private fun RootScreenHost(
             onInstallPluginJson = viewModel::installPluginFromJson,
             onAdaptPluginDir = viewModel::adaptPluginFromDirectory,
             onClearMessage = viewModel::clearSkillsPluginsMessage,
+        )
+    }
+    if (showVoiceSettings) {
+        VoiceSettingsScreen(
+            state = state,
+            onClose = { showVoiceSettings = false },
+            onSaveSettings = viewModel::setVoiceSettings,
+            getApiKey = viewModel::getVoiceApiKey,
+            setApiKey = viewModel::setVoiceApiKey,
+            onStartTask = viewModel::runLiveModeTask,
         )
     }
     if (showQuickTerminal) {

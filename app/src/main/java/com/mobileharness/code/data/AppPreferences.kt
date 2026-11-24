@@ -36,6 +36,8 @@ import com.mobileharness.code.token.ModelPricing
 import com.mobileharness.code.token.OptimizationConfig
 import com.mobileharness.code.token.OptimizationConfigCodec
 import com.mobileharness.code.token.PricingOverrideCodec
+import com.mobileharness.code.voice.VoiceSettings
+import com.mobileharness.code.voice.VoiceSettingsCodec
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
@@ -307,6 +309,16 @@ class AppPreferences(private val context: Context) {
     var sidekickLanguage: String
         get() = preferences.getString("sidekick_language", "auto") ?: "auto"
         set(value) { preferences.edit().putString("sidekick_language", value.trim()).apply() }
+
+    // --- Voice (STT/TTS + Live Mode) -------------------------------------------------
+    /**
+     * Device-local voice preferences: STT/TTS provider kind, model, voice, language, speech rate,
+     * auto-read, and Live Mode settings. Keys are NOT stored here (they live in [ApiKeyVault]).
+     * Not sensitive, so excluded from [DEVICE_ONLY_KEYS].
+     */
+    var voiceSettings: VoiceSettings
+        get() = VoiceSettingsCodec.fromJson(preferences.getString("voice_settings_json", "").orEmpty())
+        set(value) { preferences.edit().putString("voice_settings_json", VoiceSettingsCodec.toJson(value)).apply() }
 
     /** When true the assistant falls back to [sidekickFallbackModel] on transient provider errors. */
     var sidekickFallbackEnabled: Boolean

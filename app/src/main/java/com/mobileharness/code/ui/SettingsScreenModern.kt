@@ -50,6 +50,7 @@ import androidx.compose.material.icons.filled.Dns
 import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.Extension
 import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.LightMode
 import androidx.compose.material.icons.filled.Memory
@@ -137,7 +138,7 @@ import com.mobileharness.code.ui.theme.AppThemeMode
 import com.mobileharness.code.ui.theme.PocketOrange
 import kotlinx.coroutines.launch
 
-private enum class SettingsSection { APPEARANCE, LANGUAGE, TOOLS, RUNTIME, DIAGNOSTICS, DEVELOPER_TOOLS, ACCOUNT, BACKUP, UPDATE_CHANNEL, UPDATES, GRADLE_MEMORY, RELEASE_SIGNING, SIGNING_VAULT, SERVER_SYNC, TELEGRAM, SIDEKICK, MCP_SERVERS, ECO_MODE, AUTO_PROMPT, AUTO_PROMPT_LIBRARY, TOKEN_COST_MANAGER, SKILLS_PLUGINS, MODEL_ROTATION, RAG, SSH, SHARE_INVITE }
+private enum class SettingsSection { APPEARANCE, LANGUAGE, TOOLS, RUNTIME, DIAGNOSTICS, DEVELOPER_TOOLS, ACCOUNT, BACKUP, UPDATE_CHANNEL, UPDATES, GRADLE_MEMORY, RELEASE_SIGNING, SIGNING_VAULT, SERVER_SYNC, TELEGRAM, SIDEKICK, MCP_SERVERS, ECO_MODE, AUTO_PROMPT, AUTO_PROMPT_LIBRARY, TOKEN_COST_MANAGER, SKILLS_PLUGINS, VOICE, MODEL_ROTATION, RAG, SSH, SHARE_INVITE }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -209,6 +210,7 @@ fun SettingsScreen(
     onOpenAutoPrompt: () -> Unit = {},
     onOpenTokenCostManager: () -> Unit = {},
     onOpenSkillsPlugins: () -> Unit = {},
+    onOpenVoiceSettings: () -> Unit = {},
     onSetAgentRotationEnabled: (Boolean) -> Unit = {},
     onSetAgentRotationMaxAttempts: (Int) -> Unit = {},
     onCheckForAppUpdate: () -> Unit = {},
@@ -799,6 +801,33 @@ fun SettingsScreen(
                             Icon(Icons.Default.AutoAwesome, null)
                             Spacer(Modifier.width(6.dp))
                             Text("Open Token & Cost Manager")
+                        }
+                    }
+                }
+            }
+
+            item {
+                SettingsAccordion(
+                    title = "Voice & Speech",
+                    subtitle = if (state.voiceSettings.liveModeEnabled) {
+                        "STT: ${state.voiceSettings.sttKind.name} · TTS: ${state.voiceSettings.ttsKind.name} · Live Mode on"
+                    } else {
+                        "STT: ${state.voiceSettings.sttKind.name} · TTS: ${state.voiceSettings.ttsKind.name}"
+                    },
+                    icon = Icons.Default.Mic,
+                    expanded = expanded == SettingsSection.VOICE,
+                    onClick = { toggle(SettingsSection.VOICE) },
+                ) {
+                    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                        Text(
+                            "Speech-to-text, text-to-speech, read-aloud and hands-free Live Mode.",
+                            fontSize = 11.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        Button(onClick = onOpenVoiceSettings) {
+                            Icon(Icons.Default.Mic, null)
+                            Spacer(Modifier.width(6.dp))
+                            Text("Open voice settings")
                         }
                     }
                 }

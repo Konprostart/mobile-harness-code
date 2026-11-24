@@ -43,6 +43,9 @@ import com.mobileharness.code.token.TokenUsageEntry
 import com.mobileharness.code.token.TokenUsageEstimator
 import com.mobileharness.code.token.TokenUsageStore
 import com.mobileharness.code.ui.AppStrings
+import com.mobileharness.code.voice.LiveExchange
+import com.mobileharness.code.voice.LiveMode
+import com.mobileharness.code.voice.LiveModeAccess
 import org.json.JSONObject
 import java.io.File
 
@@ -141,6 +144,20 @@ class SidekickEngine(context: Context) {
         )
         return RagIndex.buildContext(chunks)
     }
+
+    /**
+     * Hands-free Live Mode turn: answers with the Live Mode planning prompt for the chosen access
+     * level, carrying the rolling conversation transcript as context. Reuses [complete] so provider
+     * resolution, fallback, budgets and token recording all behave exactly like a normal ask.
+     */
+    suspend fun liveAsk(
+        access: LiveModeAccess,
+        history: List<LiveExchange>,
+        question: String,
+    ): SidekickResult = complete(
+        systemPrompt = withLanguageInstruction(LiveMode.systemPrompt(access), question),
+        userMessage = LiveMode.requestFor(access, history, question),
+    )
 
     suspend fun optimizePrompt(draft: String): SidekickResult =
         complete(

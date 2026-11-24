@@ -2,8 +2,11 @@ AndroidHarness — MIT License
 
 The SKILL.md parser, skill variable/template expansion, plugin archive extraction,
 plugin format adapters (Claude Code / Codex / Cursor / Gemini), plugin runtime
-detection, and MCP OAuth PKCE helpers in this product were ported and adapted from
-the AndroidHarness project (https://github.com/Sanuu7/AndroidHarness).
+detection, MCP OAuth PKCE helpers, the voice provider gateway (OpenAI Audio,
+ElevenLabs, Deepgram, Cartesia, AssemblyAI), the Microsoft Edge TTS client, the
+speech-text cleaner and TTS chunker, and the Live Mode conversation/transcript
+logic in this product were ported and adapted from the AndroidHarness project
+(https://github.com/Sanuu7/AndroidHarness).
 
 MIT License
 
