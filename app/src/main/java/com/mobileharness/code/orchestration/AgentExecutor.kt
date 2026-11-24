@@ -1,5 +1,9 @@
 package com.mobileharness.code.orchestration
 
+import com.mobileharness.code.token.BudgetConfig
+import com.mobileharness.code.token.SpendSnapshot
+import com.mobileharness.code.token.TokenOptimizationService
+
 /**
  * Real agent-execution layer for the orchestrator (Phase 6.1).
  *
@@ -89,6 +93,9 @@ class OrchestratorRunner(
     private val profiles: List<AgentProfile> = DefaultAgentProfiles.PROFILES,
     private val locks: FileLockRegistry = engine.lockRegistry(),
     private val bus: AgentMessageBus = engine.messageBus(),
+    private val optimization: TokenOptimizationService? = null,
+    private val budgetConfig: BudgetConfig = BudgetConfig.DEFAULT,
+    private val spendProvider: (() -> SpendSnapshot)? = null,
 ) {
     data class StepResult(
         val executedTaskId: String? = null,
@@ -100,6 +107,9 @@ class OrchestratorRunner(
         val unassigned: List<OrchestrationTask> = emptyList(),
         val done: Boolean = false,
         val madeProgress: Boolean = false,
+        val compactionRemovedChars: Int = 0,
+        val compactionApplied: Boolean = false,
+        val budgetBlocked: Boolean = false,
     )
 
     /** Runs one ready task to completion and returns the outcome + whether the plan is done. */
@@ -127,6 +137,28 @@ class OrchestratorRunner(
         val task = ready.firstOrNull { it.id == assignment.taskId } ?: return StepResult(message = "Task vanished.", madeProgress = false)
         engine.advance(listOf(task), listOf(assignment))
 
+        // Optional budget gate: when the central token optimization service is enabled with budget
+        // gating, refuse to launch the step once a configured limit (global/per-agent/per-task) is
+        // reached. This is fail-safe: without the opt-in it never blocks. Only new steps are gated;
+        // an already-running CLI process is never interrupted here.
+        if (optimization != null && spendProvider != null) {
+            val decision = optimization.checkBudget(spendProvider(), budgetConfig, assignment.agentId)
+            if (decision.blocked) {
+                engine.blockTask(task.id, decision.reason ?: "Budget limit reached.")
+                return StepResult(
+                    executedTaskId = task.id,
+                    agentId = assignment.agentId,
+                    success = false,
+                    error = decision.reason ?: "Budget limit reached.",
+                    message = decision.reason ?: "Budget limit reached.",
+                    unassigned = unassigned,
+                    done = engine.snapshot().done,
+                    madeProgress = true,
+                    budgetBlocked = true,
+                )
+            }
+        }
+
         // Acquire declared file locks first; a conflict fails the task closed instead of letting
         // two agents (or two steps) mutate the same path.
         val acquired = mutableListOf<String>()
@@ -152,7 +184,11 @@ class OrchestratorRunner(
         val priorResults = engine.tasks()
             .filter { it.status == TaskStatus.SUCCEEDED && it.id != task.id && it.result.isNotBlank() }
             .map { it.result }
-        val execution = executors[assignment.agentId]?.execute(task, context.copy(priorResults = priorResults))
+        // Optional context shaping: reduce the handoff context before the next agent sees it.
+        // When the service is off (or shaping is disabled/failed) the original context is used.
+        val shape = optimization?.shapeHandoff(priorResults)
+        val effectivePrior = shape?.shapedResults ?: priorResults
+        val execution = executors[assignment.agentId]?.execute(task, context.copy(priorResults = effectivePrior))
             ?: AgentExecution(assignment.agentId, false, "", "No executor registered for ${assignment.agentId}.")
 
         acquired.forEach { locks.release(it, assignment.agentId) }
@@ -174,6 +210,8 @@ class OrchestratorRunner(
                 unassigned = unassigned,
                 done = engine.snapshot().done,
                 madeProgress = true,
+                compactionRemovedChars = shape?.removedChars ?: 0,
+                compactionApplied = shape?.applied ?: false,
             )
         } else {
             engine.failTask(task.id, execution.error.ifBlank { "Agent reported a failure." })
@@ -186,6 +224,8 @@ class OrchestratorRunner(
                 unassigned = unassigned,
                 done = engine.snapshot().done,
                 madeProgress = true,
+                compactionRemovedChars = shape?.removedChars ?: 0,
+                compactionApplied = shape?.applied ?: false,
             )
         }
     }

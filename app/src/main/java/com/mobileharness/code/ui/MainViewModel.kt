@@ -96,6 +96,12 @@ import com.mobileharness.code.token.OptimizationConfig
 import com.mobileharness.code.token.Reliability
 import com.mobileharness.code.token.TokenUsageEntry
 import com.mobileharness.code.token.TokenUsageStore
+import com.mobileharness.code.token.SpendSnapshot
+import com.mobileharness.code.token.TokenCalculator
+import com.mobileharness.code.token.TokenOptimizationService
+import com.mobileharness.code.token.TokenOptimizationServiceConfig
+import com.mobileharness.code.token.TokenSavings
+import com.mobileharness.code.token.SavingsLedger
 import com.mobileharness.code.voice.VoiceProviderKind
 import com.mobileharness.code.voice.VoiceSettings
 import com.mobileharness.code.skills.Skill
@@ -907,6 +913,9 @@ data class OrchestrationUiState(
     val message: String? = null,
     val lastResult: String? = null,
     val lastError: String? = null,
+    val tokenOptimization: TokenOptimizationServiceConfig = TokenOptimizationServiceConfig.DEFAULT,
+    val taskSpendUsd: Double = 0.0,
+    val optimizationNote: String? = null,
 ) {
     val done: Boolean get() = tasks.isNotEmpty() && tasks.all { it.status in setOf(TaskStatus.SUCCEEDED, TaskStatus.FAILED, TaskStatus.CANCELLED) }
 }
@@ -1198,6 +1207,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     enabled = preferences.orchestratorEnabled,
                     goal = goal,
                     tasks = tasks,
+                    tokenOptimization = preferences.tokenOptimizationServiceConfig,
+                    taskSpendUsd = preferences.orchestrationTaskSpendUsd,
                 )
             },
         ),
@@ -2117,6 +2128,13 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         _state.update { it.copy(orchestration = it.orchestration.copy(enabled = enabled)) }
     }
 
+    /** Updates the optional central Token Optimization service config (master + sub-switches). */
+    fun updateTokenOptimization(transform: (TokenOptimizationServiceConfig) -> TokenOptimizationServiceConfig) {
+        val updated = transform(_state.value.orchestration.tokenOptimization)
+        preferences.tokenOptimizationServiceConfig = updated
+        _state.update { it.copy(orchestration = it.orchestration.copy(tokenOptimization = updated)) }
+    }
+
     /** Decomposes a goal into a plan and persists it (no agent is launched yet). */
     fun planOrchestration(goal: String) {
         cancelOrchestrationRun()
@@ -2128,6 +2146,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             return
         }
         preferences.saveOrchestrationPlan(goal, plan.tasks)
+        // A new plan starts a fresh per-task spend window.
+        preferences.orchestrationTaskSpendUsd = 0.0
         _state.update {
             it.copy(
                 orchestration = OrchestrationUiState(
@@ -2135,6 +2155,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     goal = goal,
                     tasks = plan.tasks,
                     message = null,
+                    tokenOptimization = it.orchestration.tokenOptimization,
+                    taskSpendUsd = 0.0,
                 ),
             )
         }
@@ -2159,12 +2181,44 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             _state.update { it.copy(orchestration = it.orchestration.copy(message = "Open a project to run orchestration tasks.")) }
             return
         }
-        val runner = OrchestratorRunner(engine, executors, DefaultAgentProfiles.PROFILES)
+        // The optional central Token Optimization service is built per step from the current
+        // preferences and a fresh ledger. When its master switch is OFF every operation is a no-op,
+        // so the orchestrator behaves exactly as before.
+        val optimization = TokenOptimizationService(
+            config = preferences.tokenOptimizationServiceConfig,
+            ledger = SavingsLedger(),
+        )
+        val budgetConfig = preferences.tokenBudget
+        val spendProvider = { computeOrchestrationSpendSnapshot() }
+        val runner = OrchestratorRunner(
+            engine, executors, DefaultAgentProfiles.PROFILES,
+            optimization = optimization,
+            budgetConfig = budgetConfig,
+            spendProvider = spendProvider,
+        )
         orchestrationJob = viewModelScope.launch {
             _state.update { it.copy(orchestration = it.orchestration.copy(running = true, message = null)) }
             try {
+                val spendBefore = totalSpendUsd()
                 val result = runner.step(ExecutionContext(goal = current.goal))
                 persistOrchestration(engine)
+                // Attribute this step's real (metered/estimated) spend delta to the per-task budget.
+                val spendAfter = totalSpendUsd()
+                val stepDelta = (spendAfter - spendBefore).coerceAtLeast(0.0)
+                val newTaskSpend = (current.taskSpendUsd + stepDelta).coerceAtLeast(0.0)
+                preferences.orchestrationTaskSpendUsd = newTaskSpend
+                // Flush the ledger's estimated savings into the persisted running counters.
+                val (compactionTokens, modelChoiceTokens) = optimization.ledger.drain()
+                if (compactionTokens > 0L || modelChoiceTokens > 0L) {
+                    addTokenSavings(compactionTokens, modelChoiceTokens)
+                }
+                val note = buildString {
+                    if (result.budgetBlocked) {
+                        append(result.error.ifBlank { "Budget limit reached." })
+                    } else if (result.compactionApplied) {
+                        append("Context compaction removed ${result.compactionRemovedChars} characters (~${compactionTokens} tokens, estimated).")
+                    }
+                }.takeIf { it.isNotBlank() }
                 _state.update { ui ->
                     ui.copy(
                         orchestration = OrchestrationUiState(
@@ -2176,6 +2230,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                             message = result.message ?: if (result.done) engine.aggregateResult() else null,
                             lastResult = result.output.takeIf { result.success && it.isNotBlank() },
                             lastError = result.error.takeIf { !result.success && it.isNotBlank() },
+                            tokenOptimization = ui.orchestration.tokenOptimization,
+                            taskSpendUsd = newTaskSpend,
+                            optimizationNote = note,
                         ),
                     )
                 }
@@ -2193,11 +2250,14 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    /** Cancels any in-flight orchestration step and clears the plan. */
+    /** Cancels any in-flight orchestration step and clears the plan (optimization config is kept). */
     fun cancelOrchestration() {
         cancelOrchestrationRun()
         preferences.saveOrchestrationPlan("", emptyList())
-        _state.update { it.copy(orchestration = OrchestrationUiState(enabled = it.orchestration.enabled)) }
+        preferences.orchestrationTaskSpendUsd = 0.0
+        _state.update {
+            it.copy(orchestration = OrchestrationUiState(enabled = it.orchestration.enabled, tokenOptimization = it.orchestration.tokenOptimization))
+        }
     }
 
     private fun cancelOrchestrationRun() {
@@ -2207,6 +2267,38 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     private fun persistOrchestration(engine: OrchestratorEngine) {
         preferences.saveOrchestrationPlan(_state.value.orchestration.goal, engine.tasks())
+    }
+
+    /** Total metered/estimated spend across every recorded usage entry (USD, or 0 when unpriced). */
+    private fun totalSpendUsd(): Double {
+        val overrides = preferences.tokenPricingOverrides
+        val pricingFor: (String, String) -> ModelPricing? = { pid, m -> TokenCalculator.resolvePricing(pid, m, overrides) }
+        return TokenSavings.totals(tokenUsageStore.load(), pricingFor).totalCost ?: 0.0
+    }
+
+    /**
+     * Spend snapshot for the orchestrator budget gate, derived from the real Token & Cost store.
+     * Global windows are rolling totals; per-agent spend is the cumulative cost per recorded agent.
+     * Agents with no metered usage (NOT_TRACKED) contribute $0, so they never block on their own.
+     */
+    private fun computeOrchestrationSpendSnapshot(): SpendSnapshot {
+        val overrides = preferences.tokenPricingOverrides
+        val pricingFor: (String, String) -> ModelPricing? = { pid, m -> TokenCalculator.resolvePricing(pid, m, overrides) }
+        val entries = tokenUsageStore.load()
+        val now = System.currentTimeMillis()
+        val daily = TokenSavings.totals(entries.filter { it.timestampMillis >= now - 86_400_000L }, pricingFor).totalCost ?: 0.0
+        val weekly = TokenSavings.totals(entries.filter { it.timestampMillis >= now - 7 * 86_400_000L }, pricingFor).totalCost ?: 0.0
+        val monthly = TokenSavings.totals(entries.filter { it.timestampMillis >= now - 30 * 86_400_000L }, pricingFor).totalCost ?: 0.0
+        val perAgent = entries.groupBy { it.agent }.mapValues { (_, list) ->
+            TokenSavings.totals(list, pricingFor).totalCost ?: 0.0
+        }
+        return SpendSnapshot(
+            dailyUsd = daily,
+            weeklyUsd = weekly,
+            monthlyUsd = monthly,
+            perAgentUsd = perAgent,
+            taskUsd = preferences.orchestrationTaskSpendUsd,
+        )
     }
 
     /**

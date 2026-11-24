@@ -47,6 +47,7 @@ import com.mobileharness.code.orchestration.DefaultAgentProfiles
 import com.mobileharness.code.orchestration.TaskStatus
 import com.mobileharness.code.testing.BuildSystem
 import com.mobileharness.code.testing.TestPlanner
+import com.mobileharness.code.token.TokenOptimizationServiceConfig
 import com.mobileharness.code.workspace.WorkspaceGrant
 import com.mobileharness.code.workspace.WorkspaceGroup
 import com.mobileharness.code.workspace.WorkspacePermission
@@ -79,6 +80,7 @@ fun MultiAgentDashboardScreen(
     onDeleteLspServer: (String) -> Unit,
     onToggleLspServer: (String, Boolean) -> Unit,
     onClearTestingHistory: () -> Unit,
+    onUpdateTokenOptimization: ((TokenOptimizationServiceConfig) -> TokenOptimizationServiceConfig) -> Unit = { it },
 ) {
     var selectedTab by remember { mutableStateOf(0) }
     val tabs = listOf("Orchestrator", "Agents", "Workspaces", "LSP", "Testing", "Hooks")
@@ -99,7 +101,7 @@ fun MultiAgentDashboardScreen(
                 }
             }
             when (selectedTab) {
-                0 -> OrchestratorTab(state, onPlanOrchestration, onAdvanceOrchestration, onCancelOrchestration, onSetOrchestratorEnabled)
+                0 -> OrchestratorTab(state, onPlanOrchestration, onAdvanceOrchestration, onCancelOrchestration, onSetOrchestratorEnabled, onUpdateTokenOptimization)
                 1 -> AgentsTab()
                 2 -> WorkspacesTab(state, onAddWorkspaceGroup, onDeleteWorkspaceGroup, onAddWorkspaceGrant, onDeleteWorkspaceGrant)
                 3 -> LspTab(state, onSaveLspServer, onDeleteLspServer, onToggleLspServer)
@@ -117,8 +119,10 @@ private fun OrchestratorTab(
     onAdvance: () -> Unit,
     onCancel: () -> Unit,
     onSetEnabled: (Boolean) -> Unit,
+    onUpdateTokenOptimization: ((TokenOptimizationServiceConfig) -> TokenOptimizationServiceConfig) -> Unit,
 ) {
     var goal by remember { mutableStateOf(state.orchestration.goal) }
+    val opt = state.orchestration.tokenOptimization
     LazyColumn(Modifier.fillMaxSize().padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         item {
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -127,6 +131,30 @@ private fun OrchestratorTab(
                     Text("Optional multi-agent mode. Default OFF — direct agent launches are unchanged.", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp)
                 }
                 Switch(checked = state.orchestration.enabled, onCheckedChange = onSetEnabled)
+            }
+        }
+        item {
+            Card(Modifier.fillMaxWidth()) {
+                Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Column(Modifier.weight(1f)) {
+                            Text("Token optimization", fontWeight = FontWeight.SemiBold)
+                            Text("Central, optional token saver. Default OFF — orchestrator behavior is unchanged when off.", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 11.sp)
+                        }
+                        Switch(checked = opt.enabled, onCheckedChange = { v -> onUpdateTokenOptimization { it.copy(enabled = v) } })
+                    }
+                    OptimizationToggle("Context shaping (compact handoff)", opt.contextShaping, opt.enabled) { v -> onUpdateTokenOptimization { it.copy(contextShaping = v) } }
+                    OptimizationToggle("Budget gate (per-task/per-agent)", opt.budgetGating, opt.enabled) { v -> onUpdateTokenOptimization { it.copy(budgetGating = v) } }
+                    OptimizationToggle("Model advisor (cheaper-model hints)", opt.modelAdvising, opt.enabled) { v -> onUpdateTokenOptimization { it.copy(modelAdvising = v) } }
+                    if (opt.perTaskBudgetUsd != null) {
+                        val budget = java.lang.String.format(java.util.Locale.ROOT, "%.2f", opt.perTaskBudgetUsd)
+                        val spent = java.lang.String.format(java.util.Locale.ROOT, "%.4f", state.orchestration.taskSpendUsd)
+                        Text("Per-task budget: \u0024$budget · spent \u0024$spent", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                    state.orchestration.optimizationNote?.let {
+                        Text(it, fontSize = 12.sp, color = MaterialTheme.colorScheme.primary)
+                    }
+                }
             }
         }
         item {
@@ -422,6 +450,14 @@ private fun HooksTab(
             },
             dismissButton = { TextButton(onClick = { showAdd = false }) { Text("Cancel") } },
         )
+    }
+}
+
+@Composable
+private fun OptimizationToggle(label: String, checked: Boolean, enabled: Boolean, onChecked: (Boolean) -> Unit) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Text(label, modifier = Modifier.weight(1f), fontSize = 12.sp)
+        Switch(checked = checked, onCheckedChange = onChecked, enabled = enabled)
     }
 }
 

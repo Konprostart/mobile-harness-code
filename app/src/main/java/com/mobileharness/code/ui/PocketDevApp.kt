@@ -2838,6 +2838,7 @@ private fun RootScreenHost(
             onDeleteLspServer = viewModel::deleteLspServer,
             onToggleLspServer = viewModel::setLspServerEnabled,
             onClearTestingHistory = viewModel::clearTestingHistory,
+            onUpdateTokenOptimization = viewModel::updateTokenOptimization,
         )
     }
     if (showQuickTerminal) {

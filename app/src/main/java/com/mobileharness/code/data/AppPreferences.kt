@@ -37,6 +37,8 @@ import com.mobileharness.code.token.ModelPricing
 import com.mobileharness.code.token.OptimizationConfig
 import com.mobileharness.code.token.OptimizationConfigCodec
 import com.mobileharness.code.token.PricingOverrideCodec
+import com.mobileharness.code.token.TokenOptimizationServiceConfig
+import com.mobileharness.code.token.TokenOptimizationServiceCodec
 import com.mobileharness.code.voice.VoiceSettings
 import com.mobileharness.code.voice.VoiceSettingsCodec
 import com.mobileharness.code.hooks.HookRule
@@ -287,6 +289,23 @@ class AppPreferences(private val context: Context) {
     var tokenModelChoiceSaved: Long
         get() = preferences.getLong("token_model_choice_saved", 0L)
         set(value) { preferences.edit().putLong("token_model_choice_saved", value.coerceAtLeast(0L)).apply() }
+
+    /**
+     * Central Token Optimization service config (Phase 6.2). A separate, default-OFF master switch
+     * plus per-feature sub-switches for context shaping, budget gating and model advising. It never
+     * overlaps the older [tokenOptimizationConfig] (AUTO TOKEN OPTIMIZATION panel) or Eco Mode.
+     */
+    var tokenOptimizationServiceConfig: TokenOptimizationServiceConfig
+        get() = TokenOptimizationServiceCodec.fromJson(
+            preferences.getString("token_optimization_service_json", "").orEmpty(),
+        )
+        set(value) { preferences.edit().putString("token_optimization_service_json", TokenOptimizationServiceCodec.toJson(value)).apply() }
+
+    /** Accumulated spend (USD) attributed to the active orchestration run, for the per-task budget. */
+    var orchestrationTaskSpendUsd: Double
+        get() = preferences.getFloat("orchestration_task_spend_usd", 0f).toDouble()
+        set(value) { preferences.edit().putFloat("orchestration_task_spend_usd", value.coerceAtLeast(0.0).toFloat()).apply() }
+
 
     /** User-corrected context-window limits (providerId/model → maxTokens). */
     var contextWindowOverrides: Map<String, Long>
