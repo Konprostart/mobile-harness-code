@@ -1,12 +1,12 @@
 {
-  "versionCode": 43,
-  "versionName": "1.18.0",
-  "notes": "Advanced Research, Browser, Terminal & Device Control. Deep research engine (Quick/Standard/Deep/Extreme) with Tavily/Brave/Serper/SerpAPI/DuckDuckGo providers and automatic fallback; structured page extraction (JSON-LD, headings, links, metadata) with BM25 passage ranking; PDF text extraction with page numbers. Agent browser guard (SSRF/URL/download protection) with a tab + navigation-history session model. Native PTY interactive terminal (posix_openpt/fork + TIOCSWINSZ resize) for interactive Linux programs. Device Control dashboard with READ/CONTROL/DESTRUCTIVE risk classification, per-session confirmation and an audit trail over Shizuku/Root/Wireless ADB. This APK is SIGNED (V1+V2).",
+  "versionCode": 44,
+  "versionName": "1.19.0",
+  "notes": "Advanced Agent Intelligence & Development Environment. Multi-Agent Orchestrator: decompose one goal into a dependency-ordered plan, assign tasks to Claude Code / DeepSeek Harness / Antigravity / Sidekick by capability, schedule independent tasks in parallel and dependent tasks sequentially, with file locking, conflict detection, result aggregation and an agent message bus. Language Server Protocol support: server registry, stdio transport, document sync and diagnostics store for Kotlin/Java/JS/TS/Python/Rust/Go/C/C++/JSON/YAML/HTML/CSS (optional, install on demand in PRoot). Advanced Workspace Management: multiple groups per project, READ/WRITE/EXECUTE/ADMIN grants, enforced read-only roles, path/symlink isolation, workspace locks and an audit log. Autonomous Testing & Repair: Gradle/Maven/npm/pnpm/yarn/pytest/Cargo/Go/CMake discovery, a bounded repair loop with regression checking and a history store. Sidekick hook engine (PreToolUse/PostToolUse/PostToolUseFailure/PermissionRequest/Stop/SessionStart/SessionEnd/PreCompact/SubagentStart/SubagentStop with ALLOW/ASK/BLOCK/REWRITE/CONTINUE/STOP, most-restrictive-wins; CLI agents keep their native hooks). Reliability & Recovery engine: heartbeat, stall detection, exponential-backoff retry, task checkpoints and an idempotency guard. Multi-Agent Dashboard. This APK is SIGNED (V1+V2).",
   "artifacts": {
     "online": {
-      "url": "https://github.com/Konprostart/mobile-harness-code/releases/download/v1.18.0/mobile-harness-online.apk",
-      "sha256": "9dc94baf1b06d8b12c5546beba12b2e48eb12834c67a16f7f4ccd00c9b5ef9d5",
-      "sizeBytes": 110027199
+      "url": "https://github.com/Konprostart/mobile-harness-code/releases/download/v1.19.0/mobile-harness-online.apk",
+      "sha256": "93fae5797055a73d61a84623723174082802171592c8014c5a4f74b83925ad7e",
+      "sizeBytes": 110358975
     }
   }
 }
