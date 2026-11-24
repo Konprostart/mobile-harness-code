@@ -81,4 +81,61 @@ object TokenContextCompactor {
 
     /** Total characters in a compacted result, for validation in tests. */
     fun totalChars(blocks: List<ContextBlock>): Int = blocks.sumOf { it.text.length }
+
+    /**
+     * Detailed compaction result. [succeeded] is false when the budget could not accommodate the
+     * fixed (must-keep) blocks — the caller must then keep the original context untouched. The
+     * original blocks are never mutated by the compactor; [removedChars] is the character count
+     * that was dropped or truncated, so the caller can credit real, measured savings.
+     */
+    data class CompactionResult(
+        val blocks: List<ContextBlock>,
+        val originalChars: Int,
+        val compactedChars: Int,
+        val removedChars: Int,
+        val droppedBlocks: Int,
+        val truncatedBlocks: Int,
+        val succeeded: Boolean,
+    )
+
+    /** Compacts and returns a detailed [CompactionResult]; null on failure (budget too small). */
+    fun compactDetailed(blocks: List<ContextBlock>, maxChars: Int): CompactionResult? {
+        val originalChars = totalChars(blocks)
+        val compacted = compact(blocks, maxChars) ?: return null
+        val compactedChars = totalChars(compacted)
+
+        val keptKeys = compacted.filterNot { it.fixed }.map { it.text }.toSet()
+        var dropped = 0
+        var truncated = 0
+        blocks.filterNot { it.fixed }.forEach { original ->
+            if (original.text.isEmpty()) return@forEach
+            val match = compacted.firstOrNull { kept -> kept.priority == original.priority && kept.text == original.text }
+            when {
+                match != null -> Unit // kept verbatim
+                compacted.any { kept -> kept.priority == original.priority } -> truncated++
+                else -> dropped++
+            }
+        }
+
+        return CompactionResult(
+            blocks = compacted,
+            originalChars = originalChars,
+            compactedChars = compactedChars,
+            removedChars = (originalChars - compactedChars).coerceAtLeast(0),
+            droppedBlocks = dropped,
+            truncatedBlocks = truncated,
+            succeeded = true,
+        )
+    }
+
+    /** A short, honest summary of what a compaction removed (for the pre-compaction preview). */
+    fun summarize(result: CompactionResult): String = when {
+        !result.succeeded -> "Compaction aborted: the required instructions do not fit the budget."
+        result.removedChars == 0 -> "No content removed; context already fits."
+        else -> buildString {
+            append("Removed ${result.removedChars} characters")
+            append(" (${result.droppedBlocks} block(s) dropped, ${result.truncatedBlocks} truncated).")
+            append(" System/safety instructions are preserved verbatim.")
+        }
+    }
 }

@@ -20,6 +20,8 @@ data class BudgetConfig(
     val monthlyLimit: Double? = null,
     val perProviderLimits: Map<String, Double> = emptyMap(),
     val perModelLimits: Map<String, Double> = emptyMap(),
+    val perAgentLimits: Map<String, Double> = emptyMap(),
+    val perProjectLimits: Map<String, Double> = emptyMap(),
     val warnAtPercent: Int = 80,
     val reachedAction: BudgetReachedAction = BudgetReachedAction.WARN_ONLY,
 ) {
@@ -54,6 +56,34 @@ object BudgetPolicy {
         }
 
     /**
+     * Evaluates every budget window (global, per-provider, per-model, per-agent, per-project) at
+     * once. [dailySpend]/[weeklySpend]/[monthlySpend] are the rolling-window totals; the per-*
+     * spends are cumulative over the whole store. Missing limits simply contribute UNDER.
+     */
+    fun evaluate(
+        config: BudgetConfig,
+        dailySpend: Double,
+        weeklySpend: Double,
+        monthlySpend: Double,
+        perProviderSpend: Double,
+        perModelSpend: Double,
+        perAgentSpend: Double = 0.0,
+        perProjectSpend: Double = 0.0,
+        providerId: String? = null,
+        model: String? = null,
+        agent: String? = null,
+        projectId: String? = null,
+    ): BudgetStatus = combined(
+        status(dailySpend, config.dailyLimit, config.warnAtPercent),
+        status(weeklySpend, config.weeklyLimit, config.warnAtPercent),
+        status(monthlySpend, config.monthlyLimit, config.warnAtPercent),
+        status(perProviderSpend, providerId?.let { config.perProviderLimits[it] }, config.warnAtPercent),
+        status(perModelSpend, model?.let { config.perModelLimits[it] }, config.warnAtPercent),
+        status(perAgentSpend, agent?.let { config.perAgentLimits[it] }, config.warnAtPercent),
+        status(perProjectSpend, projectId?.let { config.perProjectLimits[it] }, config.warnAtPercent),
+    )
+
+    /**
      * True when the app must refuse new cost-bearing requests. This is fail-safe: it is only ever
      * true when the user explicitly selected STOP_NEW_REQUESTS *and* a limit is actually reached.
      */
@@ -73,12 +103,18 @@ object BudgetConfigCodec {
         config.perProviderLimits.forEach { (k, v) -> perProvider.put(k, v) }
         val perModel = JSONObject()
         config.perModelLimits.forEach { (k, v) -> perModel.put(k, v) }
+        val perAgent = JSONObject()
+        config.perAgentLimits.forEach { (k, v) -> perAgent.put(k, v) }
+        val perProject = JSONObject()
+        config.perProjectLimits.forEach { (k, v) -> perProject.put(k, v) }
         return JSONObject()
             .put("daily", config.dailyLimit ?: JSONObject.NULL)
             .put("weekly", config.weeklyLimit ?: JSONObject.NULL)
             .put("monthly", config.monthlyLimit ?: JSONObject.NULL)
             .put("perProvider", perProvider)
             .put("perModel", perModel)
+            .put("perAgent", perAgent)
+            .put("perProject", perProject)
             .put("warnAtPercent", config.warnAtPercent)
             .put("reachedAction", config.reachedAction.storageKey)
             .toString()
@@ -92,6 +128,8 @@ object BudgetConfigCodec {
             monthlyLimit = root.nullableDouble("monthly"),
             perProviderLimits = root.optJSONObject("perProvider")?.toDoubleMap() ?: emptyMap(),
             perModelLimits = root.optJSONObject("perModel")?.toDoubleMap() ?: emptyMap(),
+            perAgentLimits = root.optJSONObject("perAgent")?.toDoubleMap() ?: emptyMap(),
+            perProjectLimits = root.optJSONObject("perProject")?.toDoubleMap() ?: emptyMap(),
             warnAtPercent = root.optInt("warnAtPercent", 80).coerceIn(1, 100),
             reachedAction = BudgetReachedAction.entries.firstOrNull {
                 it.storageKey == root.optString("reachedAction")

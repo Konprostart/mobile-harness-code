@@ -20,6 +20,9 @@ import com.mobileharness.code.model.RuntimeEvent
 import com.mobileharness.code.model.RuntimeRecoveryContext
 import com.mobileharness.code.model.RuntimeRecoveryProfile
 import com.mobileharness.code.model.ToolRequest
+import com.mobileharness.code.model.AgentKind
+import com.mobileharness.code.token.Reliability
+import com.mobileharness.code.token.UsageSource
 import java.io.BufferedWriter
 import java.io.File
 import java.io.RandomAccessFile
@@ -61,6 +64,9 @@ class DshRuntimeBridge(
     private val finishedSessions = ConcurrentHashMap.newKeySet<String>()
     @Volatile private var activeProcess: Process? = null
     @Volatile private var activeSessionId: String? = null
+    @Volatile private var activeProviderId: String? = null
+    @Volatile private var activeModel: String? = null
+    @Volatile private var sessionStartedWallMillis: Long = 0L
     @Volatile private var liveSession: LiveSession? = null
     @Volatile private var userStopRequested: Boolean = false
     @Volatile private var activeProjectSlug: String? = null
@@ -154,6 +160,9 @@ class DshRuntimeBridge(
         sawMutatingTool = false
         lastFailureRecovery = null
         activeSessionId = sessionId
+        activeProviderId = provider.providerId.ifBlank { provider.kind.name }
+        activeModel = provider.model
+        sessionStartedWallMillis = System.currentTimeMillis()
         userStopRequested = false
         activeProjectSlug = projectSlug
         taskStartedAtElapsedRealtime = android.os.SystemClock.elapsedRealtime()
@@ -267,6 +276,7 @@ class DshRuntimeBridge(
             // the SDK wrapper alive after acknowledging shutdown, so cleanup may end
             // it with SIGKILL and produce 137 even though the turn completed normally.
             if (sdkResult.completed && sdkResult.failure.isBlank() && !userStopRequested) {
+                emitSessionUsageNotTracked(sessionId)
                 emitCompletedOnce(sessionId)
                 finishForegroundRuntime(
                     completed = true,
@@ -904,6 +914,24 @@ class DshRuntimeBridge(
             ),
         )
         pushForegroundProgress(R.string.rt_bridge_thinking)
+    }
+
+    /** DeepSeek Harness's SDK does not meter token usage, so record session metadata as NOT_TRACKED. */
+    private suspend fun emitSessionUsageNotTracked(sessionId: String) {
+        val started = sessionStartedWallMillis
+        val duration = if (started > 0L) (System.currentTimeMillis() - started).coerceAtLeast(0L) else null
+        eventBus.emit(
+            RuntimeEvent.SessionUsage(
+                sessionId = sessionId,
+                agent = AgentKind.DEEPSEEK_HARNESS.stableId,
+                providerId = activeProviderId.orEmpty(),
+                model = activeModel.orEmpty(),
+                durationMillis = duration,
+                reliability = Reliability.NOT_TRACKED,
+                source = UsageSource.SESSION_LOG,
+                projectId = activeProjectSlug.orEmpty(),
+            ),
+        )
     }
 
     private suspend fun emitCompletedOnce(sessionId: String) {

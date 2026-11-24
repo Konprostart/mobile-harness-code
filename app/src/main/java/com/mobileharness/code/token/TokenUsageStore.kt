@@ -7,9 +7,10 @@ import org.json.JSONObject
 /**
  * One recorded provider request for the Token & Cost Manager.
  *
- * Secrets are never stored: only provider/model labels, agent/session labels and numeric usage.
- * [tokensEstimated] marks entries whose tokens were estimated from text rather than metered by the
- * provider, so the UI can clearly separate "real" from "estimate".
+ * Secrets are never stored: only provider/model labels, agent/session/project labels and numeric
+ * usage. [reliability] declares how trustworthy the token figures are (actual / estimated / not
+ * tracked). [tokensEstimated] is retained for backward compatibility with previously persisted
+ * entries and is equivalent to [Reliability.ESTIMATED].
  */
 data class TokenUsageEntry(
     val timestampMillis: Long,
@@ -20,6 +21,14 @@ data class TokenUsageEntry(
     val tokensEstimated: Boolean = false,
     val requestCount: Int = 1,
     val latencyMillis: Long? = null,
+    val projectId: String = "",
+    val sessionId: String = "",
+    val task: String = "",
+    val currency: String = "USD",
+    val source: UsageSource = UsageSource.API,
+    /** Monetary cost reported by the provider itself (e.g. Claude Code `total_cost_usd`), when known. */
+    val reportedCostUsd: Double? = null,
+    val reliability: Reliability = if (tokensEstimated) Reliability.ESTIMATED else Reliability.ACTUAL,
 )
 
 /** Pure JSON codec for the usage store; independent of Android so it is unit-testable. */
@@ -39,7 +48,14 @@ object TokenUsageCodec {
                     .put("cacheWrite", entry.usage.cacheWriteTokens)
                     .put("estimated", entry.tokensEstimated)
                     .put("requests", entry.requestCount)
-                    .put("latency", entry.latencyMillis ?: JSONObject.NULL),
+                    .put("latency", entry.latencyMillis ?: JSONObject.NULL)
+                    .put("projectId", entry.projectId)
+                    .put("sessionId", entry.sessionId)
+                    .put("task", entry.task)
+                    .put("currency", entry.currency)
+                    .put("source", entry.source.name)
+                    .put("reportedCostUsd", entry.reportedCostUsd ?: JSONObject.NULL)
+                    .put("rel", entry.reliability.name),
             )
         }
         return array.toString()
@@ -56,6 +72,7 @@ object TokenUsageCodec {
                     cachedReadTokens = obj.optLong("cachedRead", 0L),
                     cacheWriteTokens = obj.optLong("cacheWrite", 0L),
                 )
+                val estimated = obj.optBoolean("estimated", false)
                 add(
                     TokenUsageEntry(
                         timestampMillis = obj.optLong("ts", 0L),
@@ -63,9 +80,17 @@ object TokenUsageCodec {
                         model = obj.optString("model"),
                         agent = obj.optString("agent"),
                         usage = usage,
-                        tokensEstimated = obj.optBoolean("estimated", false),
+                        tokensEstimated = estimated,
                         requestCount = obj.optInt("requests", 1).coerceAtLeast(1),
                         latencyMillis = if (obj.has("latency") && obj.opt("latency") != JSONObject.NULL) obj.optLong("latency") else null,
+                        projectId = obj.optString("projectId"),
+                        sessionId = obj.optString("sessionId"),
+                        task = obj.optString("task"),
+                        currency = obj.optString("currency").ifBlank { "USD" },
+                        source = UsageSource.entries.firstOrNull { it.name == obj.optString("source") } ?: UsageSource.API,
+                        reportedCostUsd = if (obj.has("reportedCostUsd") && obj.opt("reportedCostUsd") != JSONObject.NULL) obj.optDouble("reportedCostUsd") else null,
+                        reliability = Reliability.entries.firstOrNull { it.name == obj.optString("rel") }
+                            ?: if (estimated) Reliability.ESTIMATED else Reliability.ACTUAL,
                     ),
                 )
             }

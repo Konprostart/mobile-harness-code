@@ -17,6 +17,9 @@ import com.mobileharness.code.model.RuntimeEvent
 import com.mobileharness.code.model.RuntimeRecoveryContext
 import com.mobileharness.code.model.RuntimeRecoveryProfile
 import com.mobileharness.code.model.ToolRequest
+import com.mobileharness.code.model.AgentKind
+import com.mobileharness.code.token.Reliability
+import com.mobileharness.code.token.UsageSource
 import com.mobileharness.code.permission.PermissionController
 import com.mobileharness.code.permission.PermissionDecision
 import com.mobileharness.code.permission.PermissionRequest
@@ -569,6 +572,19 @@ class AntigravityRuntimeBridge(
             if (paths.isNotEmpty()) {
                 eventBus.emit(RuntimeEvent.FilesChanged(sessionId, checkpoints.buildChangeDetails(projectId, workspace, paths)))
             }
+            // Antigravity's result event exposes no token usage, so record session metadata as NOT_TRACKED.
+            eventBus.emit(
+                RuntimeEvent.SessionUsage(
+                    sessionId = sessionId,
+                    agent = AgentKind.ANTIGRAVITY.stableId,
+                    providerId = "antigravity",
+                    model = model(),
+                    durationMillis = (System.currentTimeMillis() - sessionStartedAtMillis).coerceAtLeast(0L),
+                    reliability = Reliability.NOT_TRACKED,
+                    source = UsageSource.SESSION_LOG,
+                    projectId = projectSlug,
+                ),
+            )
             emitCompleted(sessionId)
             finishForegroundRuntime(true, projectSlug, AppStrings.get(context, R.string.rt_bridge_finished_in, "Antigravity", projectSlug))
         }.onFailure {

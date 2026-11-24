@@ -89,8 +89,11 @@ import com.mobileharness.code.automation.RunMode
 import com.mobileharness.code.automation.ScheduledTask
 import com.mobileharness.code.automation.SchedulerStore
 import com.mobileharness.code.token.BudgetConfig
+import com.mobileharness.code.token.ContextLimitLearner
+import com.mobileharness.code.token.ContextWindowCatalog
 import com.mobileharness.code.token.ModelPricing
 import com.mobileharness.code.token.OptimizationConfig
+import com.mobileharness.code.token.Reliability
 import com.mobileharness.code.token.TokenUsageEntry
 import com.mobileharness.code.token.TokenUsageStore
 import com.mobileharness.code.voice.VoiceProviderKind
@@ -817,6 +820,8 @@ data class AppUiState(
     val tokenCompactionSaved: Long = 0L,
     val tokenModelChoiceSaved: Long = 0L,
     val tokenPricingUpdatedAtMillis: Long = 0L,
+    val contextWindowOverrides: Map<String, Long> = emptyMap(),
+    val contextWindowLearned: Map<String, Long> = emptyMap(),
     val mcpServers: List<McpServerConfig> = emptyList(),
     val mcpToolCatalog: Map<String, List<McpTool>> = emptyMap(),
     val mcpTestingServerId: String? = null,
@@ -1086,6 +1091,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             tokenCompactionSaved = preferences.tokenCompactionSaved,
             tokenModelChoiceSaved = preferences.tokenModelChoiceSaved,
             tokenPricingUpdatedAtMillis = preferences.tokenPricingUpdatedAtMillis,
+            contextWindowOverrides = preferences.contextWindowOverrides,
+            contextWindowLearned = preferences.contextWindowLearned,
             mcpServers = preferences.loadMcpServers(),
             ragEnabled = preferences.ragEnabled,
             ragDocuments = preferences.loadRagDocuments(),
@@ -1432,6 +1439,32 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         _state.update { it.copy(tokenUsageEntries = tokenUsageStore.load()) }
     }
 
+    /**
+     * Persists usage reported by an external CLI agent's terminal event (Claude Code `result`,
+     * etc.) into the shared Token & Cost Manager store. Relies on the reliability flag carried by
+     * the event: ACTUAL when metered, NOT_TRACKED when the CLI does not expose usage. The usage
+     * state list is refreshed on the next dashboard open (the screen reloads on entry).
+     */
+    private fun recordSessionUsage(event: RuntimeEvent.SessionUsage) {
+        tokenUsageStore.record(
+            TokenUsageEntry(
+                timestampMillis = System.currentTimeMillis(),
+                providerId = event.providerId,
+                model = event.model,
+                agent = event.agent,
+                usage = event.usage,
+                tokensEstimated = event.reliability == Reliability.ESTIMATED,
+                latencyMillis = event.durationMillis,
+                projectId = event.projectId,
+                sessionId = event.sessionId,
+                task = event.task,
+                source = event.source,
+                reportedCostUsd = event.reportedCostUsd,
+                reliability = event.reliability,
+            ),
+        )
+    }
+
     /** Credits optimizer savings into the persisted running counters. */
     fun addTokenSavings(compactionTokens: Long = 0L, modelChoiceTokens: Long = 0L) {
         if (compactionTokens > 0L) preferences.tokenCompactionSaved = preferences.tokenCompactionSaved + compactionTokens
@@ -1448,6 +1481,37 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         preferences.tokenCompactionSaved = 0L
         preferences.tokenModelChoiceSaved = 0L
         _state.update { it.copy(tokenCompactionSaved = 0L, tokenModelChoiceSaved = 0L) }
+    }
+
+    /** Sets (or clears, when maxTokens <= 0) a user override for a model's context window. */
+    fun setContextWindowOverride(providerId: String, model: String, maxTokens: Long) {
+        val key = ContextWindowCatalog.key(providerId, model)
+        val overrides = preferences.contextWindowOverrides.toMutableMap()
+        if (maxTokens > 0L) overrides[key] = maxTokens else overrides.remove(key)
+        preferences.contextWindowOverrides = overrides
+        _state.update { it.copy(contextWindowOverrides = overrides) }
+    }
+
+    fun resetContextWindowOverrides() {
+        preferences.contextWindowOverrides = emptyMap()
+        _state.update { it.copy(contextWindowOverrides = emptyMap()) }
+    }
+
+    /**
+     * Learns a model's context limit from an explicit provider overflow error. Only confident,
+     * numeric "maximum is N tokens" messages update the learned map; ambiguous errors are ignored
+     * and never mutate state.
+     */
+    fun learnContextLimit(providerId: String, model: String, errorText: String) {
+        val evidence = ContextLimitLearner.parseOverflow(errorText) ?: return
+        if (!evidence.confident || evidence.observedMaxTokens == null) return
+        val key = ContextWindowCatalog.key(providerId, model)
+        val learned = preferences.contextWindowLearned
+        val existing = learned[key]
+        if (!ContextLimitLearner.shouldUpdateLearned(evidence, existing)) return
+        val updated = learned.toMutableMap().also { it[key] = evidence.observedMaxTokens }
+        preferences.contextWindowLearned = updated
+        _state.update { it.copy(contextWindowLearned = updated) }
     }
 
     // --- Auto Prompt Library (scheduled/manual prompt library) ----------------------------
@@ -8048,6 +8112,11 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
         if (event is RuntimeEvent.SessionFailed && retryWithNextApiKey(event)) return
         if (event is RuntimeEvent.SessionFailed && retryOnTransportFailure(event)) return
+        if (event is RuntimeEvent.SessionFailed) {
+            // Learn a context limit from an explicit provider overflow error (no-op unless confident).
+            activeRuntimeRequest?.let { learnContextLimit(it.provider.providerId, it.provider.model, event.reason) }
+        }
+        if (event is RuntimeEvent.SessionUsage) recordSessionUsage(event)
         _state.update { current ->
             if (!current.isRunning) {
                 current
@@ -8060,6 +8129,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     activeSessionId = event.sessionId,
                     activity = current.activity.mapIndexed { index, item -> if (index == 0) item.copy(isComplete = true) else item },
                 )
+                // Usage is recorded separately (see recordSessionUsage); no UI state change here.
+                is RuntimeEvent.SessionUsage -> current
                 is RuntimeEvent.AssistantDelta -> {
                     val timeline = if (current.liveThinking || current.liveProcess.any { !isNoisyRuntimeItem(it) }) {
                         finishWorkSegment(current)

@@ -41,6 +41,29 @@ data class TokenUsage(
 }
 
 /**
+ * Reliability of a recorded token reading.
+ *
+ *  - [ACTUAL]      — metered by the provider (API `usage` object) or another authoritative source.
+ *  - [ESTIMATED]   — computed from text with the conservative char/4 heuristic; never a meter reading.
+ *  - [NOT_TRACKED] — no reliable usage data exists for the source (e.g. a CLI that does not expose it).
+ *
+ * The UI must keep these visually distinct and must never present an estimate as an actual reading.
+ */
+enum class Reliability(val label: String) {
+    ACTUAL("actual"),
+    ESTIMATED("estimated"),
+    NOT_TRACKED("not tracked"),
+}
+
+/** Where a usage entry came from, so the dashboard can explain its provenance. */
+enum class UsageSource(val label: String) {
+    API("api"),
+    CLI("cli"),
+    SESSION_LOG("session log"),
+    MANUAL("manual"),
+}
+
+/**
  * Parses the `usage` object from a provider response into a normalized [TokenUsage].
  *
  * The mapping is protocol-aware because the wire formats disagree on whether `prompt_tokens`
@@ -59,17 +82,19 @@ object TokenUsageParser {
     fun parse(body: String, protocol: ProviderProtocol): TokenUsage {
         val root = runCatching { JSONObject(body) }.getOrNull() ?: return TokenUsage.ZERO
         val usage = root.optJSONObject("usage") ?: return TokenUsage.ZERO
+        return parseUsageObject(usage, protocol)
+    }
 
-        return when (protocol) {
-            ProviderProtocol.OPENAI_CHAT,
-            ProviderProtocol.OPENAI_RESPONSES,
-            ProviderProtocol.OPENROUTER,
-            -> parseOpenAiShape(usage)
-            ProviderProtocol.ANTHROPIC,
-            ProviderProtocol.ANTHROPIC_GATEWAY,
-            ProviderProtocol.CLAUDE_LOGIN,
-            -> parseAnthropicShape(usage)
-        }
+    /** Parses a standalone `usage` JSON object (as found in CLI result envelopes). */
+    fun parseUsageObject(usage: JSONObject, protocol: ProviderProtocol): TokenUsage = when (protocol) {
+        ProviderProtocol.OPENAI_CHAT,
+        ProviderProtocol.OPENAI_RESPONSES,
+        ProviderProtocol.OPENROUTER,
+        -> parseOpenAiShape(usage)
+        ProviderProtocol.ANTHROPIC,
+        ProviderProtocol.ANTHROPIC_GATEWAY,
+        ProviderProtocol.CLAUDE_LOGIN,
+        -> parseAnthropicShape(usage)
     }
 
     /** OpenAI-compatible shape where `prompt_tokens` already includes the cached subset. */

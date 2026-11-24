@@ -32,6 +32,7 @@ import com.mobileharness.code.skills.Skill
 import com.mobileharness.code.skills.SkillCodec
 import com.mobileharness.code.token.BudgetConfig
 import com.mobileharness.code.token.BudgetConfigCodec
+import com.mobileharness.code.token.ContextLimitCodec
 import com.mobileharness.code.token.ModelPricing
 import com.mobileharness.code.token.OptimizationConfig
 import com.mobileharness.code.token.OptimizationConfigCodec
@@ -281,6 +282,16 @@ class AppPreferences(private val context: Context) {
     var tokenModelChoiceSaved: Long
         get() = preferences.getLong("token_model_choice_saved", 0L)
         set(value) { preferences.edit().putLong("token_model_choice_saved", value.coerceAtLeast(0L)).apply() }
+
+    /** User-corrected context-window limits (providerId/model → maxTokens). */
+    var contextWindowOverrides: Map<String, Long>
+        get() = ContextLimitCodec.fromJson(preferences.getString("context_window_overrides_json", "").orEmpty())
+        set(value) { preferences.edit().putString("context_window_overrides_json", ContextLimitCodec.toJson(value)).apply() }
+
+    /** Context limits learned from explicit provider overflow errors (never user-touched). */
+    var contextWindowLearned: Map<String, Long>
+        get() = ContextLimitCodec.fromJson(preferences.getString("context_window_learned_json", "").orEmpty())
+        set(value) { preferences.edit().putString("context_window_learned_json", ContextLimitCodec.toJson(value)).apply() }
 
     // --- Sidekick assistant ---------------------------------------------------------------
     var sidekickFloatingButton: Boolean

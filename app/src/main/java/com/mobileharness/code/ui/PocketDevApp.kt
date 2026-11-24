@@ -2771,6 +2771,8 @@ private fun RootScreenHost(
             onClearUsage = viewModel::clearTokenUsage,
             onResetSavings = viewModel::resetTokenSavings,
             onReload = viewModel::reloadTokenUsage,
+            onSetContextWindowOverride = viewModel::setContextWindowOverride,
+            onResetContextWindowOverrides = viewModel::resetContextWindowOverrides,
         )
     }
     if (showSkillsPlugins) {

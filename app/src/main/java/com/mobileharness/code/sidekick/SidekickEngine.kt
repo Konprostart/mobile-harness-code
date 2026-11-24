@@ -486,12 +486,18 @@ class SidekickEngine(context: Context) {
         val monthly = TokenSavings.totals(entries.filter { it.timestampMillis >= now - 30 * 86_400_000L }, pricingFor).totalCost ?: 0.0
         val perProviderSpend = TokenSavings.totals(entries.filter { it.providerId == providerId }, pricingFor).totalCost ?: 0.0
         val perModelSpend = TokenSavings.totals(entries.filter { it.model == model }, pricingFor).totalCost ?: 0.0
-        val status = BudgetPolicy.combined(
-            BudgetPolicy.status(daily, config.dailyLimit, config.warnAtPercent),
-            BudgetPolicy.status(weekly, config.weeklyLimit, config.warnAtPercent),
-            BudgetPolicy.status(monthly, config.monthlyLimit, config.warnAtPercent),
-            BudgetPolicy.status(perProviderSpend, config.perProviderLimits[providerId], config.warnAtPercent),
-            BudgetPolicy.status(perModelSpend, config.perModelLimits[model], config.warnAtPercent),
+        val perAgentSpend = TokenSavings.totals(entries.filter { it.agent == "sidekick" }, pricingFor).totalCost ?: 0.0
+        val status = BudgetPolicy.evaluate(
+            config = config,
+            dailySpend = daily,
+            weeklySpend = weekly,
+            monthlySpend = monthly,
+            perProviderSpend = perProviderSpend,
+            perModelSpend = perModelSpend,
+            perAgentSpend = perAgentSpend,
+            providerId = providerId,
+            model = model,
+            agent = "sidekick",
         )
         return if (BudgetPolicy.shouldBlock(status, config.reachedAction)) {
             "Budget limit reached: new cost-bearing requests are paused. Adjust or reset your budget in Token & Cost Manager."

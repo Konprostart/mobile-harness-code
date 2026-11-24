@@ -56,10 +56,13 @@ import com.mobileharness.code.token.BudgetConfig
 import com.mobileharness.code.token.BudgetPolicy
 import com.mobileharness.code.token.BudgetReachedAction
 import com.mobileharness.code.token.BudgetStatus
+import com.mobileharness.code.token.ContextUsageTracker
+import com.mobileharness.code.token.ContextWindowCatalog
 import com.mobileharness.code.token.ModelPricing
 import com.mobileharness.code.token.OptimizationConfig
 import com.mobileharness.code.token.OptimizationLevel
 import com.mobileharness.code.token.QualityTier
+import com.mobileharness.code.token.Reliability
 import com.mobileharness.code.token.SavingsReport
 import com.mobileharness.code.token.TokenCalculator
 import com.mobileharness.code.token.TokenPricingCatalog
@@ -108,6 +111,23 @@ private fun windowed(entries: List<TokenUsageEntry>, windowMillis: Long): List<T
 
 private fun distinct(values: List<String>): List<String> = values.filter { it.isNotBlank() }.distinct().sorted()
 
+private fun reliabilityCount(entries: List<TokenUsageEntry>, reliability: Reliability): Int =
+    entries.count { it.reliability == reliability }
+
+@Composable
+private fun ReliabilityFilter(selected: Reliability?, onSelect: (Reliability?) -> Unit) {
+    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text("Reliability", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.align(Alignment.CenterVertically))
+        Reliability.entries.forEach { r ->
+            FilterChip(
+                selected = selected == r,
+                onClick = { onSelect(if (selected == r) null else r) },
+                label = { Text(r.label) },
+            )
+        }
+    }
+}
+
 // --- Main screen --------------------------------------------------------------------------
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -121,11 +141,13 @@ fun TokenCostManagerScreen(
     onClearUsage: () -> Unit,
     onResetSavings: () -> Unit,
     onReload: () -> Unit,
+    onSetContextWindowOverride: (String, String, Long) -> Unit = { _, _, _ -> },
+    onResetContextWindowOverrides: () -> Unit = {},
 ) {
     LaunchedEffect(Unit) { onReload() }
 
     var tab by remember { mutableStateOf(0) }
-    val tabs = listOf("Overview", "Optimization", "Budgets", "Pricing", "Savings")
+    val tabs = listOf("Overview", "Optimization", "Budgets", "Pricing", "Context", "Savings")
 
     Scaffold(
         topBar = {
@@ -149,6 +171,7 @@ fun TokenCostManagerScreen(
                 1 -> OptimizationTab(state, onSetOptimizationConfig)
                 2 -> BudgetsTab(state, onSetBudget)
                 3 -> PricingTab(state, onSetPricingOverrides)
+                4 -> ContextTab(state, onSetContextWindowOverride, onResetContextWindowOverrides)
                 else -> SavingsTab(state, onResetSavings)
             }
         }
@@ -170,6 +193,7 @@ private fun OverviewTab(state: AppUiState, onClearUsage: () -> Unit) {
     var agentFilter by remember { mutableStateOf("") }
     var providerFilter by remember { mutableStateOf("") }
     var modelFilter by remember { mutableStateOf("") }
+    var reliabilityFilter by remember { mutableStateOf<Reliability?>(null) }
     var confirmClear by remember { mutableStateOf(false) }
 
     val overrides = state.tokenPricingOverrides
@@ -178,6 +202,7 @@ private fun OverviewTab(state: AppUiState, onClearUsage: () -> Unit) {
         .filter { agentFilter.isBlank() || it.agent == agentFilter }
         .filter { providerFilter.isBlank() || it.providerId == providerFilter }
         .filter { modelFilter.isBlank() || it.model == modelFilter }
+        .filter { reliabilityFilter == null || it.reliability == reliabilityFilter }
 
     val pricingFor: (String, String) -> ModelPricing? = { pid, m -> TokenCalculator.resolvePricing(pid, m, overrides) }
     val totals = TokenSavings.totals(filtered, pricingFor)
@@ -202,9 +227,10 @@ private fun OverviewTab(state: AppUiState, onClearUsage: () -> Unit) {
                 FilterDropdown("Agent", agents, agentFilter) { agentFilter = it }
                 FilterDropdown("Provider", providers, providerFilter) { providerFilter = it }
                 FilterDropdown("Model", models, modelFilter) { modelFilter = it }
+                ReliabilityFilter(reliabilityFilter) { reliabilityFilter = it }
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(
-                        "Showing ${filtered.size} request(s) · ${totals.estimatedEntries} estimated",
+                        "Showing ${filtered.size} request(s) · ${reliabilityCount(filtered, Reliability.ACTUAL)} actual · ${reliabilityCount(filtered, Reliability.ESTIMATED)} estimated · ${reliabilityCount(filtered, Reliability.NOT_TRACKED)} not tracked",
                         fontSize = 12.sp,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
@@ -247,12 +273,18 @@ private fun OverviewTab(state: AppUiState, onClearUsage: () -> Unit) {
         if (agents.isNotEmpty()) item { BreakdownCard("By agent", breakdown(filtered, overrides) { it.agent }) }
         if (providers.isNotEmpty()) item { BreakdownCard("By provider", breakdown(filtered, overrides) { it.providerId }) }
         if (models.isNotEmpty()) item { BreakdownCard("By model", breakdown(filtered, overrides) { it.model }) }
+        if (distinct(all.map { it.projectId }).isNotEmpty()) {
+            item { BreakdownCard("By project", breakdown(filtered, overrides) { it.projectId.ifBlank { "untracked project" } }) }
+        }
+        if (distinct(all.map { it.sessionId }).isNotEmpty()) {
+            item { BreakdownCard("By session", breakdown(filtered, overrides) { it.sessionId.take(8).ifBlank { "untracked session" } }) }
+        }
 
         if (all.isEmpty()) {
             item {
                 Box(Modifier.fillMaxWidth().padding(24.dp), contentAlignment = Alignment.Center) {
                     Text(
-                        "No usage recorded yet. Usage is captured from the in-app Sidekick assistant; external CLI agents (Claude Code, DeepSeek Harness, Antigravity) run in their own runtime and do not report structured usage to the app.",
+                        "No usage recorded yet. Sidekick reports metered usage from its API responses; Claude Code reports its structured result-event usage; DeepSeek Harness and Antigravity do not expose token usage, so their sessions are recorded as \"not tracked\".",
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         fontSize = 13.sp,
                     )
@@ -499,13 +531,21 @@ private fun BudgetsTab(state: AppUiState, onSetBudget: (BudgetConfig) -> Unit) {
 
     val providers = state.tokenUsageEntries.map { it.providerId }.filter { it.isNotBlank() }.distinct().sorted()
     val models = state.tokenUsageEntries.map { it.model }.filter { it.isNotBlank() }.distinct().sorted()
+    val agents = state.tokenUsageEntries.map { it.agent }.filter { it.isNotBlank() }.distinct().sorted()
+    val projects = state.tokenUsageEntries.map { it.projectId }.filter { it.isNotBlank() }.distinct().sorted()
     val providerLimitText = remember { mutableStateMapOf<String, String>() }
     val modelLimitText = remember { mutableStateMapOf<String, String>() }
-    LaunchedEffect(budget.perProviderLimits, budget.perModelLimits) {
+    val agentLimitText = remember { mutableStateMapOf<String, String>() }
+    val projectLimitText = remember { mutableStateMapOf<String, String>() }
+    LaunchedEffect(budget.perProviderLimits, budget.perModelLimits, budget.perAgentLimits, budget.perProjectLimits) {
         providerLimitText.clear()
         budget.perProviderLimits.forEach { (k, v) -> providerLimitText[k] = v.toString() }
         modelLimitText.clear()
         budget.perModelLimits.forEach { (k, v) -> modelLimitText[k] = v.toString() }
+        agentLimitText.clear()
+        budget.perAgentLimits.forEach { (k, v) -> agentLimitText[k] = v.toString() }
+        projectLimitText.clear()
+        budget.perProjectLimits.forEach { (k, v) -> projectLimitText[k] = v.toString() }
     }
 
     LazyColumn(
@@ -549,11 +589,11 @@ private fun BudgetsTab(state: AppUiState, onSetBudget: (BudgetConfig) -> Unit) {
             }
         }
 
-        if (providers.isNotEmpty() || models.isNotEmpty()) {
+        if (providers.isNotEmpty() || models.isNotEmpty() || agents.isNotEmpty() || projects.isNotEmpty()) {
             item {
                 Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
                     Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Text("Per-provider / per-model limits", fontWeight = FontWeight.SemiBold)
+                        Text("Per-provider / per-model / per-agent / per-project limits", fontWeight = FontWeight.SemiBold)
                         Text("Leave blank for no limit.", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         providers.forEach { pid ->
                             val spend = TokenSavings.totals(state.tokenUsageEntries.filter { it.providerId == pid }, pricingFor).totalCost ?: 0.0
@@ -562,6 +602,14 @@ private fun BudgetsTab(state: AppUiState, onSetBudget: (BudgetConfig) -> Unit) {
                         models.forEach { m ->
                             val spend = TokenSavings.totals(state.tokenUsageEntries.filter { it.model == m }, pricingFor).totalCost ?: 0.0
                             BudgetRow("Model: $m", spend, modelLimitText[m] ?: "") { modelLimitText[m] = it }
+                        }
+                        agents.forEach { a ->
+                            val spend = TokenSavings.totals(state.tokenUsageEntries.filter { it.agent == a }, pricingFor).totalCost ?: 0.0
+                            BudgetRow("Agent: $a", spend, agentLimitText[a] ?: "") { agentLimitText[a] = it }
+                        }
+                        projects.forEach { p ->
+                            val spend = TokenSavings.totals(state.tokenUsageEntries.filter { it.projectId == p }, pricingFor).totalCost ?: 0.0
+                            BudgetRow("Project: $p", spend, projectLimitText[p] ?: "") { projectLimitText[p] = it }
                         }
                     }
                 }
@@ -577,6 +625,8 @@ private fun BudgetsTab(state: AppUiState, onSetBudget: (BudgetConfig) -> Unit) {
                     warnAtPercent = warnAt.toIntOrNull()?.coerceIn(1, 100) ?: 80,
                     perProviderLimits = providerLimitText.mapNotNull { (k, v) -> v.toDoubleOrNull()?.takeIf { it > 0.0 }?.let { k to it } }.toMap(),
                     perModelLimits = modelLimitText.mapNotNull { (k, v) -> v.toDoubleOrNull()?.takeIf { it > 0.0 }?.let { k to it } }.toMap(),
+                    perAgentLimits = agentLimitText.mapNotNull { (k, v) -> v.toDoubleOrNull()?.takeIf { it > 0.0 }?.let { k to it } }.toMap(),
+                    perProjectLimits = projectLimitText.mapNotNull { (k, v) -> v.toDoubleOrNull()?.takeIf { it > 0.0 }?.let { k to it } }.toMap(),
                 )
                 onSetBudget(parsed)
             }) { Text("Save budget") }
@@ -745,6 +795,122 @@ private fun PricingOverrideEditor(
                         )
                         onSave(if (pricing.isKnown) pricing else null)
                     }) { Text("Save") }
+                }
+            }
+        }
+    }
+}
+
+// --- Context ------------------------------------------------------------------------------
+
+@Composable
+private fun ContextTab(
+    state: AppUiState,
+    onSetOverride: (String, String, Long) -> Unit,
+    onResetOverrides: () -> Unit,
+) {
+    val overrides = state.contextWindowOverrides
+    val learned = state.contextWindowLearned
+
+    // Models to surface: bundled references + models actually seen in usage + existing overrides/learned.
+    val seenKeys = state.tokenUsageEntries.map { ContextWindowCatalog.key(it.providerId, it.model) }.toSet()
+    val allKeys = (ContextWindowCatalog.referenceWindows.keys + seenKeys + overrides.keys + learned.keys).sorted()
+    val parsedKeys = allKeys.map { key ->
+        val parts = key.split('/', limit = 2)
+        val pid = parts.getOrElse(0) { "custom" }
+        val model = parts.getOrElse(1) { key }
+        Triple(key, pid, model)
+    }
+
+    LazyColumn(
+        Modifier.fillMaxSize(),
+        contentPadding = PaddingValues(16.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
+        item {
+            Text(
+                "Context windows are documented references (verify with provider), user overrides, and limits learned from explicit provider errors. Unknown models show UNKNOWN and are never guessed.",
+                fontSize = 12.sp,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        items(parsedKeys) { (key, pid, model) ->
+            val reference = ContextWindowCatalog.referenceWindows[key]
+            val learnedValue = learned[key]
+            val overrideValue = overrides[key]
+            val resolved = ContextUsageTracker.resolveMaxTokens(pid, model, overrides, learned)
+            val latest = state.tokenUsageEntries.lastOrNull { ContextWindowCatalog.key(it.providerId, it.model) == key }
+            ContextWindowEditor(
+                key = key,
+                reference = reference,
+                learned = learnedValue,
+                override = overrideValue,
+                resolved = resolved,
+                latestUsage = latest,
+                onSave = { onSetOverride(pid, model, it) },
+            )
+        }
+        item {
+            TextButton(onClick = onResetOverrides) {
+                Text("Reset all overrides", color = MaterialTheme.colorScheme.error)
+            }
+        }
+    }
+}
+
+@Composable
+private fun ContextWindowEditor(
+    key: String,
+    reference: Long?,
+    learned: Long?,
+    override: Long?,
+    resolved: Long?,
+    latestUsage: TokenUsageEntry?,
+    onSave: (Long) -> Unit,
+) {
+    var expanded by remember { mutableStateOf(false) }
+    var input by remember(key, override) { mutableStateOf(override?.toString() ?: "") }
+
+    Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().clickable { expanded = !expanded }) {
+                Column(Modifier.weight(1f)) {
+                    Text(key, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text(
+                        buildString {
+                            append("resolved: ${resolved?.let { fmtTokens(it) } ?: "UNKNOWN"}")
+                            if (reference != null) append(" · reference ${fmtTokens(reference)} (verify)")
+                            if (learned != null) append(" · learned ${fmtTokens(learned)}")
+                            if (override != null) append(" · override ${fmtTokens(override)}")
+                        },
+                        fontSize = 11.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                Text(if (expanded) "▾" else "▸", color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+            if (latestUsage != null && resolved != null && latestUsage.usage.totalTokens > 0L) {
+                val pct = (latestUsage.usage.totalTokens.toDouble() / resolved * 100.0).coerceIn(0.0, 100.0)
+                Text(
+                    "Last request: ${fmtTokens(latestUsage.usage.totalTokens)} tokens of ${fmtTokens(resolved)} (${"%.0f".format(pct)}% used)",
+                    fontSize = 11.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            if (expanded) {
+                OutlinedTextField(
+                    value = input,
+                    onValueChange = { input = it },
+                    label = { Text("Max tokens (blank = inherit/unknown)") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                Row(horizontalArrangement = Arrangement.End, modifier = Modifier.fillMaxWidth()) {
+                    if (override != null) {
+                        TextButton(onClick = { onSave(0L) }) { Text("Clear override", color = MaterialTheme.colorScheme.error) }
+                    }
+                    Spacer(Modifier.width(8.dp))
+                    Button(onClick = { onSave(input.toLongOrNull()?.coerceAtLeast(0L) ?: 0L) }) { Text("Save") }
                 }
             }
         }

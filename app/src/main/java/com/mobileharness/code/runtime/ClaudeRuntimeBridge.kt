@@ -24,6 +24,9 @@ import com.mobileharness.code.model.RuntimeEvent
 import com.mobileharness.code.model.RuntimeRecoveryContext
 import com.mobileharness.code.model.RuntimeRecoveryProfile
 import com.mobileharness.code.model.ToolRequest
+import com.mobileharness.code.token.CliUsageParser
+import com.mobileharness.code.token.Reliability
+import com.mobileharness.code.token.UsageSource
 import com.mobileharness.code.permission.DestructiveOpClassifier
 import com.mobileharness.code.permission.PermissionController
 import com.mobileharness.code.permission.PermissionDecision
@@ -138,6 +141,8 @@ class ClaudeRuntimeBridge(
     private val projectRoots = ConcurrentHashMap<String, String>()
     @Volatile private var activeProcess: Process? = null
     @Volatile private var activeSessionId: String? = null
+    @Volatile private var activeProviderId: String? = null
+    @Volatile private var activeModel: String? = null
     @Volatile private var userStopRequested: Boolean = false
     @Volatile private var sawToolCall: Boolean = false
     @Volatile private var sawMutatingTool: Boolean = false
@@ -202,6 +207,8 @@ class ClaudeRuntimeBridge(
         sawToolCall = false
         sawMutatingTool = false
         activeSessionId = sessionId
+        activeProviderId = provider.providerId.ifBlank { provider.kind.name }
+        activeModel = provider.model
         userStopRequested = false
         activeProjectSlug = projectSlug
         taskStartedAtElapsedRealtime = android.os.SystemClock.elapsedRealtime()
@@ -743,6 +750,7 @@ class ClaudeRuntimeBridge(
                 // The structured result is Claude Code's authoritative terminal event.
                 // Update the UI immediately instead of waiting for a PRoot/Node wrapper
                 // that may remain alive after the answer has already completed.
+                emitSessionUsage(sessionId, json)
                 emitCompletedOnce(sessionId)
                 terminateActiveProcessGracefully()
             }
@@ -812,6 +820,27 @@ class ClaudeRuntimeBridge(
     }
 
     private fun terminalStatus(line: String): Pair<String, String>? = null
+
+    /** Emits ACTUAL usage from Claude Code's `result` event; silently skips when nothing was metered. */
+    private suspend fun emitSessionUsage(sessionId: String, resultJson: JSONObject) {
+        val parsed = CliUsageParser.parseClaudeResult(resultJson) ?: return
+        // Only report when the CLI actually metered usage (or at least reported a cost/model).
+        if (parsed.usage.isEmpty && parsed.reportedCostUsd == null) return
+        eventBus.emit(
+            RuntimeEvent.SessionUsage(
+                sessionId = sessionId,
+                agent = AgentKind.CLAUDE_CODE.stableId,
+                providerId = activeProviderId.orEmpty(),
+                model = parsed.model ?: activeModel.orEmpty(),
+                usage = parsed.usage,
+                reportedCostUsd = parsed.reportedCostUsd,
+                durationMillis = parsed.durationMillis,
+                reliability = if (parsed.usage.isEmpty) Reliability.NOT_TRACKED else Reliability.ACTUAL,
+                source = UsageSource.CLI,
+                projectId = activeProjectSlug.orEmpty(),
+            ),
+        )
+    }
 
     private suspend fun emitCompletedOnce(sessionId: String) {
         if (finishedSessions.add(sessionId)) {

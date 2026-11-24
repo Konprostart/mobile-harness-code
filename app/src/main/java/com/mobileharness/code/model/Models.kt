@@ -1,5 +1,8 @@
 package com.mobileharness.code.model
 
+import com.mobileharness.code.token.Reliability
+import com.mobileharness.code.token.TokenUsage
+import com.mobileharness.code.token.UsageSource
 import java.time.Instant
 import java.text.Normalizer
 import java.util.Locale
@@ -369,6 +372,26 @@ sealed interface RuntimeEvent {
         val attempt: Int,
         val maxAttempts: Int,
         val reason: String,
+    ) : RuntimeEvent
+
+    /**
+     * Token/cost usage reported by an external CLI agent's terminal event (Claude Code `result`,
+     * etc.). [usage] is the normalized token usage (empty when the CLI did not meter it);
+     * [reportedCostUsd] is only present when the CLI itself reported a cost. [projectId] may be
+     * blank when the emitting bridge does not track it.
+     */
+    data class SessionUsage(
+        override val sessionId: String,
+        val agent: String,
+        val providerId: String,
+        val model: String,
+        val usage: TokenUsage = TokenUsage.ZERO,
+        val reportedCostUsd: Double? = null,
+        val durationMillis: Long? = null,
+        val reliability: Reliability = Reliability.ACTUAL,
+        val source: UsageSource = UsageSource.CLI,
+        val projectId: String = "",
+        val task: String = "",
     ) : RuntimeEvent
 }
 
