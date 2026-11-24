@@ -38,8 +38,10 @@ This product includes the SKILL.md parser, skill variable/template expansion,
 plugin archive extraction, plugin format adapters (Claude Code / Codex / Cursor /
 Gemini), plugin runtime detection, MCP OAuth PKCE helpers, the voice provider
 gateway (OpenAI Audio, ElevenLabs, Deepgram, Cartesia, AssemblyAI), the Microsoft
-Edge TTS client, the speech-text cleaner and TTS chunker, and the Live Mode
-conversation/transcript logic, ported and adapted from the AndroidHarness project
+Edge TTS client, the speech-text cleaner and TTS chunker, the Live Mode
+conversation/transcript logic, the device-command risk classifier (READ/CONTROL/
+DESTRUCTIVE), the structured page-text (JSON-LD) extractor, and the BM25 passage
+ranking, ported and adapted from the AndroidHarness project
 (https://github.com/Sanuu7/AndroidHarness), Copyright (c) 2026 Sanuu7, licensed
 under the MIT License. The full license text is preserved at
 app/src/main/assets/licenses/androidharness-MIT.txt.

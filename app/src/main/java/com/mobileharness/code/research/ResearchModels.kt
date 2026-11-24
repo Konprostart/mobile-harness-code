@@ -3,7 +3,9 @@ package com.mobileharness.code.research
 /**
  * Web research models shared by the Sidekick research engine and the search connectors.
  */
-enum class ResearchSource { MARGINALIA, LINKUP, JINA, LANGSEARCH, FIRECRAWL, DIRECT }
+enum class ResearchSource {
+    MARGINALIA, LINKUP, JINA, LANGSEARCH, FIRECRAWL, TAVILY, BRAVE, SERPER, SERPAPI, DUCKDUCKGO, DIRECT,
+}
 
 /** A single search hit. */
 data class SearchResult(

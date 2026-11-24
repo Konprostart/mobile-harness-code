@@ -145,3 +145,15 @@ Java_com_mobileharness_code_runtime_NativeSpawn_kill(JNIEnv *env, jobject self, 
     if (result != 0 && errno == ESRCH) result = kill(pid, signal);
     return result;
 }
+
+JNIEXPORT jint JNICALL
+Java_com_mobileharness_code_runtime_NativeSpawn_resizePty(JNIEnv *env, jobject self, jint fd, jint rows, jint columns) {
+    (void)env; (void)self;
+    struct winsize size = {
+        .ws_row = (unsigned short)(rows > 0 ? rows : 24),
+        .ws_col = (unsigned short)(columns > 0 ? columns : 80),
+        .ws_xpixel = 0,
+        .ws_ypixel = 0,
+    };
+    return ioctl(fd, TIOCSWINSZ, &size);
+}

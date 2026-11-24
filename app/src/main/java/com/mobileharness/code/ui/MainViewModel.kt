@@ -110,6 +110,19 @@ import com.mobileharness.code.device.PrivilegeEventLog
 import com.mobileharness.code.device.PrivilegeOutcome
 import com.mobileharness.code.device.PrivilegeRequest
 import com.mobileharness.code.device.PrivilegeRoute
+import com.mobileharness.code.device.DeviceCommandCatalog
+import com.mobileharness.code.device.DeviceCommandRisk
+import com.mobileharness.code.device.DeviceControlSecurity
+import com.mobileharness.code.device.DeviceAuditLog
+import com.mobileharness.code.device.DeviceAuditEntry
+import com.mobileharness.code.device.DeviceApprovalState
+import com.mobileharness.code.device.DeviceCommandOutcome
+import com.mobileharness.code.research.DeepResearchEngine
+import com.mobileharness.code.research.ResearchDepth
+import com.mobileharness.code.research.ResearchRegistryFactory
+import com.mobileharness.code.research.ResearchProviderRegistry
+import com.mobileharness.code.research.ResearchSource
+import com.mobileharness.code.research.ResearchPolicy
 import com.mobileharness.code.terminal.TerminalCell
 import com.mobileharness.code.network.ConnectionValidation
 import com.mobileharness.code.network.ModelDiscoveryResult
@@ -834,6 +847,9 @@ data class AppUiState(
     val installedPlugins: List<Plugin> = emptyList(),
     val skillsPluginsMessage: String? = null,
     val voiceSettings: VoiceSettings = VoiceSettings(),
+    val deviceControl: DeviceControlUiState = DeviceControlUiState(),
+    val researchReport: String? = null,
+    val researchRunning: Boolean = false,
     val sshProfiles: List<SshProfile> = emptyList(),
     val sshTestingProfileId: String? = null,
     val sshRunningTunnelIds: Set<String> = emptySet(),
@@ -843,6 +859,16 @@ data class AppUiState(
     val redeemedInviteCode: String = "",
     val inviteShareCount: Int = 0,
     val inviteRedeemMessage: String? = null,
+)
+
+/** Device-control session UI state: command runner, risk label, approval + audit trail. */
+data class DeviceControlUiState(
+    val auditEntries: List<DeviceAuditEntry> = emptyList(),
+    val controlApproved: Boolean = false,
+    val lastRisk: DeviceCommandRisk? = null,
+    val lastResult: String? = null,
+    val pendingConfirmationCommand: String? = null,
+    val running: Boolean = false,
 )
 
 /** A first-use server fingerprint awaiting explicit user confirmation (TOFU). */
@@ -867,6 +893,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     private val vault = ApiKeyVault(application)
     private val preferences = AppPreferences(application)
+    private val deviceApproval = DeviceApprovalState()
+    private val deviceAudit = DeviceAuditLog()
     private val accountManager = AccountManager(application)
     private val sshSecrets = sshSecretStore(application)
     private val sshController = SshController(sshSecrets) { preferences.ecoModeEnabled }
@@ -3408,6 +3436,140 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 devTools = it.devTools.copy(privilegedLog = emptyList()),
                 toastMessage = str(R.string.devtools_privilege_log_cleared),
             )
+        }
+    }
+
+    /** Catalog of known device commands, grouped by READ/CONTROL/DESTRUCTIVE risk. */
+    fun deviceCommandCatalog(): List<com.mobileharness.code.device.DeviceCommand> = DeviceCommandCatalog.all()
+
+    /** Classifies a raw command into READ / CONTROL / DESTRUCTIVE (fail-closed). */
+    fun classifyDeviceCommand(command: String): DeviceCommandRisk = DeviceCommandRisk.of(command)
+
+    /**
+     * Requests a device command. READ runs immediately; CONTROL asks once per session; DESTRUCTIVE
+     * always asks. The command must pass [com.mobileharness.code.device.PrivilegeCommand] sanitization
+     * and the existing [PrivilegePolicy]/route gate before anything runs.
+     */
+    fun requestDeviceCommand(command: String) {
+        val sanitized = com.mobileharness.code.device.PrivilegeCommand.sanitizeCommand(command)
+        if (sanitized == null) {
+            _state.update { it.copy(toastMessage = "Invalid or empty command.") }
+            return
+        }
+        val risk = DeviceCommandRisk.of(sanitized)
+        _state.update { it.copy(deviceControl = it.deviceControl.copy(lastRisk = risk)) }
+        when (DeviceControlSecurity.evaluate(sanitized, deviceApproval)) {
+            is DeviceControlSecurity.Decision.Confirm -> {
+                _state.update {
+                    it.copy(
+                        deviceControl = it.deviceControl.copy(
+                            pendingConfirmationCommand = sanitized,
+                            lastRisk = risk,
+                        ),
+                    )
+                }
+            }
+            is DeviceControlSecurity.Decision.Run -> executeDeviceCommand(sanitized)
+        }
+    }
+
+    fun confirmDeviceCommand() {
+        val command = _state.value.deviceControl.pendingConfirmationCommand ?: return
+        deviceApproval.approve(DeviceCommandRisk.of(command))
+        _state.update {
+            it.copy(
+                deviceControl = it.deviceControl.copy(
+                    pendingConfirmationCommand = null,
+                    controlApproved = deviceApproval.controlApproved(),
+                ),
+            )
+        }
+        executeDeviceCommand(command)
+    }
+
+    fun cancelDeviceCommand() {
+        _state.update { it.copy(deviceControl = it.deviceControl.copy(pendingConfirmationCommand = null)) }
+    }
+
+    fun clearDeviceAudit() {
+        deviceAudit.clear()
+        _state.update { it.copy(deviceControl = it.deviceControl.copy(auditEntries = emptyList())) }
+    }
+
+    /**
+     * Runs a deep-research pass (QUICK/STANDARD/DEEP/EXTREME) through the central provider registry
+     * with priority + fallback. Providers that require an API key are attempted when a key is
+     * available; the keyless DuckDuckGo connector always works offline-of-keys. The report renders
+     * sources, ranked by relevance, plus claim checks and confidence — never fabricating sources.
+     */
+    fun runDeepResearch(query: String, depth: ResearchDepth) {
+        if (query.isBlank()) return
+        _state.update { it.copy(researchRunning = true, researchReport = null) }
+        viewModelScope.launch(Dispatchers.IO) {
+            val registry = ResearchRegistryFactory.build()
+            val providerRegistry = ResearchProviderRegistry(registry)
+            val priority = listOf(
+                ResearchSource.DUCKDUCKGO, ResearchSource.MARGINALIA, ResearchSource.JINA,
+                ResearchSource.FIRECRAWL, ResearchSource.LINKUP, ResearchSource.LANGSEARCH,
+                ResearchSource.TAVILY, ResearchSource.BRAVE, ResearchSource.SERPER, ResearchSource.SERPAPI,
+            )
+            val eco = _state.value.ecoModeEnabled
+            val engine = DeepResearchEngine(search = { q ->
+                providerRegistry.search(q, emptyMap(), priority, ResearchPolicy.maxResults(eco))
+            })
+            val report = engine.research(query, depth)
+            withContext(Dispatchers.Main) {
+                _state.update { it.copy(researchRunning = false, researchReport = report.render()) }
+            }
+        }
+    }
+
+    private fun executeDeviceCommand(command: String) {
+        val devTools = _state.value.devTools
+        val route = devTools.privilegedRoutes.firstOrNull { rs -> devTools.privilegedOptIns[rs.route] == true && rs.usable }
+        val risk = DeviceCommandRisk.of(command)
+        if (route == null) {
+            DeviceControlSecurity.audit(deviceAudit, command, "none", DeviceCommandOutcome.DENIED, "no usable privileged route")
+            _state.update {
+                it.copy(
+                    deviceControl = it.deviceControl.copy(auditEntries = deviceAudit.entries()),
+                    toastMessage = str(R.string.devtools_privilege_unavailable),
+                )
+            }
+            return
+        }
+        _state.update { it.copy(deviceControl = it.deviceControl.copy(running = true, lastResult = null)) }
+        viewModelScope.launch(Dispatchers.IO) {
+            val request = when (route.route) {
+                PrivilegeRoute.ROOT -> PrivilegeRequest(route.route, route.level, command = command)
+                else -> PrivilegeRequest(route.route, route.level, argv = command.trim().split(Regex("\\s+")).filter(String::isNotBlank))
+            }
+            val result = PrivilegeController.execute(request, route, devTools.privilegedOptIns[route.route] == true)
+            val text = when (result.outcome) {
+                PrivilegeOutcome.SUCCESS -> result.stdout.trim().ifBlank { "exit 0" }
+                PrivilegeOutcome.TIMEOUT -> result.error ?: "timeout"
+                PrivilegeOutcome.DENIED -> result.error ?: "denied"
+                PrivilegeOutcome.ERROR -> if (result.stderr.isNotBlank()) "${result.error ?: "error"}: ${result.stderr.trim()}" else (result.error ?: "error")
+            }
+            val outcome = when (result.outcome) {
+                PrivilegeOutcome.SUCCESS -> DeviceCommandOutcome.SUCCESS
+                PrivilegeOutcome.TIMEOUT -> DeviceCommandOutcome.TIMEOUT
+                PrivilegeOutcome.DENIED -> DeviceCommandOutcome.DENIED
+                PrivilegeOutcome.ERROR -> DeviceCommandOutcome.ERROR
+            }
+            DeviceControlSecurity.audit(deviceAudit, command, route.route.stableId, outcome, result.error.orEmpty())
+            withContext(Dispatchers.Main) {
+                _state.update {
+                    it.copy(
+                        deviceControl = it.deviceControl.copy(
+                            running = false,
+                            lastResult = text,
+                            lastRisk = risk,
+                            auditEntries = deviceAudit.entries(),
+                        ),
+                    )
+                }
+            }
         }
     }
 

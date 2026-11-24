@@ -12,6 +12,7 @@ internal class NativeSpawnProcess private constructor(
     private val pid: Int,
     internal val outputFile: File,
     private val stdin: OutputStream,
+    private val ptyFd: Int = -1,
     private val outputPump: Thread? = null,
 ) : Process() {
     @Volatile private var result: Int? = null
@@ -44,6 +45,10 @@ internal class NativeSpawnProcess private constructor(
         NativeSpawn.kill(pid, 2)
     }
 
+    /** Resizes the PTY window (TIOCSWINSZ); returns false when the fd is gone or the ioctl fails. */
+    internal fun resize(rows: Int, columns: Int): Boolean =
+        ptyFd >= 0 && NativeSpawn.resizePty(ptyFd, rows, columns) == 0
+
     override fun destroyForcibly(): Process {
         NativeSpawn.kill(pid, 9)
         return this
@@ -73,6 +78,7 @@ internal class NativeSpawnProcess private constructor(
                 ptyColumns,
             )
             check(spawned.size == 3 && spawned[0] > 0) { "Native runtime launch failed" }
+            val ptyFd = if (pseudoTerminal) spawned[1] else -1
             val input = ParcelFileDescriptor.AutoCloseOutputStream(ParcelFileDescriptor.adoptFd(spawned[1]))
             val pump = spawned[2].takeIf { it >= 0 }?.let { outputFd ->
                 Thread({
@@ -86,7 +92,7 @@ internal class NativeSpawnProcess private constructor(
                     start()
                 }
             }
-            return NativeSpawnProcess(spawned[0], outputFile, input, pump)
+            return NativeSpawnProcess(spawned[0], outputFile, input, ptyFd, pump)
         }
     }
 }
@@ -109,4 +115,5 @@ private object NativeSpawn {
     ): IntArray
     external fun waitFor(pid: Int, noHang: Boolean): Int
     external fun kill(pid: Int, signal: Int): Int
+    external fun resizePty(fd: Int, rows: Int, columns: Int): Int
 }

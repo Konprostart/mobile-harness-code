@@ -90,4 +90,23 @@ object ClaimCheck {
         sb.append("]")
         return parseResults(sb.toString(), source)
     }
+
+    /**
+     * Extraction from a JSON body whose results live under a dot-separated path of object keys,
+     * e.g. Brave's `web.results` or a future `response.hits`. Each step except the last must be an
+     * object; the last is the array of result objects. Fails closed (empty) on any mismatch.
+     */
+    fun parseResultsDeep(json: String, path: String, source: ResearchSource): List<SearchResult> {
+        val segments = path.split('.').filter { it.isNotBlank() }
+        if (segments.isEmpty()) return emptyList()
+        var current: Any = runCatching { JSONObject(json) }.getOrNull() ?: return emptyList()
+        for (i in 0 until segments.size - 1) {
+            current = (current as? JSONObject)?.opt(segments[i]) ?: return emptyList()
+        }
+        val array = (current as? JSONObject)?.optJSONArray(segments.last()) ?: return emptyList()
+        val sb = StringBuilder("[")
+        for (i in 0 until array.length()) sb.append(array.opt(i).toString()).append(if (i == array.length() - 1) "" else ",")
+        sb.append("]")
+        return parseResults(sb.toString(), source)
+    }
 }

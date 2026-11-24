@@ -59,6 +59,9 @@ import androidx.compose.material.icons.filled.PrivacyTip
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Security
+import androidx.compose.material3.FilterChip
+import com.mobileharness.code.research.ResearchDepth
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.SmartToy
@@ -70,6 +73,8 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import androidx.compose.material3.Button
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
@@ -138,7 +143,7 @@ import com.mobileharness.code.ui.theme.AppThemeMode
 import com.mobileharness.code.ui.theme.PocketOrange
 import kotlinx.coroutines.launch
 
-private enum class SettingsSection { APPEARANCE, LANGUAGE, TOOLS, RUNTIME, DIAGNOSTICS, DEVELOPER_TOOLS, ACCOUNT, BACKUP, UPDATE_CHANNEL, UPDATES, GRADLE_MEMORY, RELEASE_SIGNING, SIGNING_VAULT, SERVER_SYNC, TELEGRAM, SIDEKICK, MCP_SERVERS, ECO_MODE, AUTO_PROMPT, AUTO_PROMPT_LIBRARY, TOKEN_COST_MANAGER, SKILLS_PLUGINS, VOICE, MODEL_ROTATION, RAG, SSH, SHARE_INVITE }
+private enum class SettingsSection { APPEARANCE, LANGUAGE, TOOLS, RUNTIME, DIAGNOSTICS, DEVELOPER_TOOLS, ACCOUNT, BACKUP, UPDATE_CHANNEL, UPDATES, GRADLE_MEMORY, RELEASE_SIGNING, SIGNING_VAULT, SERVER_SYNC, TELEGRAM, SIDEKICK, MCP_SERVERS, ECO_MODE, AUTO_PROMPT, AUTO_PROMPT_LIBRARY, TOKEN_COST_MANAGER, SKILLS_PLUGINS, VOICE, DEVICE_CONTROL, RESEARCH, MODEL_ROTATION, RAG, SSH, SHARE_INVITE }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -211,6 +216,8 @@ fun SettingsScreen(
     onOpenTokenCostManager: () -> Unit = {},
     onOpenSkillsPlugins: () -> Unit = {},
     onOpenVoiceSettings: () -> Unit = {},
+    onOpenDeviceControl: () -> Unit = {},
+    onRunDeepResearch: (String, ResearchDepth) -> Unit = { _, _ -> },
     onSetAgentRotationEnabled: (Boolean) -> Unit = {},
     onSetAgentRotationMaxAttempts: (Int) -> Unit = {},
     onCheckForAppUpdate: () -> Unit = {},
@@ -828,6 +835,77 @@ fun SettingsScreen(
                             Icon(Icons.Default.Mic, null)
                             Spacer(Modifier.width(6.dp))
                             Text("Open voice settings")
+                        }
+                    }
+                }
+            }
+
+            item {
+                SettingsAccordion(
+                    title = "Device Control",
+                    subtitle = "Shizuku / Root / Wireless ADB commands with READ·CONTROL·DESTRUCTIVE risk labels.",
+                    icon = Icons.Default.Security,
+                    expanded = expanded == SettingsSection.DEVICE_CONTROL,
+                    onClick = { toggle(SettingsSection.DEVICE_CONTROL) },
+                ) {
+                    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                        Text(
+                            "Run device commands with risk classification, confirmation and an audit trail.",
+                            fontSize = 11.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        Button(onClick = onOpenDeviceControl) {
+                            Icon(Icons.Default.Security, null)
+                            Spacer(Modifier.width(6.dp))
+                            Text("Open Device Control")
+                        }
+                    }
+                }
+            }
+
+            item {
+                SettingsAccordion(
+                    title = "Deep Research",
+                    subtitle = "Multi-source web research with fallback, ranking and claim checks.",
+                    icon = Icons.Default.Search,
+                    expanded = expanded == SettingsSection.RESEARCH,
+                    onClick = { toggle(SettingsSection.RESEARCH) },
+                ) {
+                    var query by remember { mutableStateOf("") }
+                    var depth by remember { mutableStateOf(ResearchDepth.STANDARD) }
+                    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                        OutlinedTextField(
+                            value = query,
+                            onValueChange = { query = it },
+                            modifier = Modifier.fillMaxWidth(),
+                            label = { Text("Research query") },
+                            singleLine = true,
+                        )
+                        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                            ResearchDepth.entries.forEach { d ->
+                                FilterChip(selected = depth == d, onClick = { depth = d }, label = { Text(d.label) })
+                            }
+                        }
+                        Button(
+                            onClick = { if (query.isNotBlank()) onRunDeepResearch(query, depth) },
+                            enabled = query.isNotBlank() && !state.researchRunning,
+                        ) {
+                            if (state.researchRunning) {
+                                CircularProgressIndicator(Modifier.size(16.dp), strokeWidth = 2.dp)
+                            } else {
+                                Icon(Icons.Default.Search, null)
+                                Spacer(Modifier.width(6.dp))
+                                Text("Run research")
+                            }
+                        }
+                        state.researchReport?.let { report ->
+                            Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
+                                Text(
+                                    report,
+                                    fontSize = 11.sp,
+                                    modifier = Modifier.padding(12.dp),
+                                )
+                            }
                         }
                     }
                 }

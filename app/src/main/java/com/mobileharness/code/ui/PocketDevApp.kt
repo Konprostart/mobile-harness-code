@@ -2501,6 +2501,7 @@ private fun RootScreenHost(
     var showTokenCostManager by rememberSaveable { mutableStateOf(false) }
     var showSkillsPlugins by rememberSaveable { mutableStateOf(false) }
     var showVoiceSettings by rememberSaveable { mutableStateOf(false) }
+    var showDeviceControl by rememberSaveable { mutableStateOf(false) }
 
     if (state.showWhatsNew) {
         WhatsNewDialog(
@@ -2702,6 +2703,8 @@ private fun RootScreenHost(
                     onOpenTokenCostManager = { showTokenCostManager = true },
                     onOpenSkillsPlugins = { showSkillsPlugins = true },
                     onOpenVoiceSettings = { showVoiceSettings = true },
+                    onOpenDeviceControl = { showDeviceControl = true },
+                    onRunDeepResearch = viewModel::runDeepResearch,
                     onSetAgentRotationEnabled = viewModel::setAgentRotationEnabled,
                     onSetAgentRotationMaxAttempts = viewModel::setAgentRotationMaxAttempts,
                     onCheckForAppUpdate = { viewModel.checkForAppUpdate(force = true) },
@@ -2798,6 +2801,19 @@ private fun RootScreenHost(
             getApiKey = viewModel::getVoiceApiKey,
             setApiKey = viewModel::setVoiceApiKey,
             onStartTask = viewModel::runLiveModeTask,
+        )
+    }
+    if (showDeviceControl) {
+        DeviceControlScreen(
+            state = state,
+            onClose = { showDeviceControl = false },
+            onRefreshDevTools = viewModel::refreshDevTools,
+            onTogglePrivilegeRoute = viewModel::togglePrivilegeRoute,
+            onRequestShizukuPermission = viewModel::requestShizukuPermission,
+            onRunCommand = viewModel::requestDeviceCommand,
+            onConfirm = viewModel::confirmDeviceCommand,
+            onCancel = viewModel::cancelDeviceCommand,
+            onClearAudit = viewModel::clearDeviceAudit,
         )
     }
     if (showQuickTerminal) {
