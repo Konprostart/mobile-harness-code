@@ -4,6 +4,8 @@ import android.content.Context
 import com.mobileharness.code.R
 import com.mobileharness.code.model.AiAuthType
 import com.mobileharness.code.model.ProviderProtocol
+import com.mobileharness.code.token.TokenUsage
+import com.mobileharness.code.token.TokenUsageParser
 import com.mobileharness.code.ui.AppStrings
 import org.json.JSONArray
 import org.json.JSONObject
@@ -31,7 +33,12 @@ sealed interface ConnectionValidation {
 
 /** One-shot chat completion result used by the in-app Sidekick assistant. */
 sealed interface ChatCompletion {
-    data class Success(val text: String, val reasoning: String? = null) : ChatCompletion
+    data class Success(
+        val text: String,
+        val reasoning: String? = null,
+        /** Metered token usage from the provider response; [TokenUsage.ZERO] when it was not reported. */
+        val usage: TokenUsage = TokenUsage.ZERO,
+    ) : ChatCompletion
     data class Failure(
         val message: String,
         val kind: CompletionFailureKind = CompletionFailureKind.OTHER,
@@ -222,6 +229,7 @@ class ProviderApiClient(private val context: Context? = null) {
         maxTokens: Int = COMPLETION_MAX_TOKENS,
         images: List<CompletionImage> = emptyList(),
         authType: AiAuthType = AiAuthType.API_KEY,
+        cacheEnabled: Boolean = false,
     ): ChatCompletion = withContext(Dispatchers.IO) {
         if (baseUrl.isBlank() || model.isBlank()) {
             return@withContext ChatCompletion.Failure(
@@ -229,12 +237,13 @@ class ProviderApiClient(private val context: Context? = null) {
             )
         }
         val endpoint = messagesEndpoint(baseUrl, protocol)
-        val body = completionBody(model, protocol, systemPrompt, userMessage, maxTokens, images)
+        val body = completionBody(model, protocol, systemPrompt, userMessage, maxTokens, images, cacheEnabled)
         val response = request(endpoint, "POST", apiKey, body, protocol, connectTimeoutMs = 12_000, readTimeoutMs = 60_000, authType = authType)
         when {
             response.code in 200..299 -> {
                 val payload = extractCompletion(response.body, protocol)
-                ChatCompletion.Success(payload.text, payload.reasoning)
+                val usage = TokenUsageParser.parse(response.body, protocol)
+                ChatCompletion.Success(payload.text, payload.reasoning, usage)
             }
             response.code == 401 || response.code == 403 -> ChatCompletion.Failure(
                 text(R.string.rt_api_check_key, "Check this API key or select another saved key."),
@@ -266,12 +275,13 @@ class ProviderApiClient(private val context: Context? = null) {
         userMessage: String,
         maxTokens: Int = COMPLETION_MAX_TOKENS,
         images: List<CompletionImage> = emptyList(),
+        cacheEnabled: Boolean = false,
     ): String {
         val safeImages = images.filter { it.mimeType.isNotBlank() && it.base64.isNotBlank() }
         return when (protocol) {
             ProviderProtocol.OPENAI_CHAT -> chatCompletionBody(model, systemPrompt, userMessage, maxTokens, safeImages)
             ProviderProtocol.OPENAI_RESPONSES -> responsesBody(model, systemPrompt, userMessage, safeImages)
-            else -> anthropicMessagesBody(model, systemPrompt, userMessage, maxTokens, safeImages)
+            else -> anthropicMessagesBody(model, systemPrompt, userMessage, maxTokens, safeImages, cacheEnabled)
         }
     }
 
@@ -282,6 +292,7 @@ class ProviderApiClient(private val context: Context? = null) {
         userMessage: String,
         maxTokens: Int,
         images: List<CompletionImage>,
+        cacheEnabled: Boolean,
     ): String {
         val content: Any = if (images.isEmpty()) {
             userMessage
@@ -303,10 +314,23 @@ class ProviderApiClient(private val context: Context? = null) {
             blocks.put(JSONObject().put("type", "text").put("text", userMessage))
             blocks
         }
+        // Prompt caching (Anthropic): mark the stable system prompt as cacheable so repeat turns
+        // reuse it. Only applied when the caller enabled it for a caching-capable provider; a
+        // plain string system prompt is otherwise unchanged.
+        val system: Any = if (cacheEnabled && systemPrompt.isNotBlank()) {
+            JSONArray().put(
+                JSONObject()
+                    .put("type", "text")
+                    .put("text", systemPrompt)
+                    .put("cache_control", JSONObject().put("type", "ephemeral")),
+            )
+        } else {
+            systemPrompt
+        }
         return JSONObject()
             .put("model", model)
             .put("max_tokens", maxTokens)
-            .put("system", systemPrompt)
+            .put("system", system)
             .put("messages", JSONArray().put(JSONObject().put("role", "user").put("content", content)))
             .toString()
     }

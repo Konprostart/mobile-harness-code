@@ -137,7 +137,7 @@ import com.mobileharness.code.ui.theme.AppThemeMode
 import com.mobileharness.code.ui.theme.PocketOrange
 import kotlinx.coroutines.launch
 
-private enum class SettingsSection { APPEARANCE, LANGUAGE, TOOLS, RUNTIME, DIAGNOSTICS, DEVELOPER_TOOLS, ACCOUNT, BACKUP, UPDATE_CHANNEL, UPDATES, GRADLE_MEMORY, RELEASE_SIGNING, SIGNING_VAULT, SERVER_SYNC, TELEGRAM, SIDEKICK, MCP_SERVERS, ECO_MODE, AUTO_PROMPT, AUTO_PROMPT_LIBRARY, MODEL_ROTATION, RAG, SSH, SHARE_INVITE }
+private enum class SettingsSection { APPEARANCE, LANGUAGE, TOOLS, RUNTIME, DIAGNOSTICS, DEVELOPER_TOOLS, ACCOUNT, BACKUP, UPDATE_CHANNEL, UPDATES, GRADLE_MEMORY, RELEASE_SIGNING, SIGNING_VAULT, SERVER_SYNC, TELEGRAM, SIDEKICK, MCP_SERVERS, ECO_MODE, AUTO_PROMPT, AUTO_PROMPT_LIBRARY, TOKEN_COST_MANAGER, MODEL_ROTATION, RAG, SSH, SHARE_INVITE }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -207,6 +207,7 @@ fun SettingsScreen(
     onSetAutoPromptEnabled: (Boolean) -> Unit = {},
     onSetAutoPromptSystemEnabled: (Boolean) -> Unit = {},
     onOpenAutoPrompt: () -> Unit = {},
+    onOpenTokenCostManager: () -> Unit = {},
     onSetAgentRotationEnabled: (Boolean) -> Unit = {},
     onSetAgentRotationMaxAttempts: (Int) -> Unit = {},
     onCheckForAppUpdate: () -> Unit = {},
@@ -745,6 +746,33 @@ fun SettingsScreen(
                             Icon(Icons.Default.PlayArrow, null)
                             Spacer(Modifier.width(6.dp))
                             Text(stringResource(R.string.autoprompt_open))
+                        }
+                    }
+                }
+            }
+
+            item {
+                SettingsAccordion(
+                    title = "Token & Cost Manager",
+                    subtitle = if (state.tokenOptimizationConfig.enabled) {
+                        "Optimization: ${state.tokenOptimizationConfig.level.label}"
+                    } else {
+                        "Tracking active · optimization off"
+                    },
+                    icon = Icons.Default.AutoAwesome,
+                    expanded = expanded == SettingsSection.TOKEN_COST_MANAGER,
+                    onClick = { toggle(SettingsSection.TOKEN_COST_MANAGER) },
+                ) {
+                    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                        Text(
+                            "Track token usage and cost, set budgets and control automatic token optimization.",
+                            fontSize = 11.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        Button(onClick = onOpenTokenCostManager) {
+                            Icon(Icons.Default.AutoAwesome, null)
+                            Spacer(Modifier.width(6.dp))
+                            Text("Open Token & Cost Manager")
                         }
                     }
                 }

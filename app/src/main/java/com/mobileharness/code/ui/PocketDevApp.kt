@@ -2498,6 +2498,7 @@ private fun RootScreenHost(
     var sshTerminalProfileId by rememberSaveable { mutableStateOf<String?>(null) }
     var openBackup by rememberSaveable { mutableStateOf(false) }
     var showAutoPromptScreen by rememberSaveable { mutableStateOf(false) }
+    var showTokenCostManager by rememberSaveable { mutableStateOf(false) }
 
     if (state.showWhatsNew) {
         WhatsNewDialog(
@@ -2696,6 +2697,7 @@ private fun RootScreenHost(
                     onSetAutoPromptEnabled = viewModel::setAutoPromptEnabled,
                     onSetAutoPromptSystemEnabled = viewModel::setAutoPromptSystemEnabled,
                     onOpenAutoPrompt = { showAutoPromptScreen = true },
+                    onOpenTokenCostManager = { showTokenCostManager = true },
                     onSetAgentRotationEnabled = viewModel::setAgentRotationEnabled,
                     onSetAgentRotationMaxAttempts = viewModel::setAgentRotationMaxAttempts,
                     onCheckForAppUpdate = { viewModel.checkForAppUpdate(force = true) },
@@ -2753,6 +2755,18 @@ private fun RootScreenHost(
             onReorder = viewModel::reorderAutoPromptTasks,
             onRun = viewModel::runAutoPromptNow,
             onClearHistory = viewModel::clearAutoPromptHistory,
+        )
+    }
+    if (showTokenCostManager) {
+        TokenCostManagerScreen(
+            state = state,
+            onClose = { showTokenCostManager = false },
+            onSetOptimizationConfig = viewModel::setTokenOptimizationConfig,
+            onSetBudget = viewModel::setTokenBudget,
+            onSetPricingOverrides = viewModel::setTokenPricingOverrides,
+            onClearUsage = viewModel::clearTokenUsage,
+            onResetSavings = viewModel::resetTokenSavings,
+            onReload = viewModel::reloadTokenUsage,
         )
     }
     if (showQuickTerminal) {

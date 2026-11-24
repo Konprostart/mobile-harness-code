@@ -31,6 +31,17 @@ import com.mobileharness.code.network.RouteOutcome
 import com.mobileharness.code.runtime.EcoMode
 import com.mobileharness.code.skills.SkillPolicy
 import com.mobileharness.code.tools.BuiltinTools
+import com.mobileharness.code.token.BudgetPolicy
+import com.mobileharness.code.token.BudgetReachedAction
+import com.mobileharness.code.token.ModelPricing
+import com.mobileharness.code.token.OptimizationConfig
+import com.mobileharness.code.token.TokenCalculator
+import com.mobileharness.code.token.TokenOptimizer
+import com.mobileharness.code.token.TokenSavings
+import com.mobileharness.code.token.TokenUsage
+import com.mobileharness.code.token.TokenUsageEntry
+import com.mobileharness.code.token.TokenUsageEstimator
+import com.mobileharness.code.token.TokenUsageStore
 import com.mobileharness.code.ui.AppStrings
 import org.json.JSONObject
 import java.io.File
@@ -53,6 +64,7 @@ class SidekickEngine(context: Context) {
     private val vault = ApiKeyVault(appContext)
     private val client = ProviderApiClient(appContext)
     private val mcpClient = McpClient()
+    private val usageStore = TokenUsageStore(File(appContext.filesDir, "token"))
 
     /** Resolves the profile the assistant should use, honoring the independent-model opt-in. */
     fun resolveProfile(): ProviderProfile {
@@ -318,10 +330,16 @@ class SidekickEngine(context: Context) {
             return SidekickResult(AppStrings.get(appContext, R.string.sidekick_requires_key))
         }
 
+        budgetGuardBlocked(profile.providerId, profile.model)?.let { return SidekickResult(it) }
+
         val ecoEnabled = preferences.ecoModeEnabled
         val maxTokensPerCall = EcoMode.recommendedMaxTokens(ecoEnabled)
         val authType = AiProviderCatalog.authTypeFor(profile.providerId)
         val local = localModelConfig()
+        val optimizerConfig = preferences.tokenOptimizationConfig
+        val primaryProvider = AiProviderCatalog.byId(profile.providerId)
+        val cacheEnabled = primaryProvider != null &&
+            TokenOptimizer.mayCache(optimizerConfig, primaryProvider, profile.model)
         val routes = buildSidekickRoutes(
             primaryModel = profile.model,
             fallbackEnabled = preferences.sidekickFallbackEnabled,
@@ -349,8 +367,14 @@ class SidekickEngine(context: Context) {
             },
         ).also { it.tokensPerAttempt = maxTokensPerCall.toLong() }
 
+        var finalUsage = TokenUsage.ZERO
+        var finalModel = profile.model
+        val startMs = System.currentTimeMillis()
         return when (val outcome = chain.run { route ->
             val target = resolveSidekickRoute(route, profile, key, local)
+            // Prompt caching applies to the Anthropic-family primary provider only; the local and
+            // OpenAI-compatible routes ignore the flag inside the client.
+            val routeCache = cacheEnabled && route.id == "primary"
             when (val result = client.complete(
                 baseUrl = target.baseUrl,
                 model = route.model,
@@ -361,12 +385,28 @@ class SidekickEngine(context: Context) {
                 maxTokens = maxTokensPerCall,
                 images = images.map { CompletionImage(it.mimeType, it.base64) },
                 authType = authType,
+                cacheEnabled = routeCache,
             )) {
-                is ChatCompletion.Success -> RouteAttempt.Success(result.text, result.reasoning)
+                is ChatCompletion.Success -> {
+                    finalUsage = result.usage
+                    finalModel = route.model
+                    RouteAttempt.Success(result.text, result.reasoning)
+                }
                 is ChatCompletion.Failure -> RouteAttempt.Failure(result.kind, result.message)
             }
         }) {
-            is RouteOutcome.Success -> SidekickResult(outcome.text, outcome.reasoning)
+            is RouteOutcome.Success -> {
+                recordUsage(
+                    providerId = profile.providerId,
+                    model = finalModel,
+                    usage = finalUsage,
+                    systemPrompt = systemPrompt,
+                    userMessage = userMessage,
+                    outputText = outcome.text,
+                    latencyMillis = System.currentTimeMillis() - startMs,
+                )
+                SidekickResult(outcome.text, outcome.reasoning)
+            }
             is RouteOutcome.Failure -> when (outcome.kind) {
                 CompletionFailureKind.AUTH -> SidekickResult(outcome.message)
                 else -> SidekickResult(
@@ -378,6 +418,67 @@ class SidekickEngine(context: Context) {
                 )
             }
         }
+    }
+
+    /**
+     * Records one Sidekick completion into the Token & Cost Manager store. When the provider did
+     * not meter usage ([usage] is empty), the entry is stored with a conservative char/4 estimate
+     * and marked estimated so the UI never presents an estimate as a real meter reading.
+     */
+    private fun recordUsage(
+        providerId: String,
+        model: String,
+        usage: TokenUsage,
+        systemPrompt: String,
+        userMessage: String,
+        outputText: String,
+        latencyMillis: Long? = null,
+    ) {
+        val estimated = usage.isEmpty
+        val effectiveUsage = if (estimated) {
+            TokenUsageEstimator.estimate(systemPrompt + "\n" + userMessage, outputText)
+        } else usage
+        usageStore.record(
+            TokenUsageEntry(
+                timestampMillis = System.currentTimeMillis(),
+                providerId = providerId,
+                model = model,
+                agent = "sidekick",
+                usage = effectiveUsage,
+                tokensEstimated = estimated,
+                latencyMillis = latencyMillis,
+            ),
+        )
+    }
+
+    /**
+     * Returns an error message when the user explicitly opted into STOP_NEW_REQUESTS and a configured
+     * budget window (daily/weekly/monthly) is reached, otherwise null. It is fail-safe: without the
+     * opt-in it never blocks, and it only ever considers metered/estimated spend already recorded
+     * locally — never a fabricated figure.
+     */
+    private fun budgetGuardBlocked(providerId: String, model: String): String? {
+        val config = preferences.tokenBudget
+        if (config.reachedAction != BudgetReachedAction.STOP_NEW_REQUESTS) return null
+        val overrides = preferences.tokenPricingOverrides
+        val pricingFor: (String, String) -> ModelPricing? = { pid, m -> TokenCalculator.resolvePricing(pid, m, overrides) }
+        val entries = usageStore.load()
+        val now = System.currentTimeMillis()
+        val daily = TokenSavings.totals(entries.filter { it.timestampMillis >= now - 86_400_000L }, pricingFor).totalCost ?: 0.0
+        val weekly = TokenSavings.totals(entries.filter { it.timestampMillis >= now - 7 * 86_400_000L }, pricingFor).totalCost ?: 0.0
+        val monthly = TokenSavings.totals(entries.filter { it.timestampMillis >= now - 30 * 86_400_000L }, pricingFor).totalCost ?: 0.0
+        val perProviderSpend = TokenSavings.totals(entries.filter { it.providerId == providerId }, pricingFor).totalCost ?: 0.0
+        val perModelSpend = TokenSavings.totals(entries.filter { it.model == model }, pricingFor).totalCost ?: 0.0
+        val status = BudgetPolicy.combined(
+            BudgetPolicy.status(daily, config.dailyLimit, config.warnAtPercent),
+            BudgetPolicy.status(weekly, config.weeklyLimit, config.warnAtPercent),
+            BudgetPolicy.status(monthly, config.monthlyLimit, config.warnAtPercent),
+            BudgetPolicy.status(perProviderSpend, config.perProviderLimits[providerId], config.warnAtPercent),
+            BudgetPolicy.status(perModelSpend, config.perModelLimits[model], config.warnAtPercent),
+        )
+        return if (BudgetPolicy.shouldBlock(status, config.reachedAction)) {
+            "Budget limit reached: new cost-bearing requests are paused. Adjust or reset your budget in Token & Cost Manager."
+        } else null
     }
 
     private companion object {

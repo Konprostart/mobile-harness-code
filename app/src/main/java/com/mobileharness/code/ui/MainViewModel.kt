@@ -88,6 +88,11 @@ import com.mobileharness.code.automation.Recurrence
 import com.mobileharness.code.automation.RunMode
 import com.mobileharness.code.automation.ScheduledTask
 import com.mobileharness.code.automation.SchedulerStore
+import com.mobileharness.code.token.BudgetConfig
+import com.mobileharness.code.token.ModelPricing
+import com.mobileharness.code.token.OptimizationConfig
+import com.mobileharness.code.token.TokenUsageEntry
+import com.mobileharness.code.token.TokenUsageStore
 import com.mobileharness.code.skills.Skill
 import com.mobileharness.code.share.InviteCode
 import com.mobileharness.code.device.PrivilegeController
@@ -798,6 +803,13 @@ data class AppUiState(
     val autoPromptTasks: List<ScheduledTask> = emptyList(),
     val autoPromptHistory: List<PromptRun> = emptyList(),
     val autoPromptRunningIds: Set<String> = emptySet(),
+    val tokenOptimizationConfig: OptimizationConfig = OptimizationConfig.DEFAULT,
+    val tokenBudget: BudgetConfig = BudgetConfig.DEFAULT,
+    val tokenPricingOverrides: Map<String, ModelPricing> = emptyMap(),
+    val tokenUsageEntries: List<TokenUsageEntry> = emptyList(),
+    val tokenCompactionSaved: Long = 0L,
+    val tokenModelChoiceSaved: Long = 0L,
+    val tokenPricingUpdatedAtMillis: Long = 0L,
     val mcpServers: List<McpServerConfig> = emptyList(),
     val mcpToolCatalog: Map<String, List<McpTool>> = emptyMap(),
     val mcpTestingServerId: String? = null,
@@ -872,6 +884,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val sidekickEngine by lazy { SidekickEngine(getApplication()) }
     private val schedulerStore = SchedulerStore { json -> preferences.autoPromptTasksJson = json }
     private val autoPromptHistory = AutoPromptHistoryStore { json -> preferences.autoPromptHistoryJson = json }
+    private val tokenUsageStore = TokenUsageStore(File(getApplication<Application>().filesDir, "token"))
 
     init {
         schedulerStore.load(preferences.autoPromptTasksJson)
@@ -1044,6 +1057,13 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             autoPromptSystemEnabled = preferences.autoPromptSystemEnabled,
             autoPromptTasks = schedulerStore.snapshot(),
             autoPromptHistory = autoPromptHistory.snapshot(),
+            tokenOptimizationConfig = preferences.tokenOptimizationConfig,
+            tokenBudget = preferences.tokenBudget,
+            tokenPricingOverrides = preferences.tokenPricingOverrides,
+            tokenUsageEntries = tokenUsageStore.load(),
+            tokenCompactionSaved = preferences.tokenCompactionSaved,
+            tokenModelChoiceSaved = preferences.tokenModelChoiceSaved,
+            tokenPricingUpdatedAtMillis = preferences.tokenPricingUpdatedAtMillis,
             mcpServers = preferences.loadMcpServers(),
             ragEnabled = preferences.ragEnabled,
             ragDocuments = preferences.loadRagDocuments(),
@@ -1346,6 +1366,63 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     fun setAutoPromptEnabled(enabled: Boolean) {
         preferences.autoPromptEnabled = enabled
         _state.update { it.copy(autoPromptEnabled = enabled) }
+    }
+
+    // --- Token & Cost Manager ------------------------------------------------------------
+
+    fun setTokenOptimizationConfig(config: OptimizationConfig) {
+        preferences.tokenOptimizationConfig = config
+        _state.update { it.copy(tokenOptimizationConfig = config) }
+    }
+
+    fun setTokenBudget(budget: BudgetConfig) {
+        preferences.tokenBudget = budget
+        _state.update { it.copy(tokenBudget = budget) }
+    }
+
+    fun setTokenPricingOverrides(overrides: Map<String, ModelPricing>) {
+        preferences.tokenPricingOverrides = overrides
+        preferences.tokenPricingUpdatedAtMillis = System.currentTimeMillis()
+        _state.update {
+            it.copy(
+                tokenPricingOverrides = overrides,
+                tokenPricingUpdatedAtMillis = preferences.tokenPricingUpdatedAtMillis,
+            )
+        }
+    }
+
+    /** Re-reads the usage store (e.g. after a Sidekick completion wrote a new entry). */
+    fun reloadTokenUsage() {
+        _state.update { it.copy(tokenUsageEntries = tokenUsageStore.load()) }
+    }
+
+    fun clearTokenUsage() {
+        tokenUsageStore.clear()
+        _state.update { it.copy(tokenUsageEntries = emptyList()) }
+    }
+
+    /** Records one usage entry (used by direct API calls; Sidekick writes its own store). */
+    fun recordTokenUsage(entry: TokenUsageEntry) {
+        tokenUsageStore.record(entry)
+        _state.update { it.copy(tokenUsageEntries = tokenUsageStore.load()) }
+    }
+
+    /** Credits optimizer savings into the persisted running counters. */
+    fun addTokenSavings(compactionTokens: Long = 0L, modelChoiceTokens: Long = 0L) {
+        if (compactionTokens > 0L) preferences.tokenCompactionSaved = preferences.tokenCompactionSaved + compactionTokens
+        if (modelChoiceTokens > 0L) preferences.tokenModelChoiceSaved = preferences.tokenModelChoiceSaved + modelChoiceTokens
+        _state.update {
+            it.copy(
+                tokenCompactionSaved = preferences.tokenCompactionSaved,
+                tokenModelChoiceSaved = preferences.tokenModelChoiceSaved,
+            )
+        }
+    }
+
+    fun resetTokenSavings() {
+        preferences.tokenCompactionSaved = 0L
+        preferences.tokenModelChoiceSaved = 0L
+        _state.update { it.copy(tokenCompactionSaved = 0L, tokenModelChoiceSaved = 0L) }
     }
 
     // --- Auto Prompt Library (scheduled/manual prompt library) ----------------------------

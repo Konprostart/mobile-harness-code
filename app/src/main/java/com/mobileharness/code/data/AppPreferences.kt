@@ -26,6 +26,12 @@ import com.mobileharness.code.sidekick.RagIndex
 import com.mobileharness.code.skills.BuiltinSkills
 import com.mobileharness.code.skills.Skill
 import com.mobileharness.code.skills.SkillCodec
+import com.mobileharness.code.token.BudgetConfig
+import com.mobileharness.code.token.BudgetConfigCodec
+import com.mobileharness.code.token.ModelPricing
+import com.mobileharness.code.token.OptimizationConfig
+import com.mobileharness.code.token.OptimizationConfigCodec
+import com.mobileharness.code.token.PricingOverrideCodec
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
@@ -233,6 +239,42 @@ class AppPreferences(private val context: Context) {
     var autoPromptHistoryJson: String
         get() = preferences.getString("auto_prompt_history_json", "") ?: ""
         set(value) { preferences.edit().putString("auto_prompt_history_json", value).apply() }
+
+    // --- Token & Cost Manager (usage tracking + cost + optimization, all opt-in) ---------------
+    /**
+     * Master AUTO TOKEN OPTIMIZATION config. Off by default; when off, no agent behavior changes
+     * (usage tracking remains active). Not sensitive, so excluded from [DEVICE_ONLY_KEYS].
+     */
+    var tokenOptimizationConfig: OptimizationConfig
+        get() = OptimizationConfigCodec.fromJson(
+            preferences.getString("token_optimization_json", "").orEmpty(),
+        )
+        set(value) { preferences.edit().putString("token_optimization_json", OptimizationConfigCodec.toJson(value)).apply() }
+
+    /** Local spend budgets (daily/weekly/monthly + per-provider/per-model limits). */
+    var tokenBudget: BudgetConfig
+        get() = BudgetConfigCodec.fromJson(preferences.getString("token_budget_json", "").orEmpty())
+        set(value) { preferences.edit().putString("token_budget_json", BudgetConfigCodec.toJson(value)).apply() }
+
+    /** User-corrected per-model prices; keys are the normalized `providerId/model` pair. */
+    var tokenPricingOverrides: Map<String, ModelPricing>
+        get() = PricingOverrideCodec.fromJson(preferences.getString("token_pricing_overrides_json", "").orEmpty())
+        set(value) { preferences.edit().putString("token_pricing_overrides_json", PricingOverrideCodec.toJson(value)).apply() }
+
+    /** When the user last changed the pricing overrides (0 = never). */
+    var tokenPricingUpdatedAtMillis: Long
+        get() = preferences.getLong("token_pricing_updated_millis", 0L)
+        set(value) { preferences.edit().putLong("token_pricing_updated_millis", value).apply() }
+
+    /** Running tokens credited to context compaction (for the savings report). */
+    var tokenCompactionSaved: Long
+        get() = preferences.getLong("token_compaction_saved", 0L)
+        set(value) { preferences.edit().putLong("token_compaction_saved", value.coerceAtLeast(0L)).apply() }
+
+    /** Running tokens credited to a deliberate cheaper-model choice (for the savings report). */
+    var tokenModelChoiceSaved: Long
+        get() = preferences.getLong("token_model_choice_saved", 0L)
+        set(value) { preferences.edit().putLong("token_model_choice_saved", value.coerceAtLeast(0L)).apply() }
 
     // --- Sidekick assistant ---------------------------------------------------------------
     var sidekickFloatingButton: Boolean
