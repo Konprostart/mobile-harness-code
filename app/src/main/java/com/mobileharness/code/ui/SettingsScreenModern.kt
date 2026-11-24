@@ -143,7 +143,7 @@ import com.mobileharness.code.ui.theme.AppThemeMode
 import com.mobileharness.code.ui.theme.PocketOrange
 import kotlinx.coroutines.launch
 
-private enum class SettingsSection { APPEARANCE, LANGUAGE, TOOLS, RUNTIME, DIAGNOSTICS, DEVELOPER_TOOLS, ACCOUNT, BACKUP, UPDATE_CHANNEL, UPDATES, GRADLE_MEMORY, RELEASE_SIGNING, SIGNING_VAULT, SERVER_SYNC, TELEGRAM, SIDEKICK, MCP_SERVERS, ECO_MODE, AUTO_PROMPT, AUTO_PROMPT_LIBRARY, TOKEN_COST_MANAGER, SKILLS_PLUGINS, VOICE, DEVICE_CONTROL, RESEARCH, MODEL_ROTATION, RAG, SSH, SHARE_INVITE }
+private enum class SettingsSection { APPEARANCE, LANGUAGE, TOOLS, RUNTIME, DIAGNOSTICS, DEVELOPER_TOOLS, ACCOUNT, BACKUP, UPDATE_CHANNEL, UPDATES, GRADLE_MEMORY, RELEASE_SIGNING, SIGNING_VAULT, SERVER_SYNC, TELEGRAM, SIDEKICK, MCP_SERVERS, ECO_MODE, AUTO_PROMPT, AUTO_PROMPT_LIBRARY, TOKEN_COST_MANAGER, SKILLS_PLUGINS, VOICE, DEVICE_CONTROL, MULTI_AGENT, RESEARCH, MODEL_ROTATION, RAG, SSH, SHARE_INVITE }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -217,6 +217,7 @@ fun SettingsScreen(
     onOpenSkillsPlugins: () -> Unit = {},
     onOpenVoiceSettings: () -> Unit = {},
     onOpenDeviceControl: () -> Unit = {},
+    onOpenMultiAgentDashboard: () -> Unit = {},
     onRunDeepResearch: (String, ResearchDepth) -> Unit = { _, _ -> },
     onSetAgentRotationEnabled: (Boolean) -> Unit = {},
     onSetAgentRotationMaxAttempts: (Int) -> Unit = {},
@@ -858,6 +859,29 @@ fun SettingsScreen(
                             Icon(Icons.Default.Security, null)
                             Spacer(Modifier.width(6.dp))
                             Text("Open Device Control")
+                        }
+                    }
+                }
+            }
+
+            item {
+                SettingsAccordion(
+                    title = "Multi-Agent Dashboard",
+                    subtitle = "Orchestrate agents, manage workspaces, LSP servers, hooks and testing.",
+                    icon = Icons.Default.SmartToy,
+                    expanded = expanded == SettingsSection.MULTI_AGENT,
+                    onClick = { toggle(SettingsSection.MULTI_AGENT) },
+                ) {
+                    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                        Text(
+                            "Plan and run a goal across Claude Code, DeepSeek Harness, Antigravity and Sidekick.",
+                            fontSize = 11.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        Button(onClick = onOpenMultiAgentDashboard) {
+                            Icon(Icons.Default.SmartToy, null)
+                            Spacer(Modifier.width(6.dp))
+                            Text("Open Multi-Agent Dashboard")
                         }
                     }
                 }

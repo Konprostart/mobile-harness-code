@@ -223,6 +223,27 @@ import com.mobileharness.code.signing.SplitArchive
 import com.mobileharness.code.signing.VerificationReport
 import com.mobileharness.code.update.AppUpdateInfo
 import com.mobileharness.code.update.AppUpdater
+import com.mobileharness.code.hooks.HookRule
+import com.mobileharness.code.lsp.LspServerDefinition
+import com.mobileharness.code.orchestration.AgentIds
+import com.mobileharness.code.orchestration.AgentMessage
+import com.mobileharness.code.orchestration.AgentMessageBus
+import com.mobileharness.code.orchestration.AgentProfile
+import com.mobileharness.code.orchestration.DefaultAgentProfiles
+import com.mobileharness.code.orchestration.OrchestrationTask
+import com.mobileharness.code.orchestration.OrchestratorEngine
+import com.mobileharness.code.orchestration.TaskPlanner
+import com.mobileharness.code.orchestration.TaskStatus
+import com.mobileharness.code.testing.BuildSystem
+import com.mobileharness.code.testing.TestDiscovery
+import com.mobileharness.code.testing.TestHistoryEntry
+import com.mobileharness.code.testing.TestPlanner
+import com.mobileharness.code.workspace.WorkspaceGrant
+import com.mobileharness.code.workspace.WorkspaceGroup
+import com.mobileharness.code.workspace.WorkspaceManager
+import com.mobileharness.code.workspace.WorkspacePermission
+import com.mobileharness.code.workspace.WorkspaceRef
+import com.mobileharness.code.workspace.WorkspaceRole
 import java.io.File
 import java.io.RandomAccessFile
 import java.nio.ByteBuffer
@@ -859,7 +880,23 @@ data class AppUiState(
     val redeemedInviteCode: String = "",
     val inviteShareCount: Int = 0,
     val inviteRedeemMessage: String? = null,
+    val hookRules: List<HookRule> = emptyList(),
+    val workspaceGroups: List<WorkspaceGroup> = emptyList(),
+    val workspaceGrants: List<WorkspaceGrant> = emptyList(),
+    val lspServers: List<LspServerDefinition> = emptyList(),
+    val testingHistory: List<TestHistoryEntry> = emptyList(),
+    val orchestration: OrchestrationUiState = OrchestrationUiState(),
 )
+
+/** Multi-Agent Orchestration UI state: the active plan/snapshot and a status message. */
+data class OrchestrationUiState(
+    val goal: String = "",
+    val tasks: List<OrchestrationTask> = emptyList(),
+    val runningAgentIds: Set<String> = emptySet(),
+    val message: String? = null,
+) {
+    val done: Boolean get() = tasks.isNotEmpty() && tasks.all { it.status in setOf(TaskStatus.SUCCEEDED, TaskStatus.FAILED, TaskStatus.CANCELLED) }
+}
 
 /** Device-control session UI state: command runner, risk label, approval + audit trail. */
 data class DeviceControlUiState(
@@ -1136,6 +1173,11 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             },
             redeemedInviteCode = preferences.redeemedInviteCode,
             inviteShareCount = preferences.inviteShareCount,
+            hookRules = preferences.loadHookRules(),
+            workspaceGroups = preferences.loadWorkspaceGroups(),
+            workspaceGrants = preferences.loadWorkspaceGrants(),
+            lspServers = preferences.loadLspServers(),
+            testingHistory = preferences.loadTestingHistory(),
         ),
     ).also {
         if (!preferences.onboardingComplete) preferences.whatsNewSeenVersionCode = BuildConfig.VERSION_CODE
@@ -1974,6 +2016,128 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     fun clearSkillsPluginsMessage() {
         _state.update { it.copy(skillsPluginsMessage = null) }
+    }
+
+    // --- Phase 6: hooks, workspace management, LSP, testing, orchestration -----------------
+
+    fun saveHookRule(rule: HookRule) {
+        val current = _state.value.hookRules
+        val updated = if (current.any { it.id == rule.id }) current.map { if (it.id == rule.id) rule else it } else current + rule
+        preferences.saveHookRules(updated)
+        _state.update { it.copy(hookRules = updated) }
+    }
+
+    fun deleteHookRule(id: String) {
+        val updated = _state.value.hookRules.filterNot { it.id == id }
+        preferences.saveHookRules(updated)
+        _state.update { it.copy(hookRules = updated) }
+    }
+
+    fun setHookRuleEnabled(id: String, enabled: Boolean) {
+        val updated = _state.value.hookRules.map { if (it.id == id) it.copy(enabled = enabled) else it }
+        preferences.saveHookRules(updated)
+        _state.update { it.copy(hookRules = updated) }
+    }
+
+    fun addWorkspaceGroup(group: WorkspaceGroup) {
+        val current = _state.value.workspaceGroups
+        val updated = if (current.any { it.id == group.id }) current.map { if (it.id == group.id) group else it } else current + group
+        preferences.saveWorkspaceGroups(updated)
+        _state.update { it.copy(workspaceGroups = updated) }
+    }
+
+    fun deleteWorkspaceGroup(id: String) {
+        val updated = _state.value.workspaceGroups.filterNot { it.id == id }
+        preferences.saveWorkspaceGroups(updated)
+        _state.update { it.copy(workspaceGroups = updated) }
+    }
+
+    fun addWorkspaceGrant(grant: WorkspaceGrant) {
+        val current = _state.value.workspaceGrants
+        val updated = if (current.any { it.id == grant.id }) current.map { if (it.id == grant.id) grant else it } else current + grant
+        preferences.saveWorkspaceGrants(updated)
+        _state.update { it.copy(workspaceGrants = updated) }
+    }
+
+    fun deleteWorkspaceGrant(id: String) {
+        val updated = _state.value.workspaceGrants.filterNot { it.id == id }
+        preferences.saveWorkspaceGrants(updated)
+        _state.update { it.copy(workspaceGrants = updated) }
+    }
+
+    fun saveLspServer(server: LspServerDefinition) {
+        val current = _state.value.lspServers
+        val updated = if (current.any { it.name == server.name }) current.map { if (it.name == server.name) server else it } else current + server
+        preferences.saveLspServers(updated)
+        _state.update { it.copy(lspServers = updated) }
+    }
+
+    fun deleteLspServer(name: String) {
+        val updated = _state.value.lspServers.filterNot { it.name == name }
+        preferences.saveLspServers(updated)
+        _state.update { it.copy(lspServers = updated) }
+    }
+
+    fun setLspServerEnabled(name: String, enabled: Boolean) {
+        val updated = _state.value.lspServers.map { if (it.name == name) it.copy(enabled = enabled) else it }
+        preferences.saveLspServers(updated)
+        _state.update { it.copy(lspServers = updated) }
+    }
+
+    fun clearTestingHistory() {
+        preferences.saveTestingHistory(emptyList())
+        _state.update { it.copy(testingHistory = emptyList()) }
+    }
+
+    /** Decomposes a goal into a plan and shows it in the dashboard (no agent is launched yet). */
+    fun planOrchestration(goal: String) {
+        val plan = TaskPlanner.decompose(goal)
+        if (plan.validationError != null) {
+            _state.update { it.copy(orchestration = it.orchestration.copy(goal = goal, message = plan.validationError)) }
+            return
+        }
+        _state.update {
+            it.copy(orchestration = OrchestrationUiState(goal = goal, tasks = plan.tasks, message = null))
+        }
+    }
+
+    /**
+     * Advances the plan one deterministic step: assign the ready task to a capable agent, mark it
+     * running, then complete it with a summary. This drives the real [OrchestratorEngine] ordering,
+     * capability-based assignment and aggregation without launching a CLI — the actual agent launch
+     * stays with the existing RuntimeBridge/Sidekick paths.
+     */
+    fun advanceOrchestration() {
+        val state = _state.value.orchestration
+        if (state.tasks.isEmpty() || state.done) return
+        val engine = OrchestratorEngine(state.tasks)
+        val ready = engine.readyTasks()
+        if (ready.isEmpty() && !engine.tasks().all { it.status == TaskStatus.SUCCEEDED }) {
+            // A failed/blocked task with unmet dependents: surface the aggregation.
+            _state.update { it.copy(orchestration = it.orchestration.copy(message = engine.aggregateResult())) }
+            return
+        }
+        val (assignments, _) = com.mobileharness.code.orchestration.AgentAssignment.assign(ready, DefaultAgentProfiles.PROFILES)
+        engine.advance(ready, assignments)
+        for (task in ready) {
+            val agentId = assignments.firstOrNull { it.taskId == task.id }?.agentId ?: AgentIds.SIDEKICK
+            engine.completeTask(task.id, "Completed by $agentId", agentId)
+        }
+        val snapshot = engine.snapshot(emptySet())
+        _state.update {
+            it.copy(
+                orchestration = OrchestrationUiState(
+                    goal = state.goal,
+                    tasks = engine.tasks(),
+                    runningAgentIds = emptySet(),
+                    message = if (snapshot.done) engine.aggregateResult() else null,
+                ),
+            )
+        }
+    }
+
+    fun cancelOrchestration() {
+        _state.update { it.copy(orchestration = OrchestrationUiState()) }
     }
 
     // --- MCP servers (Faza 3) --------------------------------------------------------------

@@ -2502,6 +2502,7 @@ private fun RootScreenHost(
     var showSkillsPlugins by rememberSaveable { mutableStateOf(false) }
     var showVoiceSettings by rememberSaveable { mutableStateOf(false) }
     var showDeviceControl by rememberSaveable { mutableStateOf(false) }
+    var showMultiAgentDashboard by rememberSaveable { mutableStateOf(false) }
 
     if (state.showWhatsNew) {
         WhatsNewDialog(
@@ -2704,6 +2705,7 @@ private fun RootScreenHost(
                     onOpenSkillsPlugins = { showSkillsPlugins = true },
                     onOpenVoiceSettings = { showVoiceSettings = true },
                     onOpenDeviceControl = { showDeviceControl = true },
+                    onOpenMultiAgentDashboard = { showMultiAgentDashboard = true },
                     onRunDeepResearch = viewModel::runDeepResearch,
                     onSetAgentRotationEnabled = viewModel::setAgentRotationEnabled,
                     onSetAgentRotationMaxAttempts = viewModel::setAgentRotationMaxAttempts,
@@ -2814,6 +2816,26 @@ private fun RootScreenHost(
             onConfirm = viewModel::confirmDeviceCommand,
             onCancel = viewModel::cancelDeviceCommand,
             onClearAudit = viewModel::clearDeviceAudit,
+        )
+    }
+    if (showMultiAgentDashboard) {
+        MultiAgentDashboardScreen(
+            state = state,
+            onClose = { showMultiAgentDashboard = false },
+            onPlanOrchestration = viewModel::planOrchestration,
+            onAdvanceOrchestration = viewModel::advanceOrchestration,
+            onCancelOrchestration = viewModel::cancelOrchestration,
+            onSaveHookRule = viewModel::saveHookRule,
+            onDeleteHookRule = viewModel::deleteHookRule,
+            onToggleHookRule = viewModel::setHookRuleEnabled,
+            onAddWorkspaceGroup = viewModel::addWorkspaceGroup,
+            onDeleteWorkspaceGroup = viewModel::deleteWorkspaceGroup,
+            onAddWorkspaceGrant = viewModel::addWorkspaceGrant,
+            onDeleteWorkspaceGrant = viewModel::deleteWorkspaceGrant,
+            onSaveLspServer = viewModel::saveLspServer,
+            onDeleteLspServer = viewModel::deleteLspServer,
+            onToggleLspServer = viewModel::setLspServerEnabled,
+            onClearTestingHistory = viewModel::clearTestingHistory,
         )
     }
     if (showQuickTerminal) {

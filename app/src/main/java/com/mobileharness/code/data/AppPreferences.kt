@@ -39,6 +39,11 @@ import com.mobileharness.code.token.OptimizationConfigCodec
 import com.mobileharness.code.token.PricingOverrideCodec
 import com.mobileharness.code.voice.VoiceSettings
 import com.mobileharness.code.voice.VoiceSettingsCodec
+import com.mobileharness.code.hooks.HookRule
+import com.mobileharness.code.lsp.LspServerDefinition
+import com.mobileharness.code.testing.TestHistoryEntry
+import com.mobileharness.code.workspace.WorkspaceGrant
+import com.mobileharness.code.workspace.WorkspaceGroup
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
@@ -486,6 +491,66 @@ class AppPreferences(private val context: Context) {
     fun saveInstalledPluginsRaw(json: String) {
         preferences.edit().putString("installed_plugins_json", json).apply()
     }
+
+    // --- Phase 6: hooks, workspace management, LSP, testing history -------------------------
+    /** Persisted Sidekick hook rules (device-only, no secrets). */
+    var hookRulesJson: String
+        get() = preferences.getString("hook_rules_json", "") ?: ""
+        set(value) { preferences.edit().putString("hook_rules_json", value).apply() }
+
+    fun saveHookRules(rules: List<HookRule>) {
+        preferences.edit().putString("hook_rules_json", HookRuleCodec.toJson(rules)).apply()
+    }
+
+    fun loadHookRules(): List<HookRule> = HookRuleCodec.fromJson(preferences.getString("hook_rules_json", null))
+
+    /** Persisted workspace groups (device-only, no secrets). */
+    var workspaceGroupsJson: String
+        get() = preferences.getString("workspace_groups_json", "") ?: ""
+        set(value) { preferences.edit().putString("workspace_groups_json", value).apply() }
+
+    fun saveWorkspaceGroups(groups: List<WorkspaceGroup>) {
+        preferences.edit().putString("workspace_groups_json", WorkspaceManagementCodec.groupsToJson(groups)).apply()
+    }
+
+    fun loadWorkspaceGroups(): List<WorkspaceGroup> =
+        WorkspaceManagementCodec.groupsFromJson(preferences.getString("workspace_groups_json", null))
+
+    /** Persisted workspace grants (device-only, no secrets). */
+    var workspaceGrantsJson: String
+        get() = preferences.getString("workspace_grants_json", "") ?: ""
+        set(value) { preferences.edit().putString("workspace_grants_json", value).apply() }
+
+    fun saveWorkspaceGrants(grants: List<WorkspaceGrant>) {
+        preferences.edit().putString("workspace_grants_json", WorkspaceManagementCodec.grantsToJson(grants)).apply()
+    }
+
+    fun loadWorkspaceGrants(): List<WorkspaceGrant> =
+        WorkspaceManagementCodec.grantsFromJson(preferences.getString("workspace_grants_json", null))
+
+    /** Persisted LSP server definitions (device-only, no secrets). */
+    var lspServersJson: String
+        get() = preferences.getString("lsp_servers_json", "") ?: ""
+        set(value) { preferences.edit().putString("lsp_servers_json", value).apply() }
+
+    fun saveLspServers(servers: List<LspServerDefinition>) {
+        preferences.edit().putString("lsp_servers_json", LspServerCodec.toJson(servers)).apply()
+    }
+
+    fun loadLspServers(): List<LspServerDefinition> =
+        LspServerCodec.fromJson(preferences.getString("lsp_servers_json", null))
+
+    /** Persisted autonomous-testing history (device-only, no secrets). */
+    var testingHistoryJson: String
+        get() = preferences.getString("testing_history_json", "") ?: ""
+        set(value) { preferences.edit().putString("testing_history_json", value).apply() }
+
+    fun saveTestingHistory(entries: List<TestHistoryEntry>) {
+        preferences.edit().putString("testing_history_json", TestingHistoryCodec.toJson(entries)).apply()
+    }
+
+    fun loadTestingHistory(): List<TestHistoryEntry> =
+        TestingHistoryCodec.fromJson(preferences.getString("testing_history_json", null))
 
     // --- SSH servers (Faza 1: sshj client + tunnel) ----------------------------------------
     /**
@@ -1078,6 +1143,11 @@ class AppPreferences(private val context: Context) {
             "skills_json",
             "installed_skills_json",
             "installed_plugins_json",
+            "hook_rules_json",
+            "workspace_groups_json",
+            "workspace_grants_json",
+            "lsp_servers_json",
+            "testing_history_json",
         )
     }
 }
