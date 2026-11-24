@@ -1,12 +1,12 @@
 {
-  "versionCode": 42,
-  "versionName": "1.17.0",
-  "notes": "Advanced Token & Context Management. Universal usage tracking across all agents: Sidekick reports metered ACTUAL usage, Claude Code reports its structured result-event usage (input/output/cached tokens, cost, model, duration), and DeepSeek Harness + Antigravity are recorded as NOT_TRACKED session metadata because their CLIs do not expose token usage. New Context Manager with reference context windows (override -> learned -> reference -> UNKNOWN) and automatic context-limit learning from explicit provider overflow errors. Advanced context compaction with measured savings and a preview summary. Per-agent and per-project budgets (plus per-provider/per-model), reliability filter (ACTUAL/ESTIMATED/NOT_TRACKED), per-project/per-session breakdowns, and a Context tab with manual overrides. This APK is SIGNED (V1+V2).",
+  "versionCode": 43,
+  "versionName": "1.18.0",
+  "notes": "Advanced Research, Browser, Terminal & Device Control. Deep research engine (Quick/Standard/Deep/Extreme) with Tavily/Brave/Serper/SerpAPI/DuckDuckGo providers and automatic fallback; structured page extraction (JSON-LD, headings, links, metadata) with BM25 passage ranking; PDF text extraction with page numbers. Agent browser guard (SSRF/URL/download protection) with a tab + navigation-history session model. Native PTY interactive terminal (posix_openpt/fork + TIOCSWINSZ resize) for interactive Linux programs. Device Control dashboard with READ/CONTROL/DESTRUCTIVE risk classification, per-session confirmation and an audit trail over Shizuku/Root/Wireless ADB. This APK is SIGNED (V1+V2).",
   "artifacts": {
     "online": {
-      "url": "https://github.com/Konprostart/mobile-harness-code/releases/download/v1.17.0/mobile-harness-online.apk",
-      "sha256": "43d8117a65ea537cb9c31a82857b09c9aca3c50d4351678951bf506ad1055e80",
-      "sizeBytes": 109539775
+      "url": "https://github.com/Konprostart/mobile-harness-code/releases/download/v1.18.0/mobile-harness-online.apk",
+      "sha256": "9dc94baf1b06d8b12c5546beba12b2e48eb12834c67a16f7f4ccd00c9b5ef9d5",
+      "sizeBytes": 110027199
     }
   }
 }
