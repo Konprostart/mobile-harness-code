@@ -70,10 +70,13 @@ fun resolveSidekickRoute(
         SidekickRouteTarget(
             baseUrl = profile.resolvedBaseUrl,
             apiKey = primaryApiKey,
-            protocol = if (profile.kind == ProviderKind.CUSTOM) {
-                protocolFromDshApi(profile.dshApi, claudeCode = false)
-            } else {
-                profile.kind.protocol
+            protocol = when (profile.kind) {
+                ProviderKind.CUSTOM -> protocolFromDshApi(profile.dshApi, claudeCode = false)
+                // FreeLLMAPI's Anthropic Messages surface is reserved for Claude Code; the
+                // Sidekick assistant talks to the same router over its OpenAI-compatible
+                // /v1/chat/completions endpoint instead.
+                ProviderKind.FREE_LLM_API -> ProviderProtocol.OPENAI_CHAT
+                else -> profile.kind.protocol
             },
         )
     }

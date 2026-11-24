@@ -397,6 +397,23 @@ class DshRouteMapperTest {
         assertEquals("https://integrate.api.nvidia.com/v1", route.custom?.baseUrl)
     }
 
+    @Test
+    fun freeLlmApiUsesOpenAiCompletionsRoute() {
+        val route = DshRouteMapper.forProfile(ProviderProfile(ProviderKind.FREE_LLM_API))
+        assertEquals("mh-freellmapi", route.name)
+        assertEquals("openai-completions", route.custom?.api)
+        assertEquals("http://localhost:3001/v1", route.custom?.baseUrl)
+        assertEquals("auto", route.defaultModel)
+    }
+
+    @Test
+    fun freeLlmApiHonorsOverriddenDshApi() {
+        val profile = ProviderProfile(ProviderKind.FREE_LLM_API, baseUrl = "http://192.168.1.10:3001/v1", model = "gpt-4o-mini", dshApi = "openai-responses")
+        val route = DshRouteMapper.forProfile(profile)
+        assertEquals("openai-responses", route.custom?.api)
+        assertEquals("http://192.168.1.10:3001/v1", route.custom?.baseUrl)
+    }
+
     @Test(expected = IllegalArgumentException::class)
     fun claudeSubscriptionIsRejected() {
         DshRouteMapper.forProfile(ProviderProfile(ProviderKind.CLAUDE))
@@ -452,7 +469,8 @@ class AgentProviderPresetTest {
         assertFalse(ProviderKind.CLAUDE in DEEPSEEK_HARNESS_PROVIDERS)
         assertTrue(ProviderKind.DEEPSEEK in DEEPSEEK_HARNESS_PROVIDERS)
         assertTrue(ProviderKind.NVIDIA_NIM in DEEPSEEK_HARNESS_PROVIDERS)
-        assertEquals(6, DEEPSEEK_HARNESS_PROVIDERS.size)
+        assertTrue(ProviderKind.FREE_LLM_API in DEEPSEEK_HARNESS_PROVIDERS)
+        assertEquals(7, DEEPSEEK_HARNESS_PROVIDERS.size)
     }
 
     @Test

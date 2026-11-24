@@ -98,4 +98,19 @@ class RuntimeLaunchConfigBuilderTest {
         assertEquals("http://127.0.0.1:12345", config.environment["ANTHROPIC_BASE_URL"])
         assertEquals("claude-sonnet-4-6", config.environment["ANTHROPIC_MODEL"])
     }
+
+    @Test
+    fun freeLlmApiUsesNativeAnthropicMessagesGateway() {
+        // Claude Code appends /v1/messages itself; the /v1 suffix is stripped so the
+        // agent hits http://localhost:3001/v1/messages — FreeLLMAPI's Anthropic surface.
+        val config = RuntimeLaunchConfigBuilder.build(
+            ProviderProfile(ProviderKind.FREE_LLM_API),
+            authToken = "freellmapi-secret",
+        )
+
+        assertEquals("http://localhost:3001", config.environment["ANTHROPIC_BASE_URL"])
+        assertEquals("auto", config.environment["ANTHROPIC_MODEL"])
+        assertEquals("freellmapi-secret", config.environment["ANTHROPIC_AUTH_TOKEN"])
+        assertEquals("freellmapi-secret", config.environment["ANTHROPIC_API_KEY"])
+    }
 }

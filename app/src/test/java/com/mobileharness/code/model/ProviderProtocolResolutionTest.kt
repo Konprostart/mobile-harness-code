@@ -1,6 +1,8 @@
 package com.mobileharness.code.model
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class ProviderProtocolResolutionTest {
@@ -78,5 +80,37 @@ class ProviderProtocolResolutionTest {
         assertEquals(ProviderProtocol.ANTHROPIC_GATEWAY, providerProtocolForAgent(ProviderProfile(ProviderKind.DEEPSEEK), AgentKind.CLAUDE_CODE))
         assertEquals(ProviderProtocol.ANTHROPIC_GATEWAY, providerProtocolForAgent(ProviderProfile(ProviderKind.KIMI), AgentKind.CLAUDE_CODE))
         assertEquals(ProviderProtocol.CLAUDE_LOGIN, providerProtocolForAgent(ProviderProfile(ProviderKind.CLAUDE), AgentKind.CLAUDE_CODE))
+    }
+
+    @Test
+    fun freeLlmApiUsesAnthropicGatewayForClaudeCode() {
+        // Claude Code talks to FreeLLMAPI through its Anthropic Messages surface (/v1/messages).
+        assertEquals(
+            ProviderProtocol.ANTHROPIC_GATEWAY,
+            providerProtocolForAgent(ProviderProfile(ProviderKind.FREE_LLM_API), AgentKind.CLAUDE_CODE),
+        )
+    }
+
+    @Test
+    fun freeLlmApiUsesOpenAiChatForDeepSeekHarness() {
+        // DeepSeek Harness talks to FreeLLMAPI through its OpenAI-compatible /v1/chat/completions.
+        assertEquals(
+            ProviderProtocol.OPENAI_CHAT,
+            providerProtocolForAgent(ProviderProfile(ProviderKind.FREE_LLM_API), AgentKind.DEEPSEEK_HARNESS),
+        )
+    }
+
+    @Test
+    fun freeLlmApiIsOfferedToBothCodingAgents() {
+        assertTrue(ProviderKind.FREE_LLM_API in providersForAgent(AgentKind.CLAUDE_CODE))
+        assertTrue(ProviderKind.FREE_LLM_API in providersForAgent(AgentKind.DEEPSEEK_HARNESS))
+        assertFalse(ProviderKind.FREE_LLM_API in providersForAgent(AgentKind.ANTIGRAVITY))
+    }
+
+    @Test
+    fun freeLlmApiDefaultsToOpenAiCompletions() {
+        assertEquals("openai-completions", defaultDshApiForProvider(ProviderKind.FREE_LLM_API))
+        assertEquals("auto", ProviderKind.FREE_LLM_API.defaultModel)
+        assertEquals("http://localhost:3001/v1", ProviderKind.FREE_LLM_API.defaultBaseUrl)
     }
 }

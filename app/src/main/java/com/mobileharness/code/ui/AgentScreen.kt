@@ -1697,6 +1697,16 @@ private fun AgentProviderCard(
                     onClick = { endpointExpanded = !endpointExpanded },
                 )
 
+                if (selectedKind == ProviderKind.FREE_LLM_API) {
+                    Text(
+                        stringResource(R.string.provider_freellmapi_warning),
+                        fontSize = 11.sp,
+                        lineHeight = 15.sp,
+                        color = MaterialTheme.colorScheme.tertiary,
+                        modifier = Modifier.padding(top = 8.dp),
+                    )
+                }
+
                 AnimatedVisibility(endpointExpanded) {
                     Column(
                         modifier = Modifier.padding(top = 8.dp, bottom = 10.dp),

@@ -108,4 +108,18 @@ class SidekickRoutingTest {
         val routes = buildSidekickRoutes("claude-sonnet-4-6", false, "", local(enabled = false))
         assertTrue(routes.isNotEmpty())
     }
+
+    @Test
+    fun freeLlmApiUsesOpenAiChatProtocol() {
+        val freeLlmApi = ProviderProfile(
+            kind = ProviderKind.FREE_LLM_API,
+            baseUrl = "http://localhost:3001/v1",
+            model = "auto",
+        )
+        val route = com.mobileharness.code.network.ModelRoute("primary", "auto")
+        val target = resolveSidekickRoute(route, freeLlmApi, primaryApiKey = "freellmapi-secret", local = local())
+        assertEquals("http://localhost:3001/v1", target.baseUrl)
+        assertEquals("freellmapi-secret", target.apiKey)
+        assertEquals(ProviderProtocol.OPENAI_CHAT, target.protocol)
+    }
 }

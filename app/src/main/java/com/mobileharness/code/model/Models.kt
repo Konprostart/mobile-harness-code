@@ -44,6 +44,14 @@ enum class ProviderKind(
         fixedBaseUrl = true,
         fixedProtocol = true,
     ),
+    FREE_LLM_API(
+        "FreeLLMAPI",
+        "Self-hosted free-provider gateway",
+        ProviderProtocol.ANTHROPIC_GATEWAY,
+        "http://localhost:3001/v1",
+        "auto",
+        experimental = true,
+    ),
     CUSTOM("Custom API", "Anthropic-compatible endpoint", ProviderProtocol.ANTHROPIC_GATEWAY, "", "", true),
 }
 
@@ -91,6 +99,7 @@ val DEEPSEEK_HARNESS_PROVIDERS: Set<ProviderKind> = setOf(
     ProviderKind.LLM_ROUTER,
     ProviderKind.KIMI,
     ProviderKind.NVIDIA_NIM,
+    ProviderKind.FREE_LLM_API,
     ProviderKind.CUSTOM,
 )
 
@@ -98,12 +107,14 @@ val DSH_PROTOCOL_PROVIDERS: Set<ProviderKind> = setOf(
     ProviderKind.KIMI,
     ProviderKind.OPENCODE_ZEN,
     ProviderKind.NVIDIA_NIM,
+    ProviderKind.FREE_LLM_API,
     ProviderKind.CUSTOM,
 )
 
 fun defaultDshApiForProvider(kind: ProviderKind): String = when (kind) {
     ProviderKind.OPENCODE_ZEN -> "openai-responses"
     ProviderKind.NVIDIA_NIM -> "openai-completions"
+    ProviderKind.FREE_LLM_API -> "openai-completions"
     else -> "anthropic-messages"
 }
 

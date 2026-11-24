@@ -221,6 +221,7 @@
     <string name="provider_title_kimi">Kimi</string>
     <string name="provider_title_opencode">OpenCode Zen</string>
     <string name="provider_title_nvidia">NVIDIA NIM</string>
+    <string name="provider_title_freellmapi" translatable="false">FreeLLMAPI</string>
     <string name="provider_title_custom">Custom API</string>
     <string name="provider_browse_library" translatable="false">Browse AI provider library</string>
     <string name="provider_browse_library_subtitle" translatable="false">OpenAI, Anthropic, Gemini, routers, gateways, local servers and more</string>
@@ -231,6 +232,8 @@
     <string name="provider_subtitle_anthropic_compatible">Anthropic-compatible endpoint</string>
     <string name="provider_subtitle_opencode">Models through the OpenCode Zen gateway</string>
     <string name="provider_subtitle_nvidia">OpenAI-compatible models hosted by NVIDIA</string>
+    <string name="provider_subtitle_freellmapi" translatable="false">Self-hosted free-provider gateway</string>
+    <string name="provider_freellmapi_warning" translatable="false">Experimental · Personal use · Upstream provider terms apply.</string>
     <string name="provider_gateway_protocol">Gateway protocol</string>
     <string name="provider_gateway_protocol_help">Pick the protocol your gateway speaks; DeepSeek Harness routes it directly.</string>
     <string name="provider_models_found">Found %1$d available models.</string>
