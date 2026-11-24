@@ -5,6 +5,8 @@ package com.mobileharness.code.automation
  *
  *  - `"once at <epoch-millis>"` → ONE_SHOT
  *  - `"every <N>m|h|d"` → INTERVAL with the corresponding millis
+ *  - `"daily"` → INTERVAL of 24 hours
+ *  - `"weekly"` → INTERVAL of 7 days
  *
  * The parser is intentionally small and predictable (no full cron grammar); it exists so an agent
  * or the UI can express a schedule without a natural-language model call, and it always fails
@@ -33,6 +35,11 @@ object ScheduleParser {
             val interval = parseInterval(spec) ?: return null
             if (interval < SchedulePolicy.minIntervalMillis(ecoEnabled)) return null
             return Parsed(Recurrence.INTERVAL, interval, nowMillis + interval)
+        }
+
+        when (input) {
+            "daily" -> return Parsed(Recurrence.INTERVAL, 24 * 60 * 60_000L, nowMillis + 24 * 60 * 60_000L)
+            "weekly" -> return Parsed(Recurrence.INTERVAL, 7 * 24 * 60 * 60_000L, nowMillis + 7 * 24 * 60 * 60_000L)
         }
 
         return null

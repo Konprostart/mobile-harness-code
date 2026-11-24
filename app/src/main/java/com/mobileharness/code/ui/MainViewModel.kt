@@ -79,6 +79,15 @@ import com.mobileharness.code.network.ssh.SshShellSession
 import com.mobileharness.code.network.ssh.SshStage
 import com.mobileharness.code.network.ssh.sshSecretStore
 import com.mobileharness.code.sidekick.RagDocument
+import com.mobileharness.code.sidekick.SidekickEngine
+import com.mobileharness.code.automation.AutoPromptHistoryStore
+import com.mobileharness.code.automation.AutoPromptPolicy
+import com.mobileharness.code.automation.PromptRun
+import com.mobileharness.code.automation.PromptRunStatus
+import com.mobileharness.code.automation.Recurrence
+import com.mobileharness.code.automation.RunMode
+import com.mobileharness.code.automation.ScheduledTask
+import com.mobileharness.code.automation.SchedulerStore
 import com.mobileharness.code.skills.Skill
 import com.mobileharness.code.share.InviteCode
 import com.mobileharness.code.device.PrivilegeController
@@ -785,6 +794,10 @@ data class AppUiState(
     val agentRotationMaxAttempts: Int = 2,
     val ecoModeEnabled: Boolean = false,
     val autoPromptEnabled: Boolean = false,
+    val autoPromptSystemEnabled: Boolean = false,
+    val autoPromptTasks: List<ScheduledTask> = emptyList(),
+    val autoPromptHistory: List<PromptRun> = emptyList(),
+    val autoPromptRunningIds: Set<String> = emptySet(),
     val mcpServers: List<McpServerConfig> = emptyList(),
     val mcpToolCatalog: Map<String, List<McpTool>> = emptyMap(),
     val mcpTestingServerId: String? = null,
@@ -856,6 +869,55 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val aiCatalogStore = AiCatalogStore(File(getApplication<Application>().filesDir, "ai-catalog"))
     private val modelDiscoveryStore = ModelDiscoveryStore(File(getApplication<Application>().filesDir, "ai-models"))
     private val providerConfigStore = ProviderConfigStore(File(getApplication<Application>().filesDir, "ai-configs"))
+    private val sidekickEngine by lazy { SidekickEngine(getApplication()) }
+    private val schedulerStore = SchedulerStore { json -> preferences.autoPromptTasksJson = json }
+    private val autoPromptHistory = AutoPromptHistoryStore { json -> preferences.autoPromptHistoryJson = json }
+
+    init {
+        schedulerStore.load(preferences.autoPromptTasksJson)
+        autoPromptHistory.load(preferences.autoPromptHistoryJson)
+        startAutoPromptTicker()
+    }
+
+    /**
+     * In-app scheduler: polls due scheduled prompts once a minute and runs them while the app is
+     * active. This honors the master switch, per-prompt switch, run mode and the Eco Mode quiet-hour
+     * gate via [AutoPromptPolicy]. It never runs in the OS background (no WorkManager/AlarmManager),
+     * so scheduled prompts fire while the app is the active orchestrator; a full OS-level scheduler
+     * is intentionally out of scope to avoid silent background agent runs.
+     */
+    private fun startAutoPromptTicker() {
+        if (autoPromptTickerJob != null) return
+        autoPromptTickerJob = viewModelScope.launch {
+            while (true) {
+                kotlinx.coroutines.delay(60_000L)
+                pollDueAutoPrompts()
+            }
+        }
+    }
+
+    private fun pollDueAutoPrompts() {
+        val state = _state.value
+        if (!state.autoPromptSystemEnabled) return
+        if (state.isRunning || state.projectTerminalRunning || state.androidBuildRunning) return
+        val now = System.currentTimeMillis()
+        val due = schedulerStore.snapshot().firstOrNull { task ->
+            task.runMode == RunMode.SCHEDULED &&
+                task.enabled &&
+                task.nextRunMillis in 1..now &&
+                task.id !in state.autoPromptRunningIds &&
+                AutoPromptPolicy.shouldSchedule(task, masterEnabled = true, ecoEnabled = preferences.ecoModeEnabled, hourOfDay = hourOfDay())
+        } ?: return
+        // Consume the occurrence before running so the same slot can never fire twice.
+        val advanced = if (due.recurrence == Recurrence.INTERVAL) {
+            due.copy(nextRunMillis = AutoPromptPolicy.nextRunAfter(due, now))
+        } else {
+            due.copy(enabled = false)
+        }
+        schedulerStore.upsert(advanced)
+        _state.update { it.copy(autoPromptTasks = schedulerStore.snapshot()) }
+        launchAutoPrompt(due)
+    }
     private fun appUpdater(): AppUpdater = AppUpdater(
         getApplication(),
         if (BuildConfig.DEBUG) preferences.debugUpdateManifestUrl else "",
@@ -885,10 +947,15 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private var transportRetryAttempts: Int = 0
     private var transportRetryGeneration: Long = 0
     private var transportRetryJob: kotlinx.coroutines.Job? = null
+    private var autoPromptTickerJob: kotlinx.coroutines.Job? = null
     private var transportRetryWaiting: Boolean = false
     private var transportRetryingFromSessionId: String? = null
     private val pendingFollowUps = java.util.ArrayDeque<QueuedFollowUp>()
     @Volatile private var steeringToFollowUp: Boolean = false
+    // Tracks a coding-agent auto-prompt run so the shared session-completion path can finalize its
+    // history entry without introducing a parallel session manager.
+    private var activeAutoPromptRunId: String? = null
+    private var activeAutoPromptStartedAt: Long = 0L
     private val failedApiKeyIds = mutableSetOf<String>()
     private val folderMetadataCache = java.util.concurrent.ConcurrentHashMap<String, FolderMetadata>()
     private val folderCountsInFlight = java.util.concurrent.ConcurrentHashMap.newKeySet<String>()
@@ -974,6 +1041,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             agentRotationMaxAttempts = preferences.agentRotationMaxAttempts,
             ecoModeEnabled = preferences.ecoModeEnabled,
             autoPromptEnabled = preferences.autoPromptEnabled,
+            autoPromptSystemEnabled = preferences.autoPromptSystemEnabled,
+            autoPromptTasks = schedulerStore.snapshot(),
+            autoPromptHistory = autoPromptHistory.snapshot(),
             mcpServers = preferences.loadMcpServers(),
             ragEnabled = preferences.ragEnabled,
             ragDocuments = preferences.loadRagDocuments(),
@@ -1276,6 +1346,224 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     fun setAutoPromptEnabled(enabled: Boolean) {
         preferences.autoPromptEnabled = enabled
         _state.update { it.copy(autoPromptEnabled = enabled) }
+    }
+
+    // --- Auto Prompt Library (scheduled/manual prompt library) ----------------------------
+
+    fun setAutoPromptSystemEnabled(enabled: Boolean) {
+        preferences.autoPromptSystemEnabled = enabled
+        _state.update { it.copy(autoPromptSystemEnabled = enabled) }
+    }
+
+    /** Creates or updates an auto prompt. Returns false (and does not persist) when it fails policy. */
+    fun saveAutoPromptTask(task: ScheduledTask): Boolean {
+        val ok = schedulerStore.upsert(task)
+        if (ok) _state.update { it.copy(autoPromptTasks = schedulerStore.snapshot()) }
+        return ok
+    }
+
+    fun deleteAutoPromptTask(id: String) {
+        schedulerStore.remove(id)
+        autoPromptHistory.clearFor(id)
+        _state.update { it.copy(autoPromptTasks = schedulerStore.snapshot(), autoPromptHistory = autoPromptHistory.snapshot()) }
+    }
+
+    fun duplicateAutoPromptTask(id: String) {
+        schedulerStore.duplicate(id)
+        _state.update { it.copy(autoPromptTasks = schedulerStore.snapshot()) }
+    }
+
+    fun setAutoPromptTaskEnabled(id: String, enabled: Boolean) {
+        schedulerStore.setEnabled(id, enabled)
+        _state.update { it.copy(autoPromptTasks = schedulerStore.snapshot()) }
+    }
+
+    fun reorderAutoPromptTasks(ids: List<String>) {
+        schedulerStore.reorder(ids)
+        _state.update { it.copy(autoPromptTasks = schedulerStore.snapshot()) }
+    }
+
+    fun clearAutoPromptHistory(id: String) {
+        autoPromptHistory.clearFor(id)
+        _state.update { it.copy(autoPromptHistory = autoPromptHistory.snapshot()) }
+    }
+
+    /**
+     * Manual RUN: an explicit user action. It always runs the prompt regardless of the master or
+     * per-prompt switch, but refuses while another task is already running (double-run guard) or
+     * when the same prompt is already in flight.
+     */
+    fun runAutoPromptNow(id: String) {
+        val task = schedulerStore.get(id) ?: return
+        val state = _state.value
+        if (state.isRunning || state.projectTerminalRunning || state.androidBuildRunning) {
+            _state.update { it.copy(toastMessage = str(R.string.autoprompt_busy)) }
+            return
+        }
+        if (task.id in state.autoPromptRunningIds) {
+            _state.update { it.copy(toastMessage = str(R.string.autoprompt_already_running)) }
+            return
+        }
+        launchAutoPrompt(task)
+    }
+
+    /**
+     * Scheduler entry point (called only by the Android scheduling layer). Honors the master and
+     * per-prompt switches and the Eco Mode quiet-hour gate before running.
+     */
+    fun runScheduledAutoPrompt(id: String) {
+        val task = schedulerStore.get(id) ?: return
+        if (!AutoPromptPolicy.shouldSchedule(task, _state.value.autoPromptSystemEnabled, preferences.ecoModeEnabled, hourOfDay())) return
+        val state = _state.value
+        if (state.isRunning || state.projectTerminalRunning || state.androidBuildRunning) return
+        if (task.id in state.autoPromptRunningIds) return
+        launchAutoPrompt(task)
+    }
+
+    private fun hourOfDay(): Int = java.util.Calendar.getInstance().get(java.util.Calendar.HOUR_OF_DAY)
+
+    private fun launchAutoPrompt(task: ScheduledTask) {
+        when (task.agentKind) {
+            "sidekick" -> launchSidekickAutoPrompt(task)
+            "claude", "deepseek", "antigravity" -> launchCodingAgentAutoPrompt(task)
+            else -> Unit // reminder/timer are not runnable here
+        }
+    }
+
+    private fun launchSidekickAutoPrompt(task: ScheduledTask) {
+        val run = PromptRun(
+            id = java.util.UUID.randomUUID().toString(),
+            promptId = task.id,
+            startedAtMillis = System.currentTimeMillis(),
+            agentKind = task.agentKind,
+            providerId = task.providerId,
+            model = task.model,
+            status = PromptRunStatus.RUNNING,
+        )
+        autoPromptHistory.record(run)
+        schedulerStore.touchLastRun(task.id, run.startedAtMillis, PromptRunStatus.RUNNING)
+        _state.update {
+            it.copy(
+                autoPromptTasks = schedulerStore.snapshot(),
+                autoPromptHistory = autoPromptHistory.snapshot(),
+                autoPromptRunningIds = it.autoPromptRunningIds + task.id,
+            )
+        }
+        viewModelScope.launch {
+            val finishedAt = System.currentTimeMillis()
+            try {
+                val result = sidekickEngine.ask(task.prompt)
+                finalizeAutoPromptRun(task.id, run.id, finishedAt, PromptRunStatus.SUCCESS, result.text, "")
+            } catch (t: Throwable) {
+                finalizeAutoPromptRun(task.id, run.id, finishedAt, PromptRunStatus.FAILED, "", safeError(t))
+            }
+        }
+    }
+
+    private fun launchCodingAgentAutoPrompt(task: ScheduledTask) {
+        val kind = when (task.agentKind) {
+            "claude" -> AgentKind.CLAUDE_CODE
+            "deepseek" -> AgentKind.DEEPSEEK_HARNESS
+            "antigravity" -> AgentKind.ANTIGRAVITY
+            else -> return
+        }
+        val project = _state.value.projects.firstOrNull { it.id == task.projectId }
+            ?: _state.value.activeProject
+        if (project == null) {
+            _state.update { it.copy(toastMessage = str(R.string.autoprompt_no_project)) }
+            return
+        }
+        val run = PromptRun(
+            id = java.util.UUID.randomUUID().toString(),
+            promptId = task.id,
+            startedAtMillis = System.currentTimeMillis(),
+            agentKind = task.agentKind,
+            providerId = task.providerId,
+            model = task.model,
+            status = PromptRunStatus.RUNNING,
+        )
+        autoPromptHistory.record(run)
+        schedulerStore.touchLastRun(task.id, run.startedAtMillis, PromptRunStatus.RUNNING)
+        _state.update {
+            it.copy(
+                autoPromptTasks = schedulerStore.snapshot(),
+                autoPromptHistory = autoPromptHistory.snapshot(),
+                autoPromptRunningIds = it.autoPromptRunningIds + task.id,
+            )
+        }
+        activeAutoPromptRunId = run.id
+        activeAutoPromptStartedAt = run.startedAtMillis
+        selectAgent(kind)
+        applyAutoPromptProvider(task)
+        openProject(project)
+        sendPrompt(task.prompt)
+    }
+
+    private fun finalizeAutoPromptRun(promptId: String, runId: String, finishedAt: Long, status: PromptRunStatus, result: String, error: String) {
+        autoPromptHistory.update(runId) { run ->
+            run.copy(finishedAtMillis = finishedAt, status = status, resultText = result, errorText = error)
+        }
+        schedulerStore.touchLastRun(promptId, finishedAt, status)
+        _state.update {
+            it.copy(
+                autoPromptTasks = schedulerStore.snapshot(),
+                autoPromptHistory = autoPromptHistory.snapshot(),
+                autoPromptRunningIds = it.autoPromptRunningIds - promptId,
+            )
+        }
+    }
+
+    private fun safeError(t: Throwable): String = (t.message ?: t.javaClass.simpleName).take(4_000)
+
+    /** Finalizes the coding-agent auto-prompt run whose session just completed or failed. */
+    private fun finalizeActiveAutoPromptRun(event: RuntimeEvent) {
+        val runId = activeAutoPromptRunId ?: return
+        activeAutoPromptRunId = null
+        val promptId = autoPromptHistory.snapshot().firstOrNull { it.id == runId }?.promptId ?: return
+        val finishedAt = System.currentTimeMillis()
+        val status = if (event is RuntimeEvent.SessionCompleted) PromptRunStatus.SUCCESS else PromptRunStatus.FAILED
+        val result = if (event is RuntimeEvent.SessionCompleted) {
+            _state.value.messages.lastOrNull { !it.fromUser }?.text.orEmpty()
+        } else {
+            ""
+        }
+        val error = if (event is RuntimeEvent.SessionFailed) event.reason else ""
+        autoPromptHistory.update(runId) { run ->
+            run.copy(finishedAtMillis = finishedAt, status = status, resultText = result.take(8_000), errorText = error.take(4_000))
+        }
+        schedulerStore.touchLastRun(promptId, activeAutoPromptStartedAt, status)
+        _state.update {
+            it.copy(
+                autoPromptTasks = schedulerStore.snapshot(),
+                autoPromptHistory = autoPromptHistory.snapshot(),
+                autoPromptRunningIds = it.autoPromptRunningIds - promptId,
+            )
+        }
+    }
+
+    /**
+     * Applies a per-task provider/model override to the active agent in-memory only (never
+     * persisted), so the run uses the chosen provider without permanently changing the agent's
+     * saved configuration.
+     */
+    private fun applyAutoPromptProvider(task: ScheduledTask) {
+        val providerId = task.providerId.trim()
+        if (providerId.isBlank() && task.model.isBlank()) return
+        val catalog = AiProviderCatalog.byId(providerId)
+        val profile = if (catalog != null) {
+            ProviderProfile(
+                kind = ProviderKind.CUSTOM,
+                baseUrl = catalog.baseUrl,
+                model = task.model.trim().ifBlank { catalog.defaultModel },
+                providerId = catalog.id,
+                dshApi = catalog.dshApi ?: "anthropic-messages",
+            )
+        } else {
+            _state.value.provider.copy(model = task.model.trim().ifBlank { _state.value.provider.model })
+        }
+        val effective = profile.copy(hasSecret = vault.contains(profile.keyId))
+        _state.update { it.copy(provider = effective) }
+        refreshActiveApiKey(profile.keyId)
     }
 
     // --- Share & Invite (local scaffolding for the "soon" crypto rewards) ----------------
@@ -7754,6 +8042,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             }
         }
         if (terminalEventForActiveSession) {
+            finalizeActiveAutoPromptRun(event)
             activeRuntimeRequest = null
             failedApiKeyIds.clear()
             steeringToFollowUp = false

@@ -2497,6 +2497,7 @@ private fun RootScreenHost(
     var showQuickTerminal by rememberSaveable { mutableStateOf(false) }
     var sshTerminalProfileId by rememberSaveable { mutableStateOf<String?>(null) }
     var openBackup by rememberSaveable { mutableStateOf(false) }
+    var showAutoPromptScreen by rememberSaveable { mutableStateOf(false) }
 
     if (state.showWhatsNew) {
         WhatsNewDialog(
@@ -2693,6 +2694,8 @@ private fun RootScreenHost(
                     onSetSkillEnabled = viewModel::setSkillEnabled,
                     onSetEcoMode = viewModel::setEcoMode,
                     onSetAutoPromptEnabled = viewModel::setAutoPromptEnabled,
+                    onSetAutoPromptSystemEnabled = viewModel::setAutoPromptSystemEnabled,
+                    onOpenAutoPrompt = { showAutoPromptScreen = true },
                     onSetAgentRotationEnabled = viewModel::setAgentRotationEnabled,
                     onSetAgentRotationMaxAttempts = viewModel::setAgentRotationMaxAttempts,
                     onCheckForAppUpdate = { viewModel.checkForAppUpdate(force = true) },
@@ -2736,6 +2739,20 @@ private fun RootScreenHost(
             profile = sshTerminalProfile,
             viewModel = viewModel,
             onClose = { sshTerminalProfileId = null },
+        )
+    }
+    if (showAutoPromptScreen) {
+        AutoPromptScreen(
+            state = state,
+            onClose = { showAutoPromptScreen = false },
+            onSetMaster = viewModel::setAutoPromptSystemEnabled,
+            onSave = viewModel::saveAutoPromptTask,
+            onDelete = viewModel::deleteAutoPromptTask,
+            onDuplicate = viewModel::duplicateAutoPromptTask,
+            onToggleEnabled = viewModel::setAutoPromptTaskEnabled,
+            onReorder = viewModel::reorderAutoPromptTasks,
+            onRun = viewModel::runAutoPromptNow,
+            onClearHistory = viewModel::clearAutoPromptHistory,
         )
     }
     if (showQuickTerminal) {

@@ -215,6 +215,25 @@ class AppPreferences(private val context: Context) {
         get() = preferences.getBoolean("auto_prompt_enabled", false)
         set(value) { preferences.edit().putBoolean("auto_prompt_enabled", value).apply() }
 
+    // --- Auto Prompt Library (scheduled/manual prompt library — distinct from the engine above) ----
+    /**
+     * Master switch for the Auto Prompt library. When off, no scheduled prompt fires automatically,
+     * but saved prompts and their settings are preserved and manual RUN still works.
+     */
+    var autoPromptSystemEnabled: Boolean
+        get() = preferences.getBoolean("auto_prompt_system_enabled", false)
+        set(value) { preferences.edit().putBoolean("auto_prompt_system_enabled", value).apply() }
+
+    /** Serialized scheduled tasks (prompt library) — device-only user content, no secrets. */
+    var autoPromptTasksJson: String
+        get() = preferences.getString("auto_prompt_tasks_json", "") ?: ""
+        set(value) { preferences.edit().putString("auto_prompt_tasks_json", value).apply() }
+
+    /** Serialized auto-prompt run history — device-only, no API keys. */
+    var autoPromptHistoryJson: String
+        get() = preferences.getString("auto_prompt_history_json", "") ?: ""
+        set(value) { preferences.edit().putString("auto_prompt_history_json", value).apply() }
+
     // --- Sidekick assistant ---------------------------------------------------------------
     var sidekickFloatingButton: Boolean
         get() = preferences.getBoolean("sidekick_floating_button", false)

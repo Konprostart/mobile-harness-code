@@ -56,6 +56,7 @@ import androidx.compose.material.icons.filled.Memory
 import androidx.compose.material.icons.filled.PhoneAndroid
 import androidx.compose.material.icons.filled.PrivacyTip
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Share
@@ -136,7 +137,7 @@ import com.mobileharness.code.ui.theme.AppThemeMode
 import com.mobileharness.code.ui.theme.PocketOrange
 import kotlinx.coroutines.launch
 
-private enum class SettingsSection { APPEARANCE, LANGUAGE, TOOLS, RUNTIME, DIAGNOSTICS, DEVELOPER_TOOLS, ACCOUNT, BACKUP, UPDATE_CHANNEL, UPDATES, GRADLE_MEMORY, RELEASE_SIGNING, SIGNING_VAULT, SERVER_SYNC, TELEGRAM, SIDEKICK, MCP_SERVERS, ECO_MODE, AUTO_PROMPT, MODEL_ROTATION, RAG, SSH, SHARE_INVITE }
+private enum class SettingsSection { APPEARANCE, LANGUAGE, TOOLS, RUNTIME, DIAGNOSTICS, DEVELOPER_TOOLS, ACCOUNT, BACKUP, UPDATE_CHANNEL, UPDATES, GRADLE_MEMORY, RELEASE_SIGNING, SIGNING_VAULT, SERVER_SYNC, TELEGRAM, SIDEKICK, MCP_SERVERS, ECO_MODE, AUTO_PROMPT, AUTO_PROMPT_LIBRARY, MODEL_ROTATION, RAG, SSH, SHARE_INVITE }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -204,6 +205,8 @@ fun SettingsScreen(
     onSetSkillEnabled: (String, Boolean) -> Unit = { _, _ -> },
     onSetEcoMode: (Boolean) -> Unit = {},
     onSetAutoPromptEnabled: (Boolean) -> Unit = {},
+    onSetAutoPromptSystemEnabled: (Boolean) -> Unit = {},
+    onOpenAutoPrompt: () -> Unit = {},
     onSetAgentRotationEnabled: (Boolean) -> Unit = {},
     onSetAgentRotationMaxAttempts: (Int) -> Unit = {},
     onCheckForAppUpdate: () -> Unit = {},
@@ -706,6 +709,44 @@ fun SettingsScreen(
                         enabled = state.autoPromptEnabled,
                         onSetEnabled = onSetAutoPromptEnabled,
                     )
+                }
+            }
+
+            item {
+                SettingsAccordion(
+                    title = stringResource(R.string.autoprompt_library_title),
+                    subtitle = if (state.autoPromptSystemEnabled) {
+                        stringResource(R.string.autoprompt_master_on)
+                    } else {
+                        stringResource(R.string.autoprompt_master_off)
+                    },
+                    icon = Icons.Default.PlayArrow,
+                    expanded = expanded == SettingsSection.AUTO_PROMPT_LIBRARY,
+                    onClick = { toggle(SettingsSection.AUTO_PROMPT_LIBRARY) },
+                ) {
+                    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+                            Column(Modifier.weight(1f)) {
+                                Text(stringResource(R.string.autoprompt_library_title), fontWeight = FontWeight.SemiBold)
+                                Text(
+                                    stringResource(R.string.autoprompt_count, state.autoPromptTasks.size),
+                                    fontSize = 11.sp,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
+                            Switch(checked = state.autoPromptSystemEnabled, onCheckedChange = onSetAutoPromptSystemEnabled)
+                        }
+                        Text(
+                            stringResource(R.string.autoprompt_master_note),
+                            fontSize = 11.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        Button(onClick = onOpenAutoPrompt) {
+                            Icon(Icons.Default.PlayArrow, null)
+                            Spacer(Modifier.width(6.dp))
+                            Text(stringResource(R.string.autoprompt_open))
+                        }
+                    }
                 }
             }
 

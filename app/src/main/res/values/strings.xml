@@ -687,6 +687,52 @@
     <string name="auto_prompt_note">When on, the coding agent reads AGENTS.md (or CLAUDE.md) from the active workspace as data and merges it into prompts; the assembled prompt is versioned. Off by default — when off, prompts are sent unchanged. AGENTS.md is always treated as data, never as system instructions.</string>
     <string name="auto_prompt_on">On — merging workspace instructions</string>
     <string name="auto_prompt_off">Off</string>
+    <!-- Auto Prompt Library (scheduled/manual prompt library) -->
+    <string name="autoprompt_library_title" translatable="false">Auto Prompt Library</string>
+    <string name="autoprompt_library_subtitle" translatable="false">Saved prompts you can run manually or on a schedule</string>
+    <string name="autoprompt_master_on" translatable="false">On — scheduled prompts can run</string>
+    <string name="autoprompt_master_off" translatable="false">Off — automation stopped</string>
+    <string name="autoprompt_master_note" translatable="false">Turning this off stops automatic runs but keeps every saved prompt and its settings. Manual RUN always works.</string>
+    <string name="autoprompt_open" translatable="false">Open Auto Prompt</string>
+    <string name="autoprompt_add" translatable="false">Add Prompt</string>
+    <string name="autoprompt_search" translatable="false">Search prompts</string>
+    <string name="autoprompt_empty" translatable="false">No prompts yet. Tap “Add Prompt” to create one.</string>
+    <string name="autoprompt_count" translatable="false">%1$d prompts</string>
+    <string name="autoprompt_name_label" translatable="false">Name</string>
+    <string name="autoprompt_description_label" translatable="false">Description</string>
+    <string name="autoprompt_instructions_label" translatable="false">Instructions</string>
+    <string name="autoprompt_agent_label" translatable="false">Agent</string>
+    <string name="autoprompt_provider_label" translatable="false">Provider</string>
+    <string name="autoprompt_model_label" translatable="false">Model</string>
+    <string name="autoprompt_run_mode_label" translatable="false">Run mode</string>
+    <string name="autoprompt_run_mode_manual" translatable="false">Manual</string>
+    <string name="autoprompt_run_mode_scheduled" translatable="false">Scheduled</string>
+    <string name="autoprompt_schedule_label" translatable="false">Schedule</string>
+    <string name="autoprompt_schedule_once" translatable="false">Once at</string>
+    <string name="autoprompt_schedule_interval" translatable="false">Every</string>
+    <string name="autoprompt_schedule_daily" translatable="false">Daily</string>
+    <string name="autoprompt_schedule_weekly" translatable="false">Weekly</string>
+    <string name="autoprompt_save" translatable="false">Save</string>
+    <string name="autoprompt_delete" translatable="false">Delete</string>
+    <string name="autoprompt_duplicate" translatable="false">Duplicate</string>
+    <string name="autoprompt_copy" translatable="false">Copy prompt text</string>
+    <string name="autoprompt_run" translatable="false">Run</string>
+    <string name="autoprompt_edit" translatable="false">Edit</string>
+    <string name="autoprompt_confirm_delete_title" translatable="false">Delete prompt?</string>
+    <string name="autoprompt_confirm_delete" translatable="false">This permanently removes the prompt and its run history.</string>
+    <string name="autoprompt_cancel" translatable="false">Cancel</string>
+    <string name="autoprompt_last_run" translatable="false">Last run</string>
+    <string name="autoprompt_next_run" translatable="false">Next run</string>
+    <string name="autoprompt_never" translatable="false">Never</string>
+    <string name="autoprompt_history" translatable="false">History</string>
+    <string name="autoprompt_history_empty" translatable="false">No runs yet.</string>
+    <string name="autoprompt_status_running" translatable="false">Running</string>
+    <string name="autoprompt_status_success" translatable="false">Success</string>
+    <string name="autoprompt_status_failed" translatable="false">Failed</string>
+    <string name="autoprompt_busy" translatable="false">Finish the current task before running a prompt.</string>
+    <string name="autoprompt_already_running" translatable="false">This prompt is already running.</string>
+    <string name="autoprompt_no_project" translatable="false">Select a project for this prompt first.</string>
+    <string name="autoprompt_rerun" translatable="false">Re-run</string>
     <!-- Model / provider rotation (coding agents) -->
     <string name="model_rotation_title">Model rotation</string>
     <string name="model_rotation_subtitle_on">Automatic failover between models and providers</string>
