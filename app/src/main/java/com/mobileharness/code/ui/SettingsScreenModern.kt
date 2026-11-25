@@ -143,7 +143,7 @@ import com.mobileharness.code.ui.theme.AppThemeMode
 import com.mobileharness.code.ui.theme.PocketOrange
 import kotlinx.coroutines.launch
 
-private enum class SettingsSection { APPEARANCE, LANGUAGE, TOOLS, RUNTIME, DIAGNOSTICS, DEVELOPER_TOOLS, ACCOUNT, BACKUP, UPDATE_CHANNEL, UPDATES, GRADLE_MEMORY, RELEASE_SIGNING, SIGNING_VAULT, SERVER_SYNC, TELEGRAM, SIDEKICK, MCP_SERVERS, ECO_MODE, AUTO_PROMPT, AUTO_PROMPT_LIBRARY, TOKEN_COST_MANAGER, SKILLS_PLUGINS, VOICE, DEVICE_CONTROL, MULTI_AGENT, RESEARCH, MODEL_ROTATION, RAG, SSH, SHARE_INVITE }
+private enum class SettingsSection { APPEARANCE, LANGUAGE, TOOLS, RUNTIME, DIAGNOSTICS, DEVELOPER_TOOLS, ACCOUNT, BACKUP, UPDATE_CHANNEL, UPDATES, GRADLE_MEMORY, RELEASE_SIGNING, SIGNING_VAULT, SERVER_SYNC, TELEGRAM, SIDEKICK, MCP_SERVERS, ECO_MODE, AUTO_PROMPT, AUTO_PROMPT_LIBRARY, TOKEN_COST_MANAGER, SKILLS_PLUGINS, VOICE, DEVICE_CONTROL, MULTI_AGENT, RESEARCH, MODEL_ROTATION, RAG, SSH, SHARE_INVITE, GROM }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -631,6 +631,18 @@ fun SettingsScreen(
                         onSave = onSaveServerSyncConfig,
                         onClearToken = onClearServerSyncToken,
                     )
+                }
+            }
+
+            item {
+                SettingsAccordion(
+                    title = stringResource(R.string.grom_connect_title),
+                    subtitle = stringResource(R.string.grom_connect_subtitle),
+                    icon = Icons.Default.Dns,
+                    expanded = expanded == SettingsSection.GROM,
+                    onClick = { toggle(SettingsSection.GROM) },
+                ) {
+                    GromConnectSettings()
                 }
             }
 

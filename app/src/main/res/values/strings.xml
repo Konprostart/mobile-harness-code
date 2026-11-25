@@ -964,4 +964,35 @@
     <string name="skills_plugins_title" translatable="false">Skills &amp; Plugins</string>
     <string name="skills_plugins_subtitle" translatable="false">Install and manage SKILL.md skills, plugins and MCP servers.</string>
     <string name="skills_plugins_open" translatable="false">Open Skills &amp; Plugins</string>
+    <!-- Optional GROM server connection (Phase 6.3) -->
+    <string name="grom_connect_title" translatable="false">Connect GROM Server</string>
+    <string name="grom_connect_subtitle" translatable="false">Optional shared local server (OFF by default)</string>
+    <string name="grom_enable" translatable="false">GROM connection</string>
+    <string name="grom_enable_subtitle" translatable="false">Use your Grom server as a shared local resource. Does not stop the server.</string>
+    <string name="grom_address" translatable="false">Server address (scheme://host:port)</string>
+    <string name="grom_save_address" translatable="false">Save address</string>
+    <string name="grom_auth_password" translatable="false">Password</string>
+    <string name="grom_auth_key" translatable="false">Client key (Ed25519)</string>
+    <string name="grom_password_label" translatable="false">Public-API password</string>
+    <string name="grom_password_save" translatable="false">Save password</string>
+    <string name="grom_password_saved" translatable="false">Password saved</string>
+    <string name="grom_generate_key" translatable="false">Generate client key</string>
+    <string name="grom_key_generated" translatable="false">Key generated</string>
+    <string name="grom_key_unavailable" translatable="false">Ed25519 key auth needs Android 13+ (API 33); use password auth.</string>
+    <string name="grom_public_key" translatable="false">Public key — paste into Grom → Devices → Trust a key</string>
+    <string name="grom_copy" translatable="false">Copy</string>
+    <string name="grom_connect" translatable="false">Connect</string>
+    <string name="grom_disconnect" translatable="false">Disconnect</string>
+    <string name="grom_reconnect" translatable="false">Reconnect</string>
+    <string name="grom_status" translatable="false">Status</string>
+    <string name="grom_server" translatable="false">Server</string>
+    <string name="grom_api" translatable="false">API</string>
+    <string name="grom_principal" translatable="false">Principal</string>
+    <string name="grom_scopes" translatable="false">Scopes</string>
+    <string name="grom_services" translatable="false">Services</string>
+    <string name="grom_no_services" translatable="false">No services readable</string>
+    <string name="grom_callable_ops" translatable="false">Callable ops</string>
+    <string name="grom_none" translatable="false">None</string>
+    <string name="grom_llm_proxy_available" translatable="false">Free LLM API via GROM: available</string>
+    <string name="grom_llm_proxy_unavailable" translatable="false">Free LLM API via GROM: not available (no llm.proxy service on this Grom)</string>
 </resources>

@@ -89,8 +89,8 @@ android {
         targetSdk = if (playBuild) 36 else 28
         // Keep literal defaults so F-Droid's static manifest parser can detect
         // the tagged release. Gradle properties may still override Play builds.
-        versionCode = 49
-        versionName = "1.19.5"
+        versionCode = 50
+        versionName = "1.19.6"
         providers.gradleProperty("appVersionCode").orNull?.toIntOrNull()?.let { versionCode = it }
         providers.gradleProperty("appVersionName").orNull?.let { versionName = it }
 
@@ -285,7 +285,7 @@ val sbomOutputDir = layout.buildDirectory.dir("reports/sbom")
 // defaultConfig literal, overridable via -PappVersionName) instead of a stale
 // hardcoded value. Kept as a separate expression so F-Droid's static parser
 // still sees the literal versionName assignment inside defaultConfig.
-val sbomVersionName = providers.gradleProperty("appVersionName").orNull ?: "1.19.5"
+val sbomVersionName = providers.gradleProperty("appVersionName").orNull ?: "1.19.6"
 
 val generateSbom = tasks.register("generateSbom") {
     group = "verification"

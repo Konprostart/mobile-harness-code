@@ -41,6 +41,8 @@ import com.mobileharness.code.token.TokenOptimizationServiceConfig
 import com.mobileharness.code.token.TokenOptimizationServiceCodec
 import com.mobileharness.code.voice.VoiceSettings
 import com.mobileharness.code.voice.VoiceSettingsCodec
+import com.mobileharness.code.grom.GromConfig
+import com.mobileharness.code.grom.GromConfigCodec
 import com.mobileharness.code.hooks.HookRule
 import com.mobileharness.code.lsp.LspServerDefinition
 import com.mobileharness.code.testing.TestHistoryEntry
@@ -305,6 +307,11 @@ class AppPreferences(private val context: Context) {
     var orchestrationTaskSpendUsd: Double
         get() = preferences.getFloat("orchestration_task_spend_usd", 0f).toDouble()
         set(value) { preferences.edit().putFloat("orchestration_task_spend_usd", value.coerceAtLeast(0.0).toFloat()).apply() }
+
+    /** Optional GROM server connection (Phase 6.3). Non-secret; OFF by default. Secrets live in ApiKeyVault. */
+    var gromConfig: GromConfig
+        get() = GromConfigCodec.fromJson(preferences.getString("grom_connection_json", "").orEmpty())
+        set(value) { preferences.edit().putString("grom_connection_json", GromConfigCodec.toJson(value)).apply() }
 
 
     /** User-corrected context-window limits (providerId/model → maxTokens). */
