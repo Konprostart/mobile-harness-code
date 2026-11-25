@@ -89,8 +89,8 @@ android {
         targetSdk = if (playBuild) 36 else 28
         // Keep literal defaults so F-Droid's static manifest parser can detect
         // the tagged release. Gradle properties may still override Play builds.
-        versionCode = 48
-        versionName = "1.19.4"
+        versionCode = 49
+        versionName = "1.19.5"
         providers.gradleProperty("appVersionCode").orNull?.toIntOrNull()?.let { versionCode = it }
         providers.gradleProperty("appVersionName").orNull?.let { versionName = it }
 
@@ -285,7 +285,7 @@ val sbomOutputDir = layout.buildDirectory.dir("reports/sbom")
 // defaultConfig literal, overridable via -PappVersionName) instead of a stale
 // hardcoded value. Kept as a separate expression so F-Droid's static parser
 // still sees the literal versionName assignment inside defaultConfig.
-val sbomVersionName = providers.gradleProperty("appVersionName").orNull ?: "1.19.0"
+val sbomVersionName = providers.gradleProperty("appVersionName").orNull ?: "1.19.5"
 
 val generateSbom = tasks.register("generateSbom") {
     group = "verification"
@@ -342,6 +342,13 @@ val licenseCheck = tasks.register("licenseCheck") {
     doLast {
         val sbomFile = sbomOutputDir.get().file("cyclonedx.json").asFile
         check(sbomFile.isFile) { "generateSbom did not produce $sbomFile" }
+        // Guard against the SBOM version literal drifting from the app version literal. Both are
+        // kept as literals (F-Droid's static parser reads the defaultConfig assignment directly),
+        // so without this check a version bump can silently publish an SBOM with a stale version.
+        check(sbomVersionName == android.defaultConfig.versionName) {
+            "SBOM version ($sbomVersionName) does not match app versionName (${android.defaultConfig.versionName}). " +
+                "Update the sbomVersionName fallback literal in app/build.gradle.kts."
+        }
         check(sbomFile.readText().contains("\"version\": \"$sbomVersionName\"")) {
             "SBOM component version does not match versionName ($sbomVersionName)"
         }
