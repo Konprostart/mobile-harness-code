@@ -1,12 +1,12 @@
 {
-  "versionCode": 47,
-  "versionName": "1.19.3",
-  "notes": "Mobile Harness Code v1.19.3 — Central Token Optimization engine (Phase 6.2): an optional, default-OFF TokenOptimizationService that shapes the context handed between orchestrator steps (ContextShaper), gates steps behind spend budgets (BudgetGate), suggests cheaper models for light tasks (ModelAdvisor), and records measured/estimated savings (SavingsLedger). Standard Mode and all existing agents/providers (Claude Code, DeepSeek Harness, Antigravity, Sidekick, FreeLLMAPI) are unchanged. This APK is SIGNED (V2) with the production certificate.",
+  "versionCode": 48,
+  "versionName": "1.19.4",
+  "notes": "Mobile Harness Code v1.19.4 — adds a per-message Copy button under every user and assistant message in both the main workspace chat (including the read-only project view) and the Sidekick assistant. Copying uses the existing clipboard infrastructure and copies only the message body (never the author, timestamps, attachments or other UI chrome), with a brief 'Copied' confirmation. Standard Mode, agents and providers are unchanged. This APK is SIGNED (V2) with the production certificate.",
   "artifacts": {
     "online": {
-      "url": "https://github.com/Konprostart/mobile-harness-code/releases/download/v1.19.3/mobile-harness-online.apk",
-      "sha256": "c4c7fd71a51b584848fdffba1f24739cc099a8dcaa5d5637b074a73ef5b55c32",
-      "sizeBytes": 110444792
+      "url": "https://github.com/Konprostart/mobile-harness-code/releases/download/v1.19.4/mobile-harness-online.apk",
+      "sha256": "40b96178b822e067a4061133fa70f8a6c2cf89e4d08de620e0690cb00de9f82b",
+      "sizeBytes": 110452984
     }
   }
 }
