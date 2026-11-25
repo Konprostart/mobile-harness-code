@@ -1,11 +1,11 @@
 {
-  "versionCode": 48,
-  "versionName": "1.19.4",
-  "notes": "Mobile Harness Code v1.19.4 — adds a per-message Copy button under every user and assistant message in both the main workspace chat (including the read-only project view) and the Sidekick assistant. Copying uses the existing clipboard infrastructure and copies only the message body (never the author, timestamps, attachments or other UI chrome), with a brief 'Copied' confirmation. Standard Mode, agents and providers are unchanged. This APK is SIGNED (V2) with the production certificate.",
+  "versionCode": 49,
+  "versionName": "1.19.5",
+  "notes": "Mobile Harness Code v1.19.5 — maintenance release. Fixes the SBOM component version so it stays in sync with the app version (it had drifted to 1.19.0 across several releases) and adds a licenseCheck guard that fails the build if the SBOM version ever drifts again. No functional changes to agents, providers, workspace or Standard Mode. This APK is SIGNED (V2) with the production certificate.",
   "artifacts": {
     "online": {
-      "url": "https://github.com/Konprostart/mobile-harness-code/releases/download/v1.19.4/mobile-harness-online.apk",
-      "sha256": "40b96178b822e067a4061133fa70f8a6c2cf89e4d08de620e0690cb00de9f82b",
+      "url": "https://github.com/Konprostart/mobile-harness-code/releases/download/v1.19.5/mobile-harness-online.apk",
+      "sha256": "3dd17edf97066c524cc1780054383787ac187b767ddc69f4d1fbb6513c851757",
       "sizeBytes": 110452984
     }
   }
