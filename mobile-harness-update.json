@@ -1,12 +1,12 @@
 {
-  "versionCode": 46,
-  "versionName": "1.19.2",
-  "notes": "Real optional Multi-Agent Orchestrator (Phase 6.1). The Orchestrator can now actually run the existing agents — Sidekick in-process, Claude Code / DeepSeek Harness / Antigravity through the existing runtime — instead of simulating results. Default OFF; Standard Mode (direct agent launches) is unchanged. File locking, result hand-off between steps, a persisted plan for resume across restarts, and a visible Orchestrator entry in the Agent section. This APK is SIGNED (V2).",
+  "versionCode": 47,
+  "versionName": "1.19.3",
+  "notes": "Mobile Harness Code v1.19.3 — Central Token Optimization engine (Phase 6.2): an optional, default-OFF TokenOptimizationService that shapes the context handed between orchestrator steps (ContextShaper), gates steps behind spend budgets (BudgetGate), suggests cheaper models for light tasks (ModelAdvisor), and records measured/estimated savings (SavingsLedger). Standard Mode and all existing agents/providers (Claude Code, DeepSeek Harness, Antigravity, Sidekick, FreeLLMAPI) are unchanged. This APK is SIGNED (V2) with the production certificate.",
   "artifacts": {
     "online": {
-      "url": "https://github.com/Konprostart/mobile-harness-code/releases/download/v1.19.2/mobile-harness-online.apk",
-      "sha256": "7c6db987f1cf8206e3228a608d4429cc1dbffa8c00dfe98be317fddac1cf848c",
-      "sizeBytes": 110391544
+      "url": "https://github.com/Konprostart/mobile-harness-code/releases/download/v1.19.3/mobile-harness-online.apk",
+      "sha256": "c4c7fd71a51b584848fdffba1f24739cc099a8dcaa5d5637b074a73ef5b55c32",
+      "sizeBytes": 110444792
     }
   }
 }
