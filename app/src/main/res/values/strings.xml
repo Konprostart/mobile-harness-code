@@ -312,6 +312,8 @@
     <string name="close_file">Close file</string>
     <string name="save_file">Save file</string>
     <string name="copy_file_contents">Copy file contents</string>
+    <string name="message_copy" translatable="false">Copy message</string>
+    <string name="message_copied" translatable="false">Copied</string>
     <string name="edit_file">Edit file</string>
     <string name="no_content">No content</string>
     <string name="file_could_not_read">The file could not be read.</string>

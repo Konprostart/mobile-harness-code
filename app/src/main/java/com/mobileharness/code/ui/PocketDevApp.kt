@@ -7777,6 +7777,16 @@ private fun MessageBubble(message: ChatMessage, onRunInTerminal: (String) -> Uni
                         )
                     }
                 }
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(end = 6.dp),
+                    horizontalArrangement = Arrangement.End,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    MessageCopyButton(
+                        text = if (message.fromUser) MessageCopy.mainUser(message) else MessageCopy.mainAssistant(displayedText),
+                        tint = if (message.fromUser) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
                 if (!message.fromUser && message.workedMillis > 0L) {
                     Text(
                         text = stringResource(R.string.ws_worked_for, formatDuration((message.workedMillis / 1_000L).coerceAtLeast(1L))),

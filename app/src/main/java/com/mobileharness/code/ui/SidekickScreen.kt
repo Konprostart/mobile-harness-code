@@ -335,6 +335,10 @@ fun SidekickScreen(onClose: () -> Unit) {
                                     else MaterialTheme.colorScheme.onSurface,
                                 )
                             }
+                            MessageCopyButton(
+                                text = MessageCopy.sidekick(message.text),
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
                         }
                     }
                 }
