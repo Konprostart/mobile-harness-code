@@ -224,6 +224,10 @@ data class Project(
     val kind: ProjectKind = ProjectKind.PROJECT,
     val type: ProjectType = ProjectType.GENERAL,
     val androidTemplate: AndroidTemplate? = null,
+    /** Remote URL this project is linked to (GitHub or self-host). Null when not connected. */
+    val gitRemoteUrl: String? = null,
+    /** Signiffia vault key ids bound to this project (references; the vault stays the source of truth). */
+    val signingKeyIds: List<String> = emptyList(),
 ) {
     val formattedUpdatedAt: String
         get() {

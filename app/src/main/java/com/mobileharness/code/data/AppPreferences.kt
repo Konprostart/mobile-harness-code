@@ -117,6 +117,14 @@ class AppPreferences(private val context: Context) {
         get() = preferences.getString("signing_cloud_config_json", "") ?: ""
         set(value) { preferences.edit().putString("signing_cloud_config_json", value).apply() }
 
+    /**
+     * Per-project cloud backup configuration (projectId -> ProjectCloudBackup JSON map).
+     * Device-local: SAF tree URIs and the encrypted passphrase are meaningless on another phone.
+     */
+    var projectCloudBackupsJson: String
+        get() = preferences.getString("project_cloud_backups_json", "") ?: ""
+        set(value) { preferences.edit().putString("project_cloud_backups_json", value).apply() }
+
     var githubLogin: String
         get() = preferences.getString("github_login", "") ?: ""
         set(value) { preferences.edit().putString("github_login", value).apply() }
@@ -925,6 +933,10 @@ class AppPreferences(private val context: Context) {
                 put("kind", p.kind.name)
                 put("type", p.type.name)
                 p.androidTemplate?.let { put("androidTemplate", it.name) }
+                p.gitRemoteUrl?.let { put("gitRemoteUrl", it) }
+                if (p.signingKeyIds.isNotEmpty()) {
+                    put("signingKeyIds", JSONArray(p.signingKeyIds))
+                }
             })
         }
         preferences.edit().putString("projects_json", arr.toString()).apply()
@@ -981,6 +993,10 @@ class AppPreferences(private val context: Context) {
                     androidTemplate = obj.optString("androidTemplate").takeIf(String::isNotBlank)?.let {
                         runCatching { AndroidTemplate.valueOf(it) }.getOrNull()
                     },
+                    gitRemoteUrl = obj.optString("gitRemoteUrl").takeIf(String::isNotBlank),
+                    signingKeyIds = obj.optJSONArray("signingKeyIds")?.let { array ->
+                        (0 until array.length()).mapNotNull { array.optString(it).takeIf(String::isNotBlank) }
+                    } ?: emptyList(),
                 )
             }
         }.getOrDefault(emptyList())

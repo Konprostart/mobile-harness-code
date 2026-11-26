@@ -123,6 +123,7 @@ import androidx.compose.material.icons.filled.Memory
 import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.CreateNewFolder
+import androidx.compose.material.icons.filled.Cloud
 import androidx.compose.material.icons.filled.DriveFileRenameOutline
 import androidx.compose.material.icons.filled.NoteAdd
 import androidx.compose.material.icons.filled.Upload
@@ -234,6 +235,9 @@ import com.mobileharness.code.model.ProjectKind
 import com.mobileharness.code.model.ProjectType
 import com.mobileharness.code.model.AndroidTemplate
 import com.mobileharness.code.model.ProjectChat
+import com.mobileharness.code.cloud.ProjectStatus
+import com.mobileharness.code.cloud.ProjectStatusLevel
+import com.mobileharness.code.cloud.ProjectStatuses
 import com.mobileharness.code.model.ProviderKind
 import com.mobileharness.code.model.ProviderProfile
 import com.mobileharness.code.model.inferredDshApiForUrl
@@ -2561,8 +2565,9 @@ private fun RootScreenHost(
                     state = state,
                     listState = projectsListState,
                     onOpen = viewModel::openProject,
-                    onCreate = viewModel::createProject,
-                    onCreateAndroid = viewModel::createAndroidProject,
+                    onCreate = { name, keys, cloud -> viewModel.createProject(name, keys, cloud) },
+                    onCreateAndroid = { name, tpl, keys, cloud -> viewModel.createAndroidProject(name, tpl, keys, cloud) },
+                    onCreateWithNewKey = viewModel::createProjectWithNewKey,
                     onCreateQuickProject = viewModel::createQuickProject,
                     onImportZip = viewModel::importZipProject,
                     onImportWebAppZip = viewModel::importWebAppZip,
@@ -2583,6 +2588,12 @@ private fun RootScreenHost(
                     onCreateGitProviderRepo = viewModel::createGitProviderRepository,
                     onRenameProject = viewModel::renameProject,
                     onDeleteProject = viewModel::deleteProject,
+                    onBackupProject = viewModel::backupProjectNow,
+                    onRestoreProject = viewModel::restoreProjectFromCloud,
+                    onRestoreProjectKeys = viewModel::restoreProjectKeysOnlyFromCloud,
+                    onRefreshProjectStatuses = viewModel::refreshProjectStatuses,
+                    onListProjectSlugs = viewModel::listProjectSlugsFromCloud,
+                    onLoadExistingProject = viewModel::loadExistingProjectFromCloud,
                     onSettings = { screen = RootScreen.SETTINGS },
                     onPing = viewModel::pingApi,
                     onToggleTheme = viewModel::toggleTheme,
@@ -3831,8 +3842,9 @@ private fun ProjectsScreen(
     state: AppUiState,
     listState: LazyListState = rememberSaveable(saver = LazyListState.Saver) { LazyListState() },
     onOpen: (Project) -> Unit,
-    onCreate: (String) -> Unit,
-    onCreateAndroid: (String, AndroidTemplate) -> Unit,
+    onCreate: (String, List<String>, Boolean) -> Unit,
+    onCreateAndroid: (String, AndroidTemplate, List<String>, Boolean) -> Unit,
+    onCreateWithNewKey: (String, AndroidTemplate?, String, String, String, Boolean) -> Unit,
     onCreateQuickProject: () -> Unit,
     onImportZip: (Uri) -> Unit,
     onImportWebAppZip: (Uri) -> Unit,
@@ -3853,6 +3865,12 @@ private fun ProjectsScreen(
     onCreateGitProviderRepo: (GitProviderId, String, Boolean, String) -> Unit,
     onRenameProject: (String, String) -> Unit,
     onDeleteProject: (String) -> Unit,
+    onBackupProject: (String) -> Unit,
+    onRestoreProject: (String) -> Unit,
+    onRestoreProjectKeys: (String) -> Unit,
+    onRefreshProjectStatuses: () -> Unit,
+    onListProjectSlugs: (String, String) -> Unit,
+    onLoadExistingProject: (String, String, String, String) -> Unit,
     onSettings: () -> Unit,
     onPing: () -> Unit,
     onToggleTheme: () -> Unit,
@@ -3876,6 +3894,16 @@ private fun ProjectsScreen(
     var repositorySearch by rememberSaveable { mutableStateOf("") }
     var name by rememberSaveable { mutableStateOf("") }
     var androidTemplate by rememberSaveable { mutableStateOf<AndroidTemplate?>(null) }
+    var signingMode by rememberSaveable { mutableStateOf("none") }
+    var selectedKeyId by rememberSaveable { mutableStateOf<String?>(null) }
+    var newKeyName by rememberSaveable { mutableStateOf("") }
+    var newKeyAlias by rememberSaveable { mutableStateOf("") }
+    var newKeyPassword by rememberSaveable { mutableStateOf("") }
+    var cloudEnabled by rememberSaveable { mutableStateOf(false) }
+    var showLoadExisting by rememberSaveable { mutableStateOf(false) }
+    var statusProjectId by rememberSaveable { mutableStateOf<String?>(null) }
+    var loadConnection by rememberSaveable { mutableStateOf("") }
+    var loadPassphrase by rememberSaveable { mutableStateOf("") }
     val projects = state.projects
     val context = LocalContext.current
     val permissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) {
@@ -3886,6 +3914,9 @@ private fun ProjectsScreen(
     }
     val importWebAppZipLauncher = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
         if (uri != null) onImportWebAppZip(uri)
+    }
+    val loadExistingFolderLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
+        if (uri != null) loadConnection = uri.toString()
     }
     LaunchedEffect(state.appUpdate?.versionCode) {
         if (state.appUpdate != null) showUpdateDialog = true
@@ -4039,6 +4070,22 @@ private fun ProjectsScreen(
                                     }
                                 }
                                 Surface(
+                                    modifier = Modifier.fillMaxWidth().clickable(enabled = !state.gitCloneRunning) { showLoadExisting = true },
+                                    color = MaterialTheme.colorScheme.surface,
+                                    shape = RoundedCornerShape(13.dp),
+                                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+                                ) {
+                                    Row(Modifier.padding(horizontal = 12.dp, vertical = 11.dp), verticalAlignment = Alignment.CenterVertically) {
+                                        Icon(Icons.Default.Cloud, null, tint = PocketGreen, modifier = Modifier.size(19.dp))
+                                        Spacer(Modifier.width(10.dp))
+                                        Column(Modifier.weight(1f)) {
+                                            Text(stringResource(R.string.project_load_existing), fontSize = 12.5.sp, fontWeight = FontWeight.SemiBold)
+                                            Text(stringResource(R.string.project_load_from_cloud), fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                        }
+                                        Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    }
+                                }
+                                Surface(
                                     modifier = Modifier.fillMaxWidth().clickable(enabled = !state.gitCloneRunning) { showGitProvidersDialog = true },
                                     color = MaterialTheme.colorScheme.surface,
                                     shape = RoundedCornerShape(13.dp),
@@ -4171,9 +4218,11 @@ private fun ProjectsScreen(
                         taskRunning = state.isRunning && state.activeProject?.id == project.id,
                         terminalRunning = state.projectTerminalRunning && state.activeProject?.id == project.id,
                         buildRunning = state.androidBuildRunning && state.activeProject?.id == project.id,
+                        statuses = state.projectStatuses[project.id],
                         onOpen = { onOpen(project) },
                         onRename = { onRenameProject(project.id, it) },
                         onDelete = { onDeleteProject(project.id) },
+                        onStatusClick = { statusProjectId = project.id },
                     )
                 }
             }
@@ -4227,6 +4276,36 @@ private fun ProjectsScreen(
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
+                Text(stringResource(R.string.project_create_signing), fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    FilterChip(selected = signingMode == "none", onClick = { signingMode = "none" }, label = { Text(stringResource(R.string.project_create_signing_none)) })
+                    FilterChip(selected = signingMode == "existing", onClick = { signingMode = "existing" }, label = { Text(stringResource(R.string.project_create_signing_existing)) })
+                    FilterChip(selected = signingMode == "new", onClick = { signingMode = "new" }, label = { Text(stringResource(R.string.project_create_signing_new)) })
+                }
+                when (signingMode) {
+                    "existing" -> if (state.signingVault.keys.isEmpty()) {
+                        Text(stringResource(R.string.project_status_no_key), color = MaterialTheme.colorScheme.error, fontSize = 12.sp)
+                    } else {
+                        Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                            state.signingVault.keys.forEach { key ->
+                                FilterChip(
+                                    selected = selectedKeyId == key.id,
+                                    onClick = { selectedKeyId = key.id },
+                                    label = { Text(key.displayName, maxLines = 1, overflow = TextOverflow.Ellipsis) },
+                                )
+                            }
+                        }
+                    }
+                    "new" -> {
+                        OutlinedTextField(newKeyName, { newKeyName = it }, label = { Text(stringResource(R.string.signing_vault_display_name)) }, singleLine = true)
+                        OutlinedTextField(newKeyAlias, { newKeyAlias = it }, label = { Text(stringResource(R.string.signing_vault_alias)) }, singleLine = true)
+                        OutlinedTextField(newKeyPassword, { newKeyPassword = it }, label = { Text(stringResource(R.string.signing_vault_password)) }, singleLine = true, visualTransformation = PasswordVisualTransformation())
+                    }
+                }
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Checkbox(checked = cloudEnabled, onCheckedChange = { cloudEnabled = it })
+                    Text(stringResource(R.string.project_status_cloud), fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
+                }
                 if (name.isNotBlank()) {
                     Text(
                         stringResource(R.string.ws_terminal_folder, "/workspace/${projectSlug(name)}"),
@@ -4240,16 +4319,101 @@ private fun ProjectsScreen(
         confirmButton = {
             TextButton(
                 onClick = {
-                    androidTemplate?.let { onCreateAndroid(name, it) } ?: onCreate(name)
+                    val keys = if (signingMode == "existing") listOfNotNull(selectedKeyId) else emptyList()
+                    when (signingMode) {
+                        "new" -> onCreateWithNewKey(name, androidTemplate, newKeyName.ifBlank { name }, newKeyAlias.ifBlank { "signing" }, newKeyPassword, cloudEnabled)
+                        else -> androidTemplate?.let { onCreateAndroid(name, it, keys, cloudEnabled) } ?: onCreate(name, keys, cloudEnabled)
+                    }
                     showCreate = false
                     name = ""
                     androidTemplate = null
+                    signingMode = "none"
+                    selectedKeyId = null
+                    newKeyName = ""
+                    newKeyAlias = ""
+                    newKeyPassword = ""
+                    cloudEnabled = false
                 },
-                enabled = name.isNotBlank(),
+                enabled = name.isNotBlank() && (signingMode != "existing" || selectedKeyId != null) && (signingMode != "new" || newKeyPassword.isNotBlank()),
             ) { Text(stringResource(R.string.ws_create)) }
         },
         dismissButton = { TextButton(onClick = { showCreate = false }) { Text(stringResource(R.string.action_cancel)) } },
     )
+    val statusProject = projects.firstOrNull { it.id == statusProjectId }
+    if (statusProject != null) {
+        val st = state.projectStatuses[statusProject.id]
+        AlertDialog(
+            onDismissRequest = { statusProjectId = null },
+            title = { Text(statusProject.name) },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Text(stringResource(R.string.project_status_details_title), fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
+                    StatusRow(stringResource(R.string.project_status_github), st?.github)
+                    StatusRow(stringResource(R.string.project_status_signiffia), st?.signiffia)
+                    StatusRow(stringResource(R.string.project_status_cloud), st?.cloud)
+                    state.projectBackup.message?.let { Text(it, color = MaterialTheme.colorScheme.primary, fontSize = 12.sp) }
+                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        OutlinedButton(onClick = { onRefreshProjectStatuses(); statusProjectId = null }, modifier = Modifier.weight(1f)) {
+                            Text(stringResource(R.string.project_status_refresh), fontSize = 12.sp)
+                        }
+                        OutlinedButton(onClick = { onBackupProject(statusProject.id) }, modifier = Modifier.weight(1f)) {
+                            Text(stringResource(R.string.project_backup_now), fontSize = 12.sp)
+                        }
+                    }
+                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        OutlinedButton(onClick = { onRestoreProjectKeys(statusProject.id) }, modifier = Modifier.weight(1f)) {
+                            Text(stringResource(R.string.project_restore_keys), fontSize = 12.sp)
+                        }
+                        OutlinedButton(onClick = { onRestoreProject(statusProject.id) }, modifier = Modifier.weight(1f)) {
+                            Text(stringResource(R.string.project_restore_project), fontSize = 12.sp)
+                        }
+                    }
+                }
+            },
+            confirmButton = { TextButton(onClick = { statusProjectId = null }) { Text(stringResource(R.string.action_close)) } },
+        )
+    }
+    if (showLoadExisting) {
+        AlertDialog(
+            onDismissRequest = { if (!state.projectBackup.busy) showLoadExisting = false },
+            title = { Text(stringResource(R.string.project_load_from_cloud)) },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedButton(onClick = { loadExistingFolderLauncher.launch(null) }, modifier = Modifier.fillMaxWidth()) {
+                        Icon(Icons.Default.Cloud, null, modifier = Modifier.size(18.dp))
+                        Spacer(Modifier.width(8.dp))
+                        Text(stringResource(R.string.signing_cloud_pick_folder))
+                    }
+                    if (loadConnection.isNotBlank()) Text(loadConnection, fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                    OutlinedTextField(
+                        loadPassphrase, { loadPassphrase = it },
+                        label = { Text(stringResource(R.string.project_load_passphrase)) },
+                        singleLine = true,
+                        visualTransformation = PasswordVisualTransformation(),
+                    )
+                    Button(
+                        onClick = { onListProjectSlugs("saf", loadConnection) },
+                        enabled = loadConnection.isNotBlank(),
+                        modifier = Modifier.fillMaxWidth(),
+                    ) { Text(stringResource(R.string.project_load_list)) }
+                    if (state.projectBackup.loadingSlugs) LinearProgressIndicator(Modifier.fillMaxWidth())
+                    state.projectBackup.message?.takeIf { state.projectBackup.availableSlugs.isEmpty() }?.let {
+                        Text(it, color = MaterialTheme.colorScheme.error, fontSize = 12.sp)
+                    }
+                    if (state.projectBackup.availableSlugs.isNotEmpty()) {
+                        Text(stringResource(R.string.project_load_select), fontWeight = FontWeight.SemiBold, fontSize = 12.sp)
+                        state.projectBackup.availableSlugs.forEach { slug ->
+                            OutlinedButton(
+                                onClick = { onLoadExistingProject(slug, "saf", loadConnection, loadPassphrase); showLoadExisting = false; loadConnection = ""; loadPassphrase = "" },
+                                modifier = Modifier.fillMaxWidth(),
+                            ) { Text(slug, fontFamily = FontFamily.Monospace) }
+                        }
+                    }
+                }
+            },
+            confirmButton = { TextButton(onClick = { showLoadExisting = false }) { Text(stringResource(R.string.action_close)) } },
+        )
+    }
     if (showGitDialog) AlertDialog(
         onDismissRequest = { if (!state.gitCloneRunning) showGitDialog = false },
         icon = { Icon(Icons.Default.Code, null, tint = PocketOrange) },
@@ -4706,9 +4870,11 @@ private fun ProjectCard(
     taskRunning: Boolean,
     terminalRunning: Boolean,
     buildRunning: Boolean,
+    statuses: ProjectStatuses?,
     onOpen: () -> Unit,
     onRename: (String) -> Unit,
     onDelete: () -> Unit,
+    onStatusClick: () -> Unit,
 ) {
     var menuOpen by rememberSaveable(project.id) { mutableStateOf(false) }
     var showRename by rememberSaveable(project.id) { mutableStateOf(false) }
@@ -4759,6 +4925,14 @@ private fun ProjectCard(
                 Text("/workspace/${project.slug}", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 11.sp, fontFamily = FontFamily.Monospace)
                 Text("${project.language} · ${project.localizedUpdatedAt()}", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 11.sp)
             }
+            Column(
+                modifier = Modifier.padding(horizontal = 4.dp).clickable(onClick = onStatusClick),
+                verticalArrangement = Arrangement.spacedBy(3.dp),
+            ) {
+                StatusLamp(stringResource(R.string.project_status_github), statuses?.github)
+                StatusLamp(stringResource(R.string.project_status_signiffia), statuses?.signiffia)
+                StatusLamp(stringResource(R.string.project_status_cloud), statuses?.cloud)
+            }
             Box {
                 IconButton(onClick = { menuOpen = true }) { Icon(Icons.Default.MoreVert, stringResource(R.string.ws_project_options)) }
                 DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
@@ -4792,6 +4966,62 @@ private fun ProjectCard(
             text = { Text(stringResource(R.string.ws_delete_project_desc)) },
             confirmButton = { TextButton(onClick = { onDelete(); showDelete = false }) { Text(stringResource(R.string.action_delete), color = MaterialTheme.colorScheme.error) } },
             dismissButton = { TextButton(onClick = { showDelete = false }) { Text(stringResource(R.string.action_cancel)) } },
+        )
+    }
+}
+
+@Composable
+private fun StatusLamp(label: String, status: ProjectStatus?) {
+    val color = when (status?.level) {
+        ProjectStatusLevel.GREEN -> PocketGreen
+        ProjectStatusLevel.RED -> MaterialTheme.colorScheme.error
+        ProjectStatusLevel.UNKNOWN -> PocketOrange
+        null -> MaterialTheme.colorScheme.outline
+    }
+    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.End) {
+        Text(label, fontSize = 9.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
+        Spacer(Modifier.width(4.dp))
+        Box(Modifier.size(8.dp).background(color, CircleShape))
+    }
+}
+
+@Composable
+private fun statusDetailText(code: String): String {
+    val resId = when (code) {
+        "synced" -> R.string.project_status_synced
+        "not_connected" -> R.string.project_status_not_connected
+        "unsynced" -> R.string.project_status_unsynced
+        "check_failed" -> R.string.project_status_check_failed
+        "not_verified" -> R.string.project_status_not_verified
+        "no_key" -> R.string.project_status_no_key
+        "missing_key" -> R.string.project_status_missing_key
+        "keys_saved" -> R.string.project_status_keys_saved
+        "backup_ok" -> R.string.project_status_backup_ok
+        "not_configured" -> R.string.project_status_not_configured
+        "no_backup" -> R.string.project_status_no_backup
+        "backup_failed" -> R.string.project_status_backup_failed
+        else -> null
+    }
+    return if (resId != null) stringResource(resId) else code
+}
+
+@Composable
+private fun StatusRow(label: String, status: ProjectStatus?) {
+    val color = when (status?.level) {
+        ProjectStatusLevel.GREEN -> PocketGreen
+        ProjectStatusLevel.RED -> MaterialTheme.colorScheme.error
+        ProjectStatusLevel.UNKNOWN -> PocketOrange
+        null -> MaterialTheme.colorScheme.outline
+    }
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Box(Modifier.size(10.dp).background(color, CircleShape))
+        Spacer(Modifier.width(8.dp))
+        Text(label, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
+        Text(
+            status?.let { statusDetailText(it.code) } ?: "—",
+            fontSize = 12.sp,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            textAlign = TextAlign.End,
         )
     }
 }

@@ -567,6 +567,45 @@
     <string name="signing_cloud_keep_versions" translatable="false">Keep versions</string>
     <string name="signing_cloud_error" translatable="false">Last error: %1$s</string>
     <string name="signing_cloud_key_count" translatable="false">%1$d key(s) in last backup</string>
+    <string name="project_cloud_connected" translatable="false">Storage connected</string>
+    <string name="project_cloud_connect_failed" translatable="false">Could not connect storage</string>
+    <string name="project_backup_no_key" translatable="false">Bind a signing key to this project first</string>
+    <string name="project_backup_done" translatable="false">Project backed up</string>
+    <string name="project_backup_failed" translatable="false">Project backup failed</string>
+    <string name="project_restore_done" translatable="false">Project restored</string>
+    <string name="project_restore_failed" translatable="false">Project restore failed</string>
+    <string name="project_restored_keys" translatable="false">Signing keys restored</string>
+    <string name="project_status_github" translatable="false">GitHub</string>
+    <string name="project_status_signiffia" translatable="false">Signiffia</string>
+    <string name="project_status_cloud" translatable="false">Cloud</string>
+    <string name="project_status_details_title" translatable="false">Project status</string>
+    <string name="project_status_refresh" translatable="false">Refresh</string>
+    <string name="project_status_synced" translatable="false">Connected and synced</string>
+    <string name="project_status_not_connected" translatable="false">Not connected to a remote</string>
+    <string name="project_status_unsynced" translatable="false">Uncommitted or unpushed changes</string>
+    <string name="project_status_check_failed" translatable="false">Status check failed</string>
+    <string name="project_status_not_verified" translatable="false">Sync not verified</string>
+    <string name="project_status_no_key" translatable="false">No signing key bound</string>
+    <string name="project_status_missing_key" translatable="false">Bound key missing from the vault</string>
+    <string name="project_status_keys_saved" translatable="false">Keys saved and verified</string>
+    <string name="project_status_backup_ok" translatable="false">Backup successful</string>
+    <string name="project_status_not_configured" translatable="false">Cloud backup not configured</string>
+    <string name="project_status_no_backup" translatable="false">No backup yet</string>
+    <string name="project_status_backup_failed" translatable="false">Last backup failed</string>
+    <string name="project_backup_now" translatable="false">Back up now</string>
+    <string name="project_restore_project" translatable="false">Restore project</string>
+    <string name="project_restore_keys" translatable="false">Restore keys only</string>
+    <string name="project_cloud_settings" translatable="false">Cloud backup settings</string>
+    <string name="project_create_signing" translatable="false">Signing key</string>
+    <string name="project_create_signing_none" translatable="false">None (test project)</string>
+    <string name="project_create_signing_new" translatable="false">Create new key</string>
+    <string name="project_create_signing_existing" translatable="false">Use existing key</string>
+    <string name="project_load_existing" translatable="false">Load existing project</string>
+    <string name="project_load_from_cloud" translatable="false">Load from cloud backup</string>
+    <string name="project_load_passphrase" translatable="false">Backup passphrase</string>
+    <string name="project_load_list" translatable="false">List backups</string>
+    <string name="project_load_no_backups" translatable="false">No project backups found in this folder</string>
+    <string name="project_load_select" translatable="false">Select a project to restore</string>
     <string name="signing_vault_busy" translatable="false">Working…</string>
     <string name="signing_vault_create" translatable="false">Create key</string>
     <string name="signing_vault_import" translatable="false">Import</string>

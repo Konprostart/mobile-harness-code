@@ -230,7 +230,13 @@ import com.mobileharness.code.signing.VerificationReport
 import com.mobileharness.code.cloud.CloudProviderSpec
 import com.mobileharness.code.cloud.CloudStorageRegistry
 import com.mobileharness.code.cloud.ConnectionKind
+import com.mobileharness.code.cloud.GitStatusInspector
 import com.mobileharness.code.cloud.LocalDirectoryStorageProvider
+import com.mobileharness.code.cloud.ProjectBackupManager
+import com.mobileharness.code.cloud.ProjectCloudBackup
+import com.mobileharness.code.cloud.ProjectCloudBackupStore
+import com.mobileharness.code.cloud.ProjectStatusEngine
+import com.mobileharness.code.cloud.ProjectStatuses
 import com.mobileharness.code.cloud.SafDirectoryStorageProvider
 import com.mobileharness.code.cloud.SigningCloudBackupManager
 import com.mobileharness.code.cloud.SigningCloudConfig
@@ -704,6 +710,14 @@ data class SigningCloudUiState(
     val message: String? = null,
 )
 
+/** State for the per-project cloud backup / restore / load-existing flows. */
+data class ProjectBackupUiState(
+    val busy: Boolean = false,
+    val message: String? = null,
+    val loadingSlugs: Boolean = false,
+    val availableSlugs: List<String> = emptyList(),
+)
+
 data class AppUiState(
     val startupStage: StartupStage = StartupStage.CHECKING,
     val startupProgress: Float = 0f,
@@ -725,6 +739,7 @@ data class AppUiState(
     val apiPingStatus: ApiPingStatus = ApiPingStatus.IDLE,
     val apiPingMessage: String? = null,
     val projects: List<Project> = emptyList(),
+    val projectStatuses: Map<String, ProjectStatuses> = emptyMap(),
     val projectImporting: Boolean = false,
     val projectImportMessage: String? = null,
     val gitCloneRunning: Boolean = false,
@@ -858,6 +873,7 @@ data class AppUiState(
     val releaseUi: ReleaseUiState = ReleaseUiState(),
     val signingVault: SigningVaultUiState = SigningVaultUiState(),
     val signingCloud: SigningCloudUiState = SigningCloudUiState(),
+    val projectBackup: ProjectBackupUiState = ProjectBackupUiState(),
     val serverSyncConfig: ServerSyncConfig = ServerSyncConfig(),
     val serverSyncDukoiTokenConfigured: Boolean = false,
     val sidekickFloatingButton: Boolean = false,
@@ -985,6 +1001,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         KeyRepository(File(getApplication<Application>().filesDir, "signing-vault"), signingCipher)
     }
     private val signingCloudManager by lazy { SigningCloudBackupManager(signingKeys) }
+    private val projectBackupManager by lazy { ProjectBackupManager() }
     private val advancedSkills by lazy {
         AdvancedSkillStore(
             File(getApplication<Application>().filesDir, "skills-vault").apply { mkdirs() },
@@ -2945,6 +2962,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch(Dispatchers.IO) {
             val keys = runCatching { signingKeys.list() }.getOrDefault(emptyList())
             _state.update { it.copy(signingVault = it.signingVault.copy(keys = keys, loading = false)) }
+            refreshProjectStatuses()
         }
     }
 
@@ -3295,6 +3313,316 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     onFailure = { e -> e.message ?: str(R.string.signing_cloud_failed) },
                 ),
             ))
+        }
+    }
+
+    // --- Per-project status, Signiffia binding & cloud backup (Phase 6.5) -------------------
+
+    private fun projectCloudConfig(projectId: String): ProjectCloudBackup =
+        ProjectCloudBackupStore.get(preferences.projectCloudBackupsJson, projectId)
+
+    private fun saveProjectCloudConfig(projectId: String, config: ProjectCloudBackup) {
+        preferences.projectCloudBackupsJson =
+            ProjectCloudBackupStore.put(preferences.projectCloudBackupsJson, projectId, config)
+    }
+
+    private fun replaceProject(project: Project) {
+        _state.update { state ->
+            state.copy(
+                projects = state.projects.map { if (it.id == project.id) project else it },
+                activeProject = state.activeProject?.let { if (it.id == project.id) project else it },
+            )
+        }
+        preferences.saveProjects(_state.value.projects)
+    }
+
+    /** Recomputes the three honest status lamps for every project (runs git per workspace on IO). */
+    fun refreshProjectStatuses() {
+        viewModelScope.launch(Dispatchers.IO) {
+            val vaultIds = runCatching { signingKeys.list().map { it.id }.toSet() }.getOrDefault(emptySet())
+            val projects = _state.value.projects
+            val filesDir = getApplication<Application>().filesDir
+            val statuses = projects.associate { project ->
+                val workspace = File(filesDir, "workspaces/${project.id}")
+                val git = GitStatusInspector.inspect(workspace, runGit = true)
+                val cloud = ProjectCloudBackupStore.get(preferences.projectCloudBackupsJson, project.id)
+                project.id to ProjectStatusEngine.compute(project, git, vaultIds, cloud)
+            }
+            _state.update { it.copy(projectStatuses = statuses) }
+        }
+    }
+
+    fun setProjectCloudEnabled(projectId: String, enabled: Boolean) {
+        saveProjectCloudConfig(projectId, projectCloudConfig(projectId).copy(enabled = enabled))
+        refreshProjectStatuses()
+        if (enabled) maybeAutoBackupProject(projectId)
+    }
+
+    fun setProjectCloudProvider(projectId: String, providerId: String) {
+        saveProjectCloudConfig(projectId, projectCloudConfig(projectId).copy(providerId = providerId, connection = ""))
+        refreshProjectStatuses()
+    }
+
+    fun setProjectCloudConnection(projectId: String, connection: String) {
+        saveProjectCloudConfig(projectId, projectCloudConfig(projectId).copy(connection = connection))
+        refreshProjectStatuses()
+    }
+
+    fun setProjectCloudAutoBackup(projectId: String, autoBackup: Boolean) {
+        saveProjectCloudConfig(projectId, projectCloudConfig(projectId).copy(autoBackup = autoBackup))
+    }
+
+    fun setProjectCloudKeepVersions(projectId: String, keepVersions: Int) {
+        val clamped = keepVersions.coerceIn(SigningCloudConfig.MIN_KEEP_VERSIONS, SigningCloudConfig.MAX_KEEP_VERSIONS)
+        saveProjectCloudConfig(projectId, projectCloudConfig(projectId).copy(keepVersions = clamped))
+    }
+
+    fun setProjectCloudPassphrase(projectId: String, passphrase: String) {
+        val enc = if (passphrase.isBlank()) "" else signingCipher.encrypt(passphrase)
+        saveProjectCloudConfig(projectId, projectCloudConfig(projectId).copy(passphraseEnc = enc))
+    }
+
+    fun bindSigningKeyToProject(projectId: String, keyId: String) {
+        val project = _state.value.projects.firstOrNull { it.id == projectId } ?: return
+        replaceProject(project.copy(signingKeyIds = (project.signingKeyIds + keyId).distinct()))
+        refreshProjectStatuses()
+    }
+
+    fun unbindSigningKeyFromProject(projectId: String, keyId: String) {
+        val project = _state.value.projects.firstOrNull { it.id == projectId } ?: return
+        replaceProject(project.copy(signingKeyIds = project.signingKeyIds - keyId))
+        refreshProjectStatuses()
+    }
+
+    fun connectProjectCloud(projectId: String) {
+        viewModelScope.launch(Dispatchers.IO) {
+            _state.update { it.copy(projectBackup = it.projectBackup.copy(busy = true, message = null)) }
+            val config = projectCloudConfig(projectId)
+            val result = runCatching {
+                val provider = CloudStorageRegistry.create(config.providerId, config.connection)
+                provider.connect()
+                provider.list("")
+                provider.disconnect()
+            }
+            _state.update {
+                it.copy(projectBackup = it.projectBackup.copy(
+                    busy = false,
+                    message = result.fold(
+                        onSuccess = { str(R.string.project_cloud_connected) },
+                        onFailure = { e -> e.message ?: str(R.string.project_cloud_connect_failed) },
+                    ),
+                ))
+            }
+        }
+    }
+
+    fun backupProjectNow(projectId: String) {
+        viewModelScope.launch(Dispatchers.IO) { runProjectBackup(projectId) }
+    }
+
+    private fun maybeAutoBackupProject(projectId: String) {
+        val config = projectCloudConfig(projectId)
+        if (!config.enabled || !config.autoBackup || !config.passphraseConfigured || config.connection.isBlank()) return
+        viewModelScope.launch(Dispatchers.IO) { runProjectBackup(projectId) }
+    }
+
+    private fun runProjectBackup(projectId: String) {
+        if (_state.value.projectBackup.busy) return
+        val project = _state.value.projects.firstOrNull { it.id == projectId } ?: return
+        if (project.signingKeyIds.isEmpty()) {
+            _state.update { it.copy(projectBackup = it.projectBackup.copy(message = str(R.string.project_backup_no_key))) }
+            return
+        }
+        val config = projectCloudConfig(projectId)
+        _state.update { it.copy(projectBackup = it.projectBackup.copy(busy = true, message = null)) }
+        val result = runCatching {
+            val records = project.signingKeyIds.mapNotNull { signingKeys.get(it) }
+            val entries = signingKeys.backupEntries(records)
+            val provider = CloudStorageRegistry.create(config.providerId, config.connection)
+            if (!provider.isConnected) provider.connect()
+            val passphrase = signingCipher.decrypt(config.passphraseEnc)?.toCharArray()
+                ?: throw IllegalStateException(str(R.string.signing_cloud_passphrase_missing))
+            try {
+                projectBackupManager.backup(
+                    provider, project, projectWorkspaceRoot(project), entries,
+                    passphrase, config.keepVersions, cloudTempDir(),
+                )
+            } finally {
+                passphrase.fill('\u0000')
+            }
+        }
+        result.fold(
+            onSuccess = { outcome ->
+                saveProjectCloudConfig(projectId, config.copy(
+                    lastBackupAt = outcome.timestamp,
+                    lastBackupFingerprints = outcome.fingerprints,
+                    lastBackupError = "",
+                ))
+            },
+            onFailure = { e ->
+                saveProjectCloudConfig(projectId, config.copy(lastBackupError = e.message ?: e.javaClass.simpleName))
+            },
+        )
+        refreshProjectStatuses()
+        _state.update {
+            it.copy(projectBackup = it.projectBackup.copy(
+                busy = false,
+                message = result.fold(
+                    onSuccess = { str(R.string.project_backup_done) },
+                    onFailure = { e -> e.message ?: str(R.string.project_backup_failed) },
+                ),
+            ))
+        }
+    }
+
+    /** Restores the newest backup for a project: source + `.git` + bound keys (fingerprints verified). */
+    fun restoreProjectFromCloud(projectId: String) {
+        val project = _state.value.projects.firstOrNull { it.id == projectId } ?: return
+        val config = projectCloudConfig(projectId)
+        if (!config.passphraseConfigured || config.connection.isBlank()) {
+            _state.update { it.copy(projectBackup = it.projectBackup.copy(message = str(R.string.signing_cloud_passphrase_missing))) }
+            return
+        }
+        viewModelScope.launch(Dispatchers.IO) {
+            _state.update { it.copy(projectBackup = it.projectBackup.copy(busy = true, message = null)) }
+            val result = runCatching {
+                val provider = CloudStorageRegistry.create(config.providerId, config.connection)
+                if (!provider.isConnected) provider.connect()
+                val passphrase = signingCipher.decrypt(config.passphraseEnc)?.toCharArray()
+                    ?: throw IllegalStateException(str(R.string.signing_cloud_passphrase_missing))
+                try {
+                    val outcome = projectBackupManager.restore(
+                        provider, project.slug, passphrase, projectWorkspaceRoot(project), cloudTempDir(),
+                    )
+                    remapBoundKeys(outcome.project.signingKeyIds, outcome.keys)
+                } finally {
+                    passphrase.fill('\u0000')
+                }
+            }
+            result.fold(
+                onSuccess = { replaceProject(project.copy(signingKeyIds = it)) },
+                onFailure = { },
+            )
+            refreshProjectStatuses()
+            _state.update {
+                it.copy(projectBackup = it.projectBackup.copy(
+                    busy = false,
+                    message = result.fold(
+                        onSuccess = { str(R.string.project_restore_done) },
+                        onFailure = { e -> e.message ?: str(R.string.project_restore_failed) },
+                    ),
+                ))
+            }
+        }
+    }
+
+    /** Restores only the bound signing keys for a project (fingerprints verified), leaving source intact. */
+    fun restoreProjectKeysOnlyFromCloud(projectId: String) {
+        val project = _state.value.projects.firstOrNull { it.id == projectId } ?: return
+        val config = projectCloudConfig(projectId)
+        if (!config.passphraseConfigured || config.connection.isBlank()) {
+            _state.update { it.copy(projectBackup = it.projectBackup.copy(message = str(R.string.signing_cloud_passphrase_missing))) }
+            return
+        }
+        viewModelScope.launch(Dispatchers.IO) {
+            _state.update { it.copy(projectBackup = it.projectBackup.copy(busy = true, message = null)) }
+            val result = runCatching {
+                val provider = CloudStorageRegistry.create(config.providerId, config.connection)
+                if (!provider.isConnected) provider.connect()
+                val passphrase = signingCipher.decrypt(config.passphraseEnc)?.toCharArray()
+                    ?: throw IllegalStateException(str(R.string.signing_cloud_passphrase_missing))
+                try {
+                    val keys = projectBackupManager.restoreKeysOnly(provider, project.slug, passphrase, cloudTempDir())
+                    remapBoundKeys(project.signingKeyIds, keys)
+                } finally {
+                    passphrase.fill('\u0000')
+                }
+            }
+            result.fold(
+                onSuccess = { replaceProject(project.copy(signingKeyIds = it)) },
+                onFailure = { },
+            )
+            refreshProjectStatuses()
+            _state.update {
+                it.copy(projectBackup = it.projectBackup.copy(
+                    busy = false,
+                    message = result.fold(
+                        onSuccess = { str(R.string.project_restored_keys) },
+                        onFailure = { e -> e.message ?: str(R.string.project_restore_failed) },
+                    ),
+                ))
+            }
+        }
+    }
+
+    /** Restores keys into the vault and remaps the project's bound ids to the (possibly new) records. */
+    private fun remapBoundKeys(boundIds: List<String>, keys: List<com.mobileharness.code.signing.BackupEntry>): List<String> {
+        if (keys.isEmpty()) return boundIds
+        val restoredRecords = signingKeys.restore(keys)
+        val idMap = keys.zip(restoredRecords).associate { (entry, record) -> entry.id to record.id }
+        return boundIds.map { idMap[it] ?: it }
+    }
+
+    fun listProjectSlugsFromCloud(providerId: String, connection: String) {
+        viewModelScope.launch(Dispatchers.IO) {
+            _state.update { it.copy(projectBackup = it.projectBackup.copy(loadingSlugs = true, message = null)) }
+            val result = runCatching {
+                val provider = CloudStorageRegistry.create(providerId, connection)
+                if (!provider.isConnected) provider.connect()
+                projectBackupManager.listProjectSlugs(provider)
+            }
+            _state.update {
+                it.copy(projectBackup = it.projectBackup.copy(
+                    loadingSlugs = false,
+                    availableSlugs = result.getOrDefault(emptyList()),
+                    message = result.fold({ null }, { e -> e.message }),
+                ))
+            }
+        }
+    }
+
+    fun clearProjectBackupSlugs() {
+        _state.update { it.copy(projectBackup = it.projectBackup.copy(availableSlugs = emptyList())) }
+    }
+
+    /** Loads an existing project backup from cloud into a fresh workspace and vault entry. */
+    fun loadExistingProjectFromCloud(slug: String, providerId: String, connection: String, passphrase: String) {
+        if (_state.value.isRunning || _state.value.projectTerminalRunning || _state.value.androidBuildRunning) return
+        viewModelScope.launch(Dispatchers.IO) {
+            _state.update { it.copy(projectBackup = it.projectBackup.copy(busy = true, message = null)) }
+            val result = runCatching {
+                val provider = CloudStorageRegistry.create(providerId, connection)
+                if (!provider.isConnected) provider.connect()
+                val pass = passphrase.toCharArray()
+                try {
+                    val projectId = java.util.UUID.randomUUID().toString()
+                    val target = File(getApplication<Application>().filesDir, "workspaces/$projectId")
+                    val outcome = projectBackupManager.restore(provider, slug, pass, target, cloudTempDir())
+                    val restoredRecords = signingKeys.restore(outcome.keys)
+                    val idMap = outcome.keys.zip(restoredRecords).associate { (entry, record) -> entry.id to record.id }
+                    val boundIds = outcome.project.signingKeyIds.map { idMap[it] ?: it }
+                    outcome.project.copy(id = projectId, signingKeyIds = boundIds)
+                } finally {
+                    pass.fill('\u0000')
+                }
+            }
+            result.onSuccess { project ->
+                val firstChat = ProjectChat(title = str(R.string.vm_new_chat))
+                preferences.saveProjectChats(project.id, listOf(firstChat))
+                _state.update { current ->
+                    current.copy(
+                        projects = listOf(project) + current.projects,
+                        projectBackup = current.projectBackup.copy(busy = false, message = str(R.string.project_restore_done)),
+                    )
+                }
+                preferences.saveProjects(_state.value.projects)
+                openProject(project)
+                refreshProjectStatuses()
+            }.onFailure { e ->
+                _state.update {
+                    it.copy(projectBackup = it.projectBackup.copy(busy = false, message = e.message ?: str(R.string.project_restore_failed)))
+                }
+            }
         }
     }
 
@@ -6593,7 +6921,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     fun consumeToast() = _state.update { it.copy(toastMessage = null) }
 
-    fun createProject(name: String) {
+    fun createProject(name: String, signingKeyIds: List<String> = emptyList(), cloudEnabled: Boolean = false) {
         if (name.isBlank()) return
         if (_state.value.isRunning || _state.value.projectTerminalRunning || _state.value.androidBuildRunning) {
             _state.update { it.copy(toastMessage = str(R.string.vm_stop_before_new_project)) }
@@ -6609,6 +6937,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             description = str(R.string.vm_starter_web_project),
             language = "TypeScript",
             slug = slug,
+            signingKeyIds = signingKeyIds,
         )
         configureBridgeRoots(project.id, project.rootPath)
         val guestRoot = projectGuestRoot(project)
@@ -6640,13 +6969,15 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
         preferences.saveProjects(_state.value.projects)
         File(getApplication<Application>().filesDir, "workspaces/${project.id}").mkdirs()
+        if (cloudEnabled) saveProjectCloudConfig(project.id, projectCloudConfig(project.id).copy(enabled = true, autoBackup = true))
         val firstChat = ProjectChat(title = str(R.string.vm_new_chat))
         preferences.saveProjectChats(project.id, listOf(firstChat))
         _state.update { it.copy(projectChats = listOf(firstChat), activeChatId = firstChat.id) }
         refreshProjectFiles()
+        refreshProjectStatuses()
     }
 
-    fun createAndroidProject(name: String, template: AndroidTemplate) {
+    fun createAndroidProject(name: String, template: AndroidTemplate, signingKeyIds: List<String> = emptyList(), cloudEnabled: Boolean = false) {
         if (name.isBlank()) return
         if (_state.value.isRunning || _state.value.projectTerminalRunning || _state.value.androidBuildRunning) {
             _state.update { it.copy(toastMessage = str(R.string.an_stop_before_new_project)) }
@@ -6669,6 +7000,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             slug = slug,
             type = ProjectType.ANDROID,
             androidTemplate = template,
+            signingKeyIds = signingKeyIds,
         )
         val workspace = File(getApplication<Application>().filesDir, "workspaces/${project.id}")
         runCatching { AndroidProjectTemplateGenerator.generate(workspace, cleanName, template, resolveGradleMemoryProfile()) }
@@ -6680,9 +7012,49 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         preferences.saveProjectChats(project.id, listOf(firstChat))
         _state.update { it.copy(projects = listOf(project) + it.projects) }
         preferences.saveProjects(_state.value.projects)
+        if (cloudEnabled) saveProjectCloudConfig(project.id, projectCloudConfig(project.id).copy(enabled = true, autoBackup = true))
         openProject(project)
         if (!installer.isStackInstalled(DevStack.ANDROID)) {
             _state.update { it.copy(toastMessage = str(R.string.an_android_project_created_install_tools)) }
+        }
+        refreshProjectStatuses()
+    }
+
+    /** Creates a new signing key and immediately binds it to a newly created project. */
+    fun createProjectWithNewKey(
+        name: String,
+        template: AndroidTemplate?,
+        keyDisplayName: String,
+        alias: String,
+        password: String,
+        cloudEnabled: Boolean,
+    ) {
+        if (name.isBlank()) return
+        if (_state.value.isRunning || _state.value.projectTerminalRunning || _state.value.androidBuildRunning) return
+        viewModelScope.launch(Dispatchers.IO) {
+            val spec = KeystoreTools.KeyGenSpec(
+                alias = alias.trim().ifBlank { "signing" },
+                password = password.toCharArray(),
+                keyAlgorithm = "RSA",
+                keySize = 4096,
+                validityDays = 10950,
+                commonName = name.trim().take(60).ifBlank { "Mobile Harness Code" },
+                organization = "",
+                countryCode = "",
+            )
+            val result = runCatching { signingKeys.createGenerated(spec, keyDisplayName.trim()) }
+            withContext(Dispatchers.Main) {
+                result.onSuccess { record ->
+                    refreshSigningKeys()
+                    if (template != null) {
+                        createAndroidProject(name, template, listOf(record.id), cloudEnabled)
+                    } else {
+                        createProject(name, listOf(record.id), cloudEnabled)
+                    }
+                }.onFailure { error ->
+                    _state.update { it.copy(toastMessage = error.message ?: str(R.string.signing_vault_failed)) }
+                }
+            }
         }
     }
 
@@ -6705,6 +7077,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         _state.update { it.copy(projects = listOf(project) + it.projects) }
         preferences.saveProjects(_state.value.projects)
         openProject(project)
+        refreshProjectStatuses()
     }
 
     fun importZipProject(uri: Uri) {
@@ -6727,6 +7100,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 preferences.saveProjects(_state.value.projects)
                 openProject(project)
                 _state.update { it.copy(pendingAttachments = listOf(imported.sourceAttachment)) }
+                refreshProjectStatuses()
             }.onFailure { error ->
                 _state.update {
                     it.copy(
@@ -7151,6 +7525,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                             language = metadata.second,
                             slug = identity.slug,
                             kind = ProjectKind.QUICK_PROJECT,
+                            gitRemoteUrl = normalized,
                         )
                     } catch (error: Throwable) {
                         workspace.deleteRecursively()
@@ -7167,6 +7542,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 preferences.saveProjects(_state.value.projects)
                 openProject(project)
                 _state.update { it.copy(gitCloneRunning = false, gitCloneMessage = null, toastMessage = str(R.string.vm_repository_cloned)) }
+                refreshProjectStatuses()
             }.onFailure { error ->
                 _state.update {
                     it.copy(
@@ -7637,6 +8013,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         if (_state.value.activeProject?.id == projectId || _state.value.isRunning || _state.value.projectTerminalRunning || _state.value.androidBuildRunning) return
         _state.update { current -> current.copy(projects = current.projects.filterNot { it.id == projectId }) }
         preferences.saveProjects(_state.value.projects)
+        preferences.projectCloudBackupsJson = ProjectCloudBackupStore.remove(preferences.projectCloudBackupsJson, projectId)
         folderMetadataCache.keys.removeAll { it.startsWith("$projectId:") }
         viewModelScope.launch(Dispatchers.IO) {
             val filesDir = getApplication<Application>().filesDir
@@ -7645,6 +8022,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             androidBuildRecordFile(project.id).delete()
             preferences.deleteProjectChats(project.id)
         }
+        refreshProjectStatuses()
     }
 
     private fun detectNestedProjectRoot(project: Project): String? {

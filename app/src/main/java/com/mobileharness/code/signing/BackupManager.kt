@@ -179,28 +179,64 @@ object BackupManager {
         if (keys.isEmpty()) throw BackupException("Backup ne sadrži nijedan ključ.")
 
         if (verifyKeys) {
-            val workDir = tempDir ?: file.parentFile ?: File(".")
-            workDir.mkdirs()
-            keys.forEach { entry ->
-                val temp = File(workDir, "backup-check-" + entry.id + ".keystore")
-                try {
-                    temp.writeBytes(entry.keystoreBytes)
-                    try {
-                        KeystoreTools.verifyKeystore(temp, entry.storePassword, entry.fingerprintSha256)
-                    } catch (e: KeystoreException) {
-                        throw BackupException(
-                            "Backup nije ispravan (${entry.displayName}): ${e.message}", e
-                        )
-                    }
-                } finally {
-                    temp.delete()
-                }
-            }
+            verifyKeyEntries(keys, tempDir ?: file.parentFile ?: File("."))
         }
         return BackupSummary(manifest.createdAt, manifest.appLabel, keys)
     }
 
+    /**
+     * Encodes key entries into the same inner ZIP layout a `.sgnbak` uses (manifest + keystores)
+     * but WITHOUT the outer AES-GCM encryption. Used by the per-project backup container, which
+     * applies its own encryption around the whole project (source + keys) in one pass.
+     */
+    fun encodeKeysArchive(entries: List<BackupEntry>): ByteArray {
+        if (entries.isEmpty()) throw BackupException("Nema ključeva za backup.")
+        return buildZip(entries)
+    }
+
+    /**
+     * Decodes an inner keys ZIP (produced by [encodeKeysArchive]). When [verifyKeys] is true each
+     * keystore is opened with its stored password and its certificate fingerprint is compared with
+     * the manifest before being returned.
+     */
+    fun decodeKeysArchive(
+        bytes: ByteArray,
+        verifyKeys: Boolean = false,
+        tempDir: File? = null,
+    ): List<BackupEntry> {
+        val archive = readZip(bytes)
+        val manifest = archive[MANIFEST]?.let { parseManifest(it) }
+            ?: throw BackupException("Backup nema manifest.")
+        val keys = manifest.keys.map { entry ->
+            val data = archive[entry.fileName]
+                ?: throw BackupException("Backup ne sadrži fajl ${entry.fileName}.")
+            entry.toBackupEntry(data)
+        }
+        if (keys.isEmpty()) throw BackupException("Backup ne sadrži nijedan ključ.")
+        if (verifyKeys) verifyKeyEntries(keys, tempDir ?: File("."))
+        return keys
+    }
+
     // ---------------------------------------------------------------- internals
+
+    private fun verifyKeyEntries(keys: List<BackupEntry>, workDir: File) {
+        workDir.mkdirs()
+        keys.forEach { entry ->
+            val temp = File(workDir, "backup-check-" + entry.id + ".keystore")
+            try {
+                temp.writeBytes(entry.keystoreBytes)
+                try {
+                    KeystoreTools.verifyKeystore(temp, entry.storePassword, entry.fingerprintSha256)
+                } catch (e: KeystoreException) {
+                    throw BackupException(
+                        "Backup nije ispravan (${entry.displayName}): ${e.message}", e
+                    )
+                }
+            } finally {
+                temp.delete()
+            }
+        }
+    }
 
     private data class ManifestKey(
         val id: String,
