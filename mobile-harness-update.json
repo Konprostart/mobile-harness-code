@@ -1,12 +1,12 @@
 {
-  "versionCode": 50,
-  "versionName": "1.19.6",
-  "notes": "Mobile Harness Code v1.19.6 \u2014 optional central GROM server connection. A single \"Connect GROM Server\" switch (OFF by default) in Settings adds connect discovery, API compatibility checks, scoped password/Ed25519 authentication, service listing and a Free LLM API bridge. Free LLM API over Grom honestly reports \"not available\" until a Grom service publishes the llm.proxy capability (Grom v0.16.0 ships only the agent and lightning services). Existing agents, providers, RuntimeBridge and Standard Mode are unchanged. Signed (V2) with the unchanged production certificate.",
+  "versionCode": 51,
+  "versionName": "1.19.7",
+  "notes": "Mobile Harness Code v1.19.7 — universal automatic signing-key cloud backup. A provider-based cloud storage layer (Google Drive or any folder via Android's storage framework, plus a pluggable interface for future providers) automatically backs up the whole Signing Key Vault as passphrase-encrypted .sgnbak containers after a key is added or changed, keeps several versions, and restores them on a new phone with certificate-fingerprint verification. One optional ON/OFF switch in Settings. Existing agents, providers, RuntimeBridge and Standard Mode are unchanged. Signed (V2) with the unchanged production certificate.",
   "artifacts": {
     "online": {
-      "url": "https://github.com/Konprostart/mobile-harness-code/releases/download/v1.19.6/mobile-harness-online.apk",
-      "sha256": "60cd2fd18a24456f70ef3a184f816c8e5197cc9de4a11f35715d7d2c24b6d7c4",
-      "sizeBytes": 110604536
+      "url": "https://github.com/Konprostart/mobile-harness-code/releases/download/v1.19.7/mobile-harness-online.apk",
+      "sha256": "b329c4777ce21b4147b10a7e7848a3cfe889190d0d513d08a767368aa954ab0e",
+      "sizeBytes": 110752288
     }
   }
 }
