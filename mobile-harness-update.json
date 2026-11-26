@@ -1,12 +1,12 @@
 {
-  "versionCode": 51,
-  "versionName": "1.19.7",
-  "notes": "Mobile Harness Code v1.19.7 — universal automatic signing-key cloud backup. A provider-based cloud storage layer (Google Drive or any folder via Android's storage framework, plus a pluggable interface for future providers) automatically backs up the whole Signing Key Vault as passphrase-encrypted .sgnbak containers after a key is added or changed, keeps several versions, and restores them on a new phone with certificate-fingerprint verification. One optional ON/OFF switch in Settings. Existing agents, providers, RuntimeBridge and Standard Mode are unchanged. Signed (V2) with the unchanged production certificate.",
+  "versionCode": 52,
+  "versionName": "1.19.8",
+  "notes": "Mobile Harness Code v1.19.8 — per-project protection and portability. Every workspace project now shows three honest status lamps (GitHub / Signiffia / Cloud) and can be backed up and restored independently: source code + .git history + bound signing keys encrypted in one container, version retention, fingerprint-verified restore, keys-only restore, and \"Load existing project\" from a storage folder (Google Drive or any folder via the storage framework). The new-project flow gains a signing-key step (none / existing / new) with optional auto-backup, so the original key is protected from the very first build. Providers, agents, RuntimeBridge and Standard Mode are unchanged. Signed (V2) with the unchanged production certificate.",
   "artifacts": {
     "online": {
-      "url": "https://github.com/Konprostart/mobile-harness-code/releases/download/v1.19.7/mobile-harness-online.apk",
-      "sha256": "b329c4777ce21b4147b10a7e7848a3cfe889190d0d513d08a767368aa954ab0e",
-      "sizeBytes": 110752288
+      "url": "https://github.com/Konprostart/mobile-harness-code/releases/download/v1.19.8/mobile-harness-online.apk",
+      "sha256": "7d798aaa1ba3ce0cc295b7a47018464aa2be357570ee2c2f0e67e292f80f3d70",
+      "sizeBytes": 110915929
     }
   }
 }
