@@ -227,6 +227,13 @@ import com.mobileharness.code.signing.SigningEngine
 import com.mobileharness.code.signing.SigningIdentity
 import com.mobileharness.code.signing.SplitArchive
 import com.mobileharness.code.signing.VerificationReport
+import com.mobileharness.code.cloud.CloudProviderSpec
+import com.mobileharness.code.cloud.CloudStorageRegistry
+import com.mobileharness.code.cloud.ConnectionKind
+import com.mobileharness.code.cloud.LocalDirectoryStorageProvider
+import com.mobileharness.code.cloud.SafDirectoryStorageProvider
+import com.mobileharness.code.cloud.SigningCloudBackupManager
+import com.mobileharness.code.cloud.SigningCloudConfig
 import com.mobileharness.code.update.AppUpdateInfo
 import com.mobileharness.code.update.AppUpdater
 import com.mobileharness.code.hooks.HookRule
@@ -688,6 +695,15 @@ data class SigningVaultUiState(
     val report: String? = null,
 )
 
+/** State for the optional automatic signing-key cloud backup (Phase 6.4). */
+data class SigningCloudUiState(
+    val config: SigningCloudConfig = SigningCloudConfig(),
+    val providers: List<CloudProviderSpec> = emptyList(),
+    val connected: Boolean = false,
+    val busy: Boolean = false,
+    val message: String? = null,
+)
+
 data class AppUiState(
     val startupStage: StartupStage = StartupStage.CHECKING,
     val startupProgress: Float = 0f,
@@ -841,6 +857,7 @@ data class AppUiState(
     val gradleEffectiveMetaspaceMb: Int = 768,
     val releaseUi: ReleaseUiState = ReleaseUiState(),
     val signingVault: SigningVaultUiState = SigningVaultUiState(),
+    val signingCloud: SigningCloudUiState = SigningCloudUiState(),
     val serverSyncConfig: ServerSyncConfig = ServerSyncConfig(),
     val serverSyncDukoiTokenConfigured: Boolean = false,
     val sidekickFloatingButton: Boolean = false,
@@ -967,6 +984,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val signingKeys by lazy {
         KeyRepository(File(getApplication<Application>().filesDir, "signing-vault"), signingCipher)
     }
+    private val signingCloudManager by lazy { SigningCloudBackupManager(signingKeys) }
     private val advancedSkills by lazy {
         AdvancedSkillStore(
             File(getApplication<Application>().filesDir, "skills-vault").apply { mkdirs() },
@@ -1003,6 +1021,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     init {
         schedulerStore.load(preferences.autoPromptTasksJson)
         autoPromptHistory.load(preferences.autoPromptHistoryJson)
+        registerCloudStorageProviders()
         startAutoPromptTicker()
     }
 
@@ -1110,6 +1129,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             onboardingComplete = preferences.onboardingComplete,
             backgroundSetupComplete = preferences.backgroundSetupComplete,
             initialLanguageSelected = preferences.initialLanguageSelected,
+            signingCloud = SigningCloudUiState(config = cloudConfig(), providers = CloudStorageRegistry.list()),
             agentKind = initialAgentKind,
             primaryAgentKind = initialPrimaryAgentKind,
             provider = preferences.loadProvider(vault, initialAgentKind),
@@ -2970,6 +2990,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     ),
                 )
             }
+            if (result.isSuccess) maybeAutoBackupSigning()
         }
     }
 
@@ -3003,6 +3024,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     ),
                 )
             }
+            if (result.isSuccess) maybeAutoBackupSigning()
         }
     }
 
@@ -3020,6 +3042,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     ),
                 )
             }
+            if (result.isSuccess) maybeAutoBackupSigning()
         }
     }
 
@@ -3094,6 +3117,184 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     ),
                 )
             }
+        }
+    }
+
+    // --- Signing Key Cloud Backup (Phase 6.4) ---------------------------------------------
+
+    private fun cloudConfig(): SigningCloudConfig =
+        SigningCloudConfig.fromJson(preferences.signingCloudConfigJson)
+
+    private fun saveCloudConfig(config: SigningCloudConfig) {
+        preferences.signingCloudConfigJson = SigningCloudConfig.toJson(config)
+    }
+
+    private fun cloudTempDir(): File =
+        File(getApplication<Application>().cacheDir, "cloud-backup").apply { mkdirs() }
+
+    private fun registerCloudStorageProviders() {
+        val app = getApplication<Application>()
+        CloudStorageRegistry.register(
+            CloudProviderSpec(
+                LocalDirectoryStorageProvider.PROVIDER_LOCAL,
+                str(R.string.signing_cloud_provider_local),
+                ConnectionKind.NONE,
+            ),
+        ) { connection ->
+            val dir = if (connection.isBlank()) File(app.filesDir, "cloud-signing-backup") else File(connection)
+            LocalDirectoryStorageProvider(dir, LocalDirectoryStorageProvider.PROVIDER_LOCAL, str(R.string.signing_cloud_provider_local))
+        }
+        CloudStorageRegistry.register(
+            CloudProviderSpec(
+                SafDirectoryStorageProvider.PROVIDER_SAF,
+                str(R.string.signing_cloud_provider_saf),
+                ConnectionKind.PICK_FOLDER,
+            ),
+        ) { connection ->
+            SafDirectoryStorageProvider(app, android.net.Uri.parse(connection))
+        }
+    }
+
+    fun refreshSigningCloudState() {
+        val config = cloudConfig()
+        _state.update {
+            it.copy(signingCloud = it.signingCloud.copy(config = config, providers = CloudStorageRegistry.list()))
+        }
+    }
+
+    fun setSigningCloudEnabled(enabled: Boolean) {
+        saveCloudConfig(cloudConfig().copy(enabled = enabled))
+        refreshSigningCloudState()
+        if (enabled) maybeAutoBackupSigning()
+    }
+
+    fun setSigningCloudProvider(providerId: String) {
+        saveCloudConfig(cloudConfig().copy(providerId = providerId, connection = ""))
+        refreshSigningCloudState()
+    }
+
+    fun setSigningCloudConnection(connection: String) {
+        saveCloudConfig(cloudConfig().copy(connection = connection))
+        refreshSigningCloudState()
+    }
+
+    fun setSigningCloudKeepVersions(keepVersions: Int) {
+        val clamped = keepVersions.coerceIn(SigningCloudConfig.MIN_KEEP_VERSIONS, SigningCloudConfig.MAX_KEEP_VERSIONS)
+        saveCloudConfig(cloudConfig().copy(keepVersions = clamped))
+        refreshSigningCloudState()
+    }
+
+    fun setSigningCloudPassphrase(passphrase: String) {
+        val enc = if (passphrase.isBlank()) "" else signingCipher.encrypt(passphrase)
+        saveCloudConfig(cloudConfig().copy(passphraseEnc = enc))
+        refreshSigningCloudState()
+    }
+
+    /** Validates the selected storage (connect + list) and reports the result. */
+    fun connectSigningCloud() {
+        viewModelScope.launch(Dispatchers.IO) {
+            _state.update { it.copy(signingCloud = it.signingCloud.copy(busy = true, message = null)) }
+            val config = cloudConfig()
+            val result = runCatching {
+                val provider = CloudStorageRegistry.create(config.providerId, config.connection)
+                provider.connect()
+                provider.list("")
+                provider.disconnect()
+            }
+            _state.update {
+                it.copy(signingCloud = it.signingCloud.copy(
+                    busy = false,
+                    connected = result.isSuccess,
+                    message = result.fold(
+                        onSuccess = { str(R.string.signing_cloud_connected) },
+                        onFailure = { e -> e.message ?: str(R.string.signing_cloud_failed) },
+                    ),
+                ))
+            }
+        }
+    }
+
+    fun backupSigningCloudNow() {
+        viewModelScope.launch(Dispatchers.IO) { runCloudBackup() }
+    }
+
+    fun restoreSigningCloud() {
+        viewModelScope.launch(Dispatchers.IO) {
+            _state.update { it.copy(signingCloud = it.signingCloud.copy(busy = true, message = null)) }
+            val config = cloudConfig()
+            val result = runCatching {
+                val provider = CloudStorageRegistry.create(config.providerId, config.connection)
+                if (!provider.isConnected) provider.connect()
+                val passphrase = signingCipher.decrypt(config.passphraseEnc)?.toCharArray()
+                    ?: throw IllegalStateException(str(R.string.signing_cloud_passphrase_missing))
+                try {
+                    signingCloudManager.restore(provider, passphrase, cloudTempDir())
+                } finally {
+                    passphrase.fill('\u0000')
+                }
+            }
+            _state.update {
+                it.copy(
+                    signingVault = it.signingVault.copy(keys = runCatching { signingKeys.list() }.getOrDefault(emptyList())),
+                    signingCloud = it.signingCloud.copy(
+                        busy = false,
+                        message = result.fold(
+                            onSuccess = { outcome -> str(R.string.signing_cloud_restored, outcome.restored) },
+                            onFailure = { e -> e.message ?: str(R.string.signing_cloud_failed) },
+                        ),
+                    ),
+                )
+            }
+            result.onSuccess { saveCloudConfig(cloudConfig().copy(lastRestoreAt = System.currentTimeMillis())) }
+        }
+    }
+
+    /**
+     * Backs up every vault key to the configured storage when auto-backup is on. Called after a key
+     * is added/removed and (periodically) while the app is active; it never runs in the OS background.
+     */
+    fun maybeAutoBackupSigning() {
+        val config = cloudConfig()
+        if (!config.enabled || !config.passphraseConfigured || config.connection.isBlank()) return
+        viewModelScope.launch(Dispatchers.IO) { runCloudBackup() }
+    }
+
+    private fun runCloudBackup() {
+        if (_state.value.signingCloud.busy) return
+        _state.update { it.copy(signingCloud = it.signingCloud.copy(busy = true, message = null)) }
+        val config = cloudConfig()
+        val result = runCatching {
+            val provider = CloudStorageRegistry.create(config.providerId, config.connection)
+            if (!provider.isConnected) provider.connect()
+            val passphrase = signingCipher.decrypt(config.passphraseEnc)?.toCharArray()
+                ?: throw IllegalStateException(str(R.string.signing_cloud_passphrase_missing))
+            try {
+                signingCloudManager.backup(provider, passphrase, config.keepVersions, cloudTempDir())
+            } finally {
+                passphrase.fill('\u0000')
+            }
+        }
+        result.fold(
+            onSuccess = { outcome ->
+                saveCloudConfig(config.copy(
+                    lastBackupAt = outcome.timestamp,
+                    lastBackupKeyCount = outcome.keyCount,
+                    lastBackupFingerprints = outcome.fingerprints,
+                    lastBackupError = "",
+                ))
+            },
+            onFailure = { e ->
+                saveCloudConfig(config.copy(lastBackupError = e.message ?: e.javaClass.simpleName))
+            },
+        )
+        _state.update {
+            it.copy(signingCloud = it.signingCloud.copy(
+                busy = false,
+                message = result.fold(
+                    onSuccess = { outcome -> str(R.string.signing_cloud_backed_up, outcome.keyCount) },
+                    onFailure = { e -> e.message ?: str(R.string.signing_cloud_failed) },
+                ),
+            ))
         }
     }
 

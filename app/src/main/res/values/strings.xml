@@ -540,6 +540,33 @@
     <string name="signing_vault_missing" translatable="false">Key not found</string>
     <string name="signing_vault_open_failed" translatable="false">Could not read or write the selected file</string>
     <string name="signing_vault_signed" translatable="false">Signed</string>
+    <string name="signing_cloud_title" translatable="false">Signing Key Cloud Backup</string>
+    <string name="signing_cloud_subtitle" translatable="false">Automatically back up signing keys to cloud storage</string>
+    <string name="signing_cloud_enabled" translatable="false">Automatic cloud backup</string>
+    <string name="signing_cloud_enabled_desc" translatable="false">Back up the signing key vault after a key is added or changed</string>
+    <string name="signing_cloud_provider" translatable="false">Storage</string>
+    <string name="signing_cloud_provider_local" translatable="false">Local folder</string>
+    <string name="signing_cloud_provider_saf" translatable="false">Cloud folder (Google Drive, …)</string>
+    <string name="signing_cloud_connect" translatable="false">Connect storage</string>
+    <string name="signing_cloud_pick_folder" translatable="false">Choose folder</string>
+    <string name="signing_cloud_connected" translatable="false">Storage connected</string>
+    <string name="signing_cloud_not_connected" translatable="false">Not connected</string>
+    <string name="signing_cloud_connection_missing" translatable="false">Choose a folder first</string>
+    <string name="signing_cloud_passphrase" translatable="false">Backup passphrase</string>
+    <string name="signing_cloud_passphrase_desc" translatable="false">Encrypts the .sgnbak container; keep it safe to restore on a new phone</string>
+    <string name="signing_cloud_passphrase_missing" translatable="false">Set a backup passphrase first</string>
+    <string name="signing_cloud_passphrase_set" translatable="false">Passphrase saved</string>
+    <string name="signing_cloud_save_passphrase" translatable="false">Save passphrase</string>
+    <string name="signing_cloud_backup_now" translatable="false">Back up now</string>
+    <string name="signing_cloud_restore" translatable="false">Restore keys</string>
+    <string name="signing_cloud_backed_up" translatable="false">Backed up %1$d key(s)</string>
+    <string name="signing_cloud_restored" translatable="false">Restored %1$d key(s)</string>
+    <string name="signing_cloud_failed" translatable="false">Cloud backup failed</string>
+    <string name="signing_cloud_last_backup" translatable="false">Last backup</string>
+    <string name="signing_cloud_last_backup_none" translatable="false">Never</string>
+    <string name="signing_cloud_keep_versions" translatable="false">Keep versions</string>
+    <string name="signing_cloud_error" translatable="false">Last error: %1$s</string>
+    <string name="signing_cloud_key_count" translatable="false">%1$d key(s) in last backup</string>
     <string name="signing_vault_busy" translatable="false">Working…</string>
     <string name="signing_vault_create" translatable="false">Create key</string>
     <string name="signing_vault_import" translatable="false">Import</string>

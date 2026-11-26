@@ -89,8 +89,8 @@ android {
         targetSdk = if (playBuild) 36 else 28
         // Keep literal defaults so F-Droid's static manifest parser can detect
         // the tagged release. Gradle properties may still override Play builds.
-        versionCode = 50
-        versionName = "1.19.6"
+        versionCode = 51
+        versionName = "1.19.7"
         providers.gradleProperty("appVersionCode").orNull?.toIntOrNull()?.let { versionCode = it }
         providers.gradleProperty("appVersionName").orNull?.let { versionName = it }
 
@@ -208,6 +208,7 @@ dependencies {
     implementation("androidx.lifecycle:lifecycle-runtime-compose:2.8.7")
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.8.7")
     implementation("androidx.lifecycle:lifecycle-viewmodel-ktx:2.8.7")
+    implementation("androidx.documentfile:documentfile:1.0.0")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.9.0")
     implementation("org.apache.commons:commons-compress:1.27.1")
     implementation("com.github.luben:zstd-jni:1.5.7-12@aar")
@@ -257,6 +258,7 @@ val directDependencyLicenses = mapOf(
     "androidx.lifecycle:lifecycle-runtime-compose" to "Apache-2.0",
     "androidx.lifecycle:lifecycle-viewmodel-compose" to "Apache-2.0",
     "androidx.lifecycle:lifecycle-viewmodel-ktx" to "Apache-2.0",
+    "androidx.documentfile:documentfile" to "Apache-2.0",
     "org.jetbrains.kotlinx:kotlinx-coroutines-android" to "Apache-2.0",
     "org.jetbrains.kotlin:kotlin-stdlib" to "Apache-2.0",
     "org.jetbrains.kotlin:kotlin-stdlib-jdk8" to "Apache-2.0",
@@ -285,7 +287,7 @@ val sbomOutputDir = layout.buildDirectory.dir("reports/sbom")
 // defaultConfig literal, overridable via -PappVersionName) instead of a stale
 // hardcoded value. Kept as a separate expression so F-Droid's static parser
 // still sees the literal versionName assignment inside defaultConfig.
-val sbomVersionName = providers.gradleProperty("appVersionName").orNull ?: "1.19.6"
+val sbomVersionName = providers.gradleProperty("appVersionName").orNull ?: "1.19.7"
 
 val generateSbom = tasks.register("generateSbom") {
     group = "verification"

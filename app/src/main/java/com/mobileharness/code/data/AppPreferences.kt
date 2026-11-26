@@ -108,6 +108,15 @@ class AppPreferences(private val context: Context) {
         get() = preferences.getBoolean("backup_feature_seen", false)
         set(value) { preferences.edit().putBoolean("backup_feature_seen", value).apply() }
 
+    /**
+     * Device-local configuration for automatic signing-key cloud backup (SigningCloudConfig JSON).
+     * Device-only: the connection (SAF tree URI) and the encrypted backup passphrase are meaningless
+     * on another phone, so a new device re-connects and re-enters the passphrase before restoring.
+     */
+    var signingCloudConfigJson: String
+        get() = preferences.getString("signing_cloud_config_json", "") ?: ""
+        set(value) { preferences.edit().putString("signing_cloud_config_json", value).apply() }
+
     var githubLogin: String
         get() = preferences.getString("github_login", "") ?: ""
         set(value) { preferences.edit().putString("github_login", value).apply() }
@@ -1196,6 +1205,7 @@ class AppPreferences(private val context: Context) {
             "workspace_grants_json",
             "lsp_servers_json",
             "testing_history_json",
+            "signing_cloud_config_json",
         )
     }
 }

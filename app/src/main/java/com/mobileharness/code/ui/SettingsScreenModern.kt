@@ -42,6 +42,7 @@ import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Bolt
 import androidx.compose.material.icons.filled.Build
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Cloud
 import androidx.compose.material.icons.filled.Code
 import androidx.compose.material.icons.filled.DarkMode
 import androidx.compose.material.icons.filled.DeleteSweep
@@ -143,7 +144,7 @@ import com.mobileharness.code.ui.theme.AppThemeMode
 import com.mobileharness.code.ui.theme.PocketOrange
 import kotlinx.coroutines.launch
 
-private enum class SettingsSection { APPEARANCE, LANGUAGE, TOOLS, RUNTIME, DIAGNOSTICS, DEVELOPER_TOOLS, ACCOUNT, BACKUP, UPDATE_CHANNEL, UPDATES, GRADLE_MEMORY, RELEASE_SIGNING, SIGNING_VAULT, SERVER_SYNC, TELEGRAM, SIDEKICK, MCP_SERVERS, ECO_MODE, AUTO_PROMPT, AUTO_PROMPT_LIBRARY, TOKEN_COST_MANAGER, SKILLS_PLUGINS, VOICE, DEVICE_CONTROL, MULTI_AGENT, RESEARCH, MODEL_ROTATION, RAG, SSH, SHARE_INVITE, GROM }
+private enum class SettingsSection { APPEARANCE, LANGUAGE, TOOLS, RUNTIME, DIAGNOSTICS, DEVELOPER_TOOLS, ACCOUNT, BACKUP, UPDATE_CHANNEL, UPDATES, GRADLE_MEMORY, RELEASE_SIGNING, SIGNING_VAULT, CLOUD_BACKUP, SERVER_SYNC, TELEGRAM, SIDEKICK, MCP_SERVERS, ECO_MODE, AUTO_PROMPT, AUTO_PROMPT_LIBRARY, TOKEN_COST_MANAGER, SKILLS_PLUGINS, VOICE, DEVICE_CONTROL, MULTI_AGENT, RESEARCH, MODEL_ROTATION, RAG, SSH, SHARE_INVITE, GROM }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -253,6 +254,7 @@ fun SettingsScreen(
     onRedeemInvite: (String) -> Unit = {},
     onClearInviteRedeemMessage: () -> Unit = {},
     signingVaultActions: SigningVaultActions? = null,
+    signingCloudBackupActions: SigningCloudBackupActions? = null,
 ) {
     val context = LocalContext.current
     val installPermissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) {
@@ -613,6 +615,20 @@ fun SettingsScreen(
                         onClick = { toggle(SettingsSection.SIGNING_VAULT) },
                     ) {
                         SigningVaultSettings(state = state.signingVault, actions = signingVaultActions)
+                    }
+                }
+            }
+
+            if (signingCloudBackupActions != null) {
+                item {
+                    SettingsAccordion(
+                        title = stringResource(R.string.signing_cloud_title),
+                        subtitle = stringResource(R.string.signing_cloud_subtitle),
+                        icon = Icons.Default.Cloud,
+                        expanded = expanded == SettingsSection.CLOUD_BACKUP,
+                        onClick = { toggle(SettingsSection.CLOUD_BACKUP) },
+                    ) {
+                        SigningCloudBackupSettings(state = state.signingCloud, actions = signingCloudBackupActions)
                     }
                 }
             }
