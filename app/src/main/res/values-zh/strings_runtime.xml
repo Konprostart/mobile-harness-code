@@ -58,6 +58,7 @@
     <string name="rt_setup_channel_description">显示私有编程环境的下载和安装进度</string>
     <string name="rt_exec_default_project">你的项目</string>
     <string name="rt_exec_default_title">Mobile Harness Code 正在工作</string>
+    <string name="rt_exec_terminal_title">正在运行终端命令</string>
     <string name="rt_exec_stopping">正在安全停止…</string>
     <string name="rt_exec_working_in">正在 %1$s 中工作</string>
     <string name="rt_exec_task_completed">任务已完成</string>

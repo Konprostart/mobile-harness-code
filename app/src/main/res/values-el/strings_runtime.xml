@@ -58,6 +58,7 @@
     <string name="rt_setup_channel_description">Εμφανίζει την πρόοδο λήψης και εγκατάστασης του ιδιωτικού περιβάλλοντος προγραμματισμού</string>
     <string name="rt_exec_default_project">το έργο σας</string>
     <string name="rt_exec_default_title">Το Mobile Harness Code εργάζεται</string>
+    <string name="rt_exec_terminal_title">Εκτέλεση εντολής τερματικού</string>
     <string name="rt_exec_stopping">Ασφαλής διακοπή…</string>
     <string name="rt_exec_working_in">Εργασία σε %1$s</string>
     <string name="rt_exec_task_completed">Η εργασία ολοκληρώθηκε</string>

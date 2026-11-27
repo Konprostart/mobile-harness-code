@@ -58,6 +58,7 @@
     <string name="rt_setup_channel_description">Показывает ход загрузки и установки частной среды разработки</string>
     <string name="rt_exec_default_project">вашем проекте</string>
     <string name="rt_exec_default_title">Mobile Harness Code работает</string>
+    <string name="rt_exec_terminal_title">Выполняется команда терминала</string>
     <string name="rt_exec_stopping">Безопасная остановка…</string>
     <string name="rt_exec_working_in">Работа в: %1$s</string>
     <string name="rt_exec_task_completed">Задача выполнена</string>

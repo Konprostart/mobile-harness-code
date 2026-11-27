@@ -58,6 +58,7 @@
     <string name="rt_setup_channel_description">يعرض تقدم التنزيل والتثبيت لبيئة البرمجة الخاصة</string>
     <string name="rt_exec_default_project">مشروعك</string>
     <string name="rt_exec_default_title">Mobile Harness Code يعمل</string>
+    <string name="rt_exec_terminal_title">جارٍ تشغيل أمر الطرفية</string>
     <string name="rt_exec_stopping">جارٍ الإيقاف بأمان…</string>
     <string name="rt_exec_working_in">جارٍ العمل في %1$s</string>
     <string name="rt_exec_task_completed">اكتملت المهمة</string>

@@ -58,6 +58,7 @@
     <string name="rt_setup_channel_description">Muestra el progreso de descarga e instalación del entorno de programación privado</string>
     <string name="rt_exec_default_project">tu proyecto</string>
     <string name="rt_exec_default_title">Mobile Harness Code está trabajando</string>
+    <string name="rt_exec_terminal_title">Ejecutando comando de terminal</string>
     <string name="rt_exec_stopping">Deteniendo de forma segura…</string>
     <string name="rt_exec_working_in">Trabajando en %1$s</string>
     <string name="rt_exec_task_completed">Tarea completada</string>
