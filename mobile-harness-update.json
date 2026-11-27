@@ -1,11 +1,11 @@
 {
-  "versionCode": 52,
-  "versionName": "1.19.8",
-  "notes": "Mobile Harness Code v1.19.8 — per-project protection and portability. Every workspace project now shows three honest status lamps (GitHub / Signiffia / Cloud) and can be backed up and restored independently: source code + .git history + bound signing keys encrypted in one container, version retention, fingerprint-verified restore, keys-only restore, and \"Load existing project\" from a storage folder (Google Drive or any folder via the storage framework). The new-project flow gains a signing-key step (none / existing / new) with optional auto-backup, so the original key is protected from the very first build. Providers, agents, RuntimeBridge and Standard Mode are unchanged. Signed (V2) with the unchanged production certificate.",
+  "versionCode": 53,
+  "versionName": "1.19.9",
+  "notes": "Mobile Harness Code v1.19.9 — DeepSeek reliability fixes. Error 137 (out-of-memory kill of the DeepSeek harness while loading a large context) now shows an actionable recovery message instead of a bare exit code; all other exit codes are unchanged. DeepSeek context windows are now registered so the context meter shows real figures instead of UNKNOWN: 128K for deepseek-chat/deepseek-reasoner and 1M for deepseek-v4-pro/deepseek-v4-flash. Signed (V2) with the unchanged production certificate.",
   "artifacts": {
     "online": {
-      "url": "https://github.com/Konprostart/mobile-harness-code/releases/download/v1.19.8/mobile-harness-online.apk",
-      "sha256": "7d798aaa1ba3ce0cc295b7a47018464aa2be357570ee2c2f0e67e292f80f3d70",
+      "url": "https://github.com/Konprostart/mobile-harness-code/releases/download/v1.19.9/mobile-harness-online.apk",
+      "sha256": "ec8e9bca60294ecd24c4e454d90ebee54ce5e83f6db216a4a7ed300636f237aa",
       "sizeBytes": 110915929
     }
   }
