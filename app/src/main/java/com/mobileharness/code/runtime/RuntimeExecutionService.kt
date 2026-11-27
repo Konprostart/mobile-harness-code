@@ -5,7 +5,9 @@ import android.app.NotificationManager
 import android.app.PendingIntent
 import android.app.Service
 import android.content.Intent
+import android.os.Handler
 import android.os.IBinder
+import android.os.Looper
 import android.os.PowerManager
 import androidx.core.app.NotificationCompat
 import com.mobileharness.code.MainActivity
@@ -31,6 +33,21 @@ class RuntimeExecutionService : Service() {
         get() = notificationTitleOverride ?: AppStrings.get(this, R.string.rt_exec_default_title)
     private var canStop: Boolean = true
     private var taskRunning: Boolean = false
+    private val wakeLockHandler = Handler(Looper.getMainLooper())
+
+    /**
+     * Re-acquires the PARTIAL_WAKE_LOCK before the 90-minute timer can expire. Android releases a
+     * wakelock after its requested timeout even while the service is alive, so a single long build
+     * or agent turn would otherwise lose CPU wakefulness mid-flight. The task runs for as long as a
+     * task is actually active; it is cancelled on every terminal path (complete/fail/cancel/destroy).
+     */
+    private val wakeLockRefresh = object : Runnable {
+        override fun run() {
+            if (!taskRunning) return
+            releaseWakeLock()
+            acquireWakeLock()
+        }
+    }
 
     override fun onCreate() {
         super.onCreate()
@@ -143,10 +160,16 @@ class RuntimeExecutionService : Service() {
         if (wakeLock?.isHeld == true) return
         wakeLock = getSystemService(PowerManager::class.java)
             .newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "com.mobileharness.code:active-coding-task")
-            .apply { acquire(MAX_WAKE_LOCK_MS) }
+            .apply {
+                setReferenceCounted(false)
+                acquire(MAX_WAKE_LOCK_MS)
+            }
+        wakeLockHandler.removeCallbacks(wakeLockRefresh)
+        wakeLockHandler.postDelayed(wakeLockRefresh, MAX_WAKE_LOCK_MS / 2)
     }
 
     private fun releaseWakeLock() {
+        wakeLockHandler.removeCallbacks(wakeLockRefresh)
         wakeLock?.takeIf { it.isHeld }?.release()
         wakeLock = null
     }

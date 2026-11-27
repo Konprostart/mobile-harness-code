@@ -54,6 +54,7 @@ import org.json.JSONObject
  */
 class DshRuntimeBridge(
     private val context: Context,
+    private val sessionStore: RuntimeSessionStore = RuntimeSessionStore(context.filesDir),
     private val secretFor: (ProviderProfile) -> String?,
 ) : RuntimeBridge {
     private val installer = RuntimeInstaller(context)
@@ -170,17 +171,31 @@ class DshRuntimeBridge(
         foregroundResultPosted = false
         lastThinkingUpdateAt = 0L
         eventBus.emit(RuntimeEvent.SessionStarted(sessionId))
+        sessionStore.recordRunning(
+            sessionId = sessionId,
+            projectId = projectId,
+            agentStableId = "deepseek-harness",
+            agentTitle = "DeepSeek Harness",
+            model = provider.model,
+            providerId = provider.providerId,
+            prompt = prompt,
+            historyMessageCount = conversationHistory.size,
+        )
         pushForegroundProgress(R.string.rt_bridge_starting, "DeepSeek Harness")
         val secret = secretFor(provider).orEmpty().ifBlank { localServerPlaceholderKey(provider) }
         if (secret.isBlank()) {
-            eventBus.emit(RuntimeEvent.SessionFailed(sessionId, "No API key is saved for ${provider.kind.title}."))
+            val message = "No API key is saved for ${provider.kind.title}."
+            sessionStore.recordTerminal(sessionId, RuntimeSessionState.FAILED, exitCode = null, lastError = message)
+            eventBus.emit(RuntimeEvent.SessionFailed(sessionId, message))
             return@withContext sessionId
         }
         if (provider.kind == ProviderKind.CLAUDE) {
+            val message = "Claude subscription login is not supported by DeepSeek Harness. Pick a key-based provider in Settings."
+            sessionStore.recordTerminal(sessionId, RuntimeSessionState.FAILED, exitCode = null, lastError = message)
             eventBus.emit(
                 RuntimeEvent.SessionFailed(
                     sessionId,
-                    "Claude subscription login is not supported by DeepSeek Harness. Pick a key-based provider in Settings.",
+                    message,
                 ),
             )
             return@withContext sessionId
@@ -278,6 +293,8 @@ class DshRuntimeBridge(
             if (sdkResult.completed && sdkResult.failure.isBlank() && !userStopRequested) {
                 emitSessionUsageNotTracked(sessionId)
                 emitCompletedOnce(sessionId)
+                sessionStore.updateRunning(sessionId, toolsExecuted = sawToolCall, mutatingToolsExecuted = sawMutatingTool)
+                sessionStore.recordTerminal(sessionId, RuntimeSessionState.COMPLETED, exitCode = 0)
                 finishForegroundRuntime(
                     completed = true,
                     projectName = projectSlug,
@@ -290,6 +307,13 @@ class DshRuntimeBridge(
         }.onFailure { error ->
             DebugLog.e("DshBridge", "Session failed", error)
             val message = friendlyError(error)
+            sessionStore.updateRunning(sessionId, toolsExecuted = sawToolCall, mutatingToolsExecuted = sawMutatingTool)
+            sessionStore.recordTerminal(
+                sessionId,
+                if (userStopRequested) RuntimeSessionState.CANCELLED else RuntimeSessionState.FAILED,
+                exitCode = null,
+                lastError = message,
+            )
             // An ordinary unexpected exit (no outstanding continuation) must still
             // carry side-effect facts so the manual retry card can warn. Only a user
             // stop keeps the metadata null; a continuation failure already recorded

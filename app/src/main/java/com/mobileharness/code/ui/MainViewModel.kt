@@ -167,6 +167,8 @@ import com.mobileharness.code.runtime.RuntimeSetupController
 import com.mobileharness.code.runtime.RuntimeSetupService
 import com.mobileharness.code.runtime.RuntimeSetupSnapshot
 import com.mobileharness.code.runtime.RuntimeSetupStatus
+import com.mobileharness.code.runtime.RuntimeSessionRecord
+import com.mobileharness.code.runtime.RuntimeSessionStore
 import com.mobileharness.code.runtime.readHeadBytes
 import com.mobileharness.code.runtime.readTailText
 import com.mobileharness.code.runtime.supportsArm64Runtime
@@ -934,6 +936,7 @@ data class AppUiState(
     val lspServers: List<LspServerDefinition> = emptyList(),
     val testingHistory: List<TestHistoryEntry> = emptyList(),
     val orchestration: OrchestrationUiState = OrchestrationUiState(),
+    val interruptedSessions: List<RuntimeSessionRecord> = emptyList(),
 )
 
 /** Multi-Agent Orchestration UI state: the active plan/snapshot and a status message. */
@@ -1034,12 +1037,17 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val schedulerStore = SchedulerStore { json -> preferences.autoPromptTasksJson = json }
     private val autoPromptHistory = AutoPromptHistoryStore { json -> preferences.autoPromptHistoryJson = json }
     private val tokenUsageStore = TokenUsageStore(File(getApplication<Application>().filesDir, "token"))
+    private val sessionStore = RuntimeSessionStore(getApplication<Application>().filesDir)
+    private var interruptedSessionsAtStart: List<RuntimeSessionRecord> = emptyList()
 
     init {
         schedulerStore.load(preferences.autoPromptTasksJson)
         autoPromptHistory.load(preferences.autoPromptHistoryJson)
         registerCloudStorageProviders()
         startAutoPromptTicker()
+        // Any session still journaled RUNNING when the app process starts was killed with it:
+        // flag it INTERRUPTED so the user can see what was lost and choose a safe manual resume.
+        interruptedSessionsAtStart = sessionStore.markAllInterrupted()
     }
 
     /**
@@ -1248,6 +1256,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     taskSpendUsd = preferences.orchestrationTaskSpendUsd,
                 )
             },
+            interruptedSessions = interruptedSessionsAtStart,
         ),
     ).also {
         if (!preferences.onboardingComplete) preferences.whatsNewSeenVersionCode = BuildConfig.VERSION_CODE
@@ -1256,6 +1265,18 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     fun dismissWhatsNew() {
         preferences.whatsNewSeenVersionCode = BuildConfig.VERSION_CODE
         _state.update { it.copy(showWhatsNew = false) }
+    }
+
+    /**
+     * Acknowledges an interrupted-session banner. The journal entry itself is preserved (it is
+     * already INTERRUPTED, not RUNNING, so it will not be re-flagged on the next launch), only the
+     * in-memory banner list shrinks. Resuming the work is always a manual, fail-closed choice made
+     * through the normal retry flow — never an automatic re-run of a possibly side-effecting task.
+     */
+    fun dismissInterruptedSession(sessionId: String) {
+        _state.update { current ->
+            current.copy(interruptedSessions = current.interruptedSessions.filterNot { it.sessionId == sessionId })
+        }
     }
 
     fun markBackupFeatureSeen() {
@@ -4118,6 +4139,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 previewUrl = requestedPreviewUrl ?: it.previewUrl,
             )
         }
+        // A long terminal command (gradle/npm/python/…) must keep the app process perceptible so
+        // Android does not kill it the moment the user leaves Appbuilder. This mirrors the agent
+        // bridges, which already hold the same foreground service for the whole run.
+        startTerminalForegroundService(project)
         viewModelScope.launch {
             val result = withContext(Dispatchers.IO) {
                 runCatching { runProjectTerminalProcess(project.id, command, startingCwd) }
@@ -4129,6 +4154,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                         )
                     }
             }
+            finishTerminalForegroundService(project, result.exitCode)
             val completedLine = TerminalOutputLine(
                 command = command,
                 output = result.output.ifBlank {
@@ -5179,6 +5205,44 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         AndroidBuildStage.CANCELLED -> str(R.string.an_build_cancelled)
         AndroidBuildStage.FAILED -> str(R.string.an_operation_failed)
         AndroidBuildStage.IDLE -> str(R.string.android_stage_idle)
+    }
+
+    private fun startTerminalForegroundService(project: Project) {
+        ContextCompat.startForegroundService(
+            getApplication(),
+            Intent(getApplication(), RuntimeExecutionService::class.java)
+                .setAction(RuntimeExecutionService.ACTION_START)
+                .putExtra(RuntimeExecutionService.EXTRA_PROJECT_NAME, project.name)
+                .putExtra(RuntimeExecutionService.EXTRA_TITLE, str(R.string.rt_exec_terminal_title))
+                .putExtra(RuntimeExecutionService.EXTRA_CAN_STOP, true),
+        )
+    }
+
+    private fun finishTerminalForegroundService(project: Project, exitCode: Int) {
+        val cancelled = projectTerminalStopRequested
+        runCatching {
+            getApplication<Application>().startService(
+                Intent(getApplication(), RuntimeExecutionService::class.java)
+                    .setAction(
+                        when {
+                            cancelled -> RuntimeExecutionService.ACTION_CANCELLED
+                            exitCode == 0 -> RuntimeExecutionService.ACTION_COMPLETE
+                            else -> RuntimeExecutionService.ACTION_FAILED
+                        },
+                    )
+                    .putExtra(RuntimeExecutionService.EXTRA_PROJECT_NAME, project.name)
+                    .putExtra(
+                        RuntimeExecutionService.EXTRA_DETAIL,
+                        when {
+                            cancelled -> str(R.string.rt_exec_stopping)
+                            exitCode == 0 -> str(R.string.rt_exec_task_completed)
+                            else -> str(R.string.vm_process_exited_code, exitCode)
+                        },
+                    ),
+            )
+        }.onFailure {
+            getApplication<Application>().stopService(Intent(getApplication(), RuntimeExecutionService::class.java))
+        }
     }
 
     private fun startAndroidBuildForegroundService(project: Project, task: String) {

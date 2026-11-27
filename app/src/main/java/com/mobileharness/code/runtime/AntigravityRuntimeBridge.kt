@@ -195,6 +195,7 @@ class AntigravityRuntimeBridge(
     private val effort: () -> String,
     private val conversationId: (String) -> String?,
     private val saveConversationId: (String, String) -> Unit,
+    private val sessionStore: RuntimeSessionStore = RuntimeSessionStore(context.filesDir),
 ) : RuntimeBridge {
     private val installer = RuntimeInstaller(context)
     private val checkpoints = WorkspaceCheckpoints(context.filesDir, context)
@@ -408,6 +409,16 @@ class AntigravityRuntimeBridge(
         lastForegroundProgressAt = 0L
         finished.remove(sessionId)
         eventBus.emit(RuntimeEvent.SessionStarted(sessionId))
+        sessionStore.recordRunning(
+            sessionId = sessionId,
+            projectId = projectId,
+            agentStableId = "antigravity",
+            agentTitle = "Antigravity",
+            model = model(),
+            providerId = provider.providerId,
+            prompt = prompt,
+            historyMessageCount = conversationHistory.size,
+        )
         if (!installer.isAgentInstalled(com.mobileharness.code.model.AgentKind.ANTIGRAVITY)) {
             emitFailure(sessionId, "Antigravity CLI is not installed. Open Settings → Coding agent to install it.")
             return@withContext sessionId
@@ -683,6 +694,8 @@ class AntigravityRuntimeBridge(
             // A completed session leaves no recovery facts behind: drop the handle so a
             // later query cannot read stale tool flags for it.
             if (lastSessionId == sessionId) lastSessionId = null
+            sessionStore.updateRunning(sessionId, toolsExecuted = sawToolCall, mutatingToolsExecuted = sawMutatingTool)
+            sessionStore.recordTerminal(sessionId, RuntimeSessionState.COMPLETED, exitCode = 0)
             eventBus.emit(RuntimeEvent.SessionCompleted(sessionId))
         }
     }
@@ -695,6 +708,13 @@ class AntigravityRuntimeBridge(
 
     private suspend fun emitFailure(sessionId: String, reason: String) {
         if (finished.add(sessionId)) {
+            sessionStore.updateRunning(sessionId, toolsExecuted = sawToolCall, mutatingToolsExecuted = sawMutatingTool)
+            sessionStore.recordTerminal(
+                sessionId,
+                if (userStopRequested) RuntimeSessionState.CANCELLED else RuntimeSessionState.FAILED,
+                exitCode = null,
+                lastError = reason,
+            )
             // Every terminal failure carries the side-effect facts so the manual
             // retry card can warn; a user stop reports retryAvailable = false.
             eventBus.emit(

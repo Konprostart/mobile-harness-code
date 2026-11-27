@@ -128,6 +128,7 @@ internal object ProviderRuntimeErrorDetector {
 
 class ClaudeRuntimeBridge(
     private val context: Context,
+    private val sessionStore: RuntimeSessionStore = RuntimeSessionStore(context.filesDir),
     private val secretFor: (ProviderProfile) -> String?,
 ) : RuntimeBridge {
     private val installer = RuntimeInstaller(context)
@@ -222,6 +223,16 @@ class ClaudeRuntimeBridge(
         currentThinkingBlockId = 0L
         streamedThinking.clear()
         eventBus.emit(RuntimeEvent.SessionStarted(sessionId))
+        sessionStore.recordRunning(
+            sessionId = sessionId,
+            projectId = projectId,
+            agentStableId = "claude-code",
+            agentTitle = "Claude Code",
+            model = provider.model,
+            providerId = provider.providerId,
+            prompt = prompt,
+            historyMessageCount = conversationHistory.size,
+        )
         pushForegroundProgress(R.string.rt_bridge_starting, "Claude Code")
         val secret = secretFor(provider).orEmpty().ifBlank { localServerPlaceholderKey(provider) }
         if (secret.isBlank()) {
@@ -230,6 +241,7 @@ class ClaudeRuntimeBridge(
             } else {
                 "No API key is saved for ${provider.kind.title}."
             }
+            sessionStore.recordTerminal(sessionId, RuntimeSessionState.FAILED, exitCode = null, lastError = message)
             eventBus.emit(
                 RuntimeEvent.SessionFailed(
                     sessionId,
@@ -847,6 +859,8 @@ class ClaudeRuntimeBridge(
             // A completed session leaves no recovery facts behind: drop the handle so a
             // later query cannot read stale tool flags for it.
             if (lastSessionId == sessionId) lastSessionId = null
+            sessionStore.updateRunning(sessionId, toolsExecuted = sawToolCall, mutatingToolsExecuted = sawMutatingTool)
+            sessionStore.recordTerminal(sessionId, RuntimeSessionState.COMPLETED, exitCode = 0)
             eventBus.emit(RuntimeEvent.SessionCompleted(sessionId))
             // Post the completion notification immediately. Waiting for process
             // teardown is unsafe: the PRoot/Node wrapper can hang after the answer
@@ -861,6 +875,13 @@ class ClaudeRuntimeBridge(
 
     private suspend fun emitFailureOnce(sessionId: String, reason: String) {
         if (finishedSessions.add(sessionId)) {
+            sessionStore.updateRunning(sessionId, toolsExecuted = sawToolCall, mutatingToolsExecuted = sawMutatingTool)
+            sessionStore.recordTerminal(
+                sessionId,
+                if (userStopRequested) RuntimeSessionState.CANCELLED else RuntimeSessionState.FAILED,
+                exitCode = null,
+                lastError = reason,
+            )
             // Every terminal failure carries the side-effect facts so the manual
             // retry card can warn; a user stop reports retryAvailable = false.
             eventBus.emit(
