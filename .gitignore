@@ -64,3 +64,8 @@ dist/runtime-bundles/sources/
 
 # Generated local in-app update test artifacts.
 dist/update-test/
+
+# Local signing output (signed APK, APK Signature Scheme v2 idsig, SHA-256 digest,
+# and the release update manifest copy). These are produced by the release flow
+# and uploaded to GitHub Releases; they must never be committed to the repo.
+dist/sign/

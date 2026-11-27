@@ -54,6 +54,14 @@ object ContextWindowCatalog {
         "anthropic/claude-sonnet-4-6" to 200_000L,
         "anthropic/claude-opus-4-6" to 200_000L,
         "anthropic/claude-haiku-4-6" to 200_000L,
+        // DeepSeek official models. Documented windows: V4 (deepseek-v4-pro /
+        // deepseek-v4-flash) ships a 1M context as the default across official
+        // services; the V3.1 deepseek-chat / deepseek-reasoner endpoints run a
+        // 128K window and are retired in favour of the V4 names.
+        "deepseek/deepseek-chat" to 128_000L,
+        "deepseek/deepseek-reasoner" to 128_000L,
+        "deepseek/deepseek-v4-pro" to 1_000_000L,
+        "deepseek/deepseek-v4-flash" to 1_000_000L,
     )
 
     fun key(providerId: String, model: String): String {

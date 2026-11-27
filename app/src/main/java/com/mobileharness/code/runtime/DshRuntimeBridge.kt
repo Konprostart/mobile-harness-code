@@ -285,7 +285,7 @@ class DshRuntimeBridge(
                 )
             } else {
                 if (userStopRequested) throw DshSessionException("Stopped by user")
-                error(sdkResult.failure.ifBlank { "DeepSeek Harness stopped with exit code $exit" })
+                error(sdkResult.failure.ifBlank { exitCodeFailureMessage(exit) ?: "DeepSeek Harness stopped with exit code $exit" })
             }
         }.onFailure { error ->
             DebugLog.e("DshBridge", "Session failed", error)
@@ -1827,6 +1827,20 @@ internal class DshTransportRetryState(private val maxAttempts: Int = 2) {
 /** True when a failure is a transport drop-out that can be retried in place. */
 internal fun isTransportFailure(code: String?, message: String): Boolean =
     code == "TRANSPORT" || message.contains("Connection error", ignoreCase = true)
+
+/**
+ * Maps a process exit code to a helpful failure message when the SDK process was killed
+ * mid-turn by the system. Exit code 137 (128 + SIGKILL) is what Android/Linux report when
+ * the OOM killer (or the low-memory killer) terminates the Node.js harness while it loads
+ * a large context, so it gets an actionable hint instead of a bare "exit code 137".
+ * Returns null for exit codes without a specific explanation.
+ */
+internal fun exitCodeFailureMessage(exit: Int): String? = when (exit) {
+    137 -> "DeepSeek Harness was killed by the system (exit code 137), usually because the " +
+        "runtime ran out of memory while processing a large context. Start a new conversation " +
+        "or shorten the current one, then retry."
+    else -> null
+}
 
 private val READ_ONLY_TOOLS = setOf("read", "glob", "grep", "web_search", "web_fetch", "ls", "file_info")
 

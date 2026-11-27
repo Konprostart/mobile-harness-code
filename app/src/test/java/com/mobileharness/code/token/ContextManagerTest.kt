@@ -14,6 +14,10 @@ class ContextManagerTest {
     fun catalogResolvesKnownReferenceWindows() {
         assertEquals(128_000L, ContextWindowCatalog.reference("openai", "gpt-4o"))
         assertEquals(200_000L, ContextWindowCatalog.reference("anthropic", "claude-sonnet-4-5"))
+        assertEquals(128_000L, ContextWindowCatalog.reference("deepseek", "deepseek-chat"))
+        assertEquals(128_000L, ContextWindowCatalog.reference("deepseek", "deepseek-reasoner"))
+        assertEquals(1_000_000L, ContextWindowCatalog.reference("deepseek", "deepseek-v4-flash"))
+        assertEquals(1_000_000L, ContextWindowCatalog.reference("deepseek", "deepseek-v4-pro"))
     }
 
     @Test

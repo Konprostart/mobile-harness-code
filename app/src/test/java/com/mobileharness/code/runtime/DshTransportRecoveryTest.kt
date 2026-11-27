@@ -2,6 +2,7 @@ package com.mobileharness.code.runtime
 
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -158,5 +159,29 @@ class DshTransportRecoveryTest {
         state.onContinuationSent()
         state.onMeaningfulSignal()
         assertEquals(DshContinuationPhase.TERMINAL, state.phase)
+    }
+}
+
+/** Pure tests for the exit-code → failure-message mapping. */
+class DshExitCodeFailureMessageTest {
+
+    @Test
+    fun exit137IsExplainedAsOutOfMemoryKill() {
+        val message = exitCodeFailureMessage(137)
+        assertTrue(message!!.contains("exit code 137"))
+        assertTrue(message.contains("memory", ignoreCase = true))
+    }
+
+    @Test
+    fun exit143HasNoSpecificMessage() {
+        // 143 = 128 + SIGTERM; not 137, so no OOM explanation is produced.
+        assertNull(exitCodeFailureMessage(143))
+    }
+
+    @Test
+    fun ordinaryExitCodesHaveNoSpecificMessage() {
+        assertNull(exitCodeFailureMessage(0))
+        assertNull(exitCodeFailureMessage(1))
+        assertNull(exitCodeFailureMessage(130))
     }
 }
