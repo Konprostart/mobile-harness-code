@@ -1,12 +1,12 @@
 {
-  "versionCode": 53,
-  "versionName": "1.19.9",
-  "notes": "Mobile Harness Code v1.19.9 — DeepSeek reliability fixes. Error 137 (out-of-memory kill of the DeepSeek harness while loading a large context) now shows an actionable recovery message instead of a bare exit code; all other exit codes are unchanged. DeepSeek context windows are now registered so the context meter shows real figures instead of UNKNOWN: 128K for deepseek-chat/deepseek-reasoner and 1M for deepseek-v4-pro/deepseek-v4-flash. Signed (V2) with the unchanged production certificate.",
+  "versionCode": 54,
+  "versionName": "1.20.0",
+  "notes": "Mobile Harness Code v1.20.0 — background execution reliability. Every DeepSeek Harness, Claude Code and Antigravity run is now journaled to a crash-surviving session record, so if Android kills the app process mid-task you get an 'interrupted' banner on the next launch instead of silently losing the run (resume stays manual and fail-closed — a possibly side-effecting task is never auto-repeated). The PARTIAL_WAKE_LOCK is now re-acquired before its 90-minute timeout so a single long agent turn or build keeps CPU wakefulness. Terminal commands (gradle/npm/python/…) now run under the same foreground service as the agents, so they survive leaving Appbuilder. Signed (V2) with the unchanged production certificate.",
   "artifacts": {
     "online": {
-      "url": "https://github.com/Konprostart/mobile-harness-code/releases/download/v1.19.9/mobile-harness-online.apk",
-      "sha256": "ec8e9bca60294ecd24c4e454d90ebee54ce5e83f6db216a4a7ed300636f237aa",
-      "sizeBytes": 110915929
+      "url": "https://github.com/Konprostart/mobile-harness-code/releases/download/v1.20.0/mobile-harness-online.apk",
+      "sha256": "8d9eb9c52a745cdfefb38054b25a0bc222a8e133cc1391210b381add8195708b",
+      "sizeBytes": 110948697
     }
   }
 }
