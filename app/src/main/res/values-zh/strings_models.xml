@@ -19,6 +19,9 @@
     <string name="md_stack_utilities_label">实用工具</string>
     <string name="md_stack_utilities_description">用于 JSON、搜索和归档的日常命令行工具。</string>
     <string name="md_stack_utilities_installs">jq、ripgrep、fd、zip 和 unzip</string>
+    <string name="md_stack_deno_label">Deno</string>
+    <string name="md_stack_deno_description">安全的 TypeScript 和 JavaScript 运行时，内置格式化器、代码检查器和测试运行器。</string>
+    <string name="md_stack_deno_installs">Deno ARM64 运行时（按需下载）</string>
     <string name="md_time_just_now">刚刚</string>
     <string name="md_time_minutes_ago">%1$d 分钟前</string>
     <string name="md_time_hours_ago">%1$d 小时前</string>

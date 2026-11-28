@@ -1156,6 +1156,11 @@ private fun getDevStackVisuals(stack: DevStack): DevStackVisuals = when (stack) 
         accentColor = Color(0xFFF472B6),
         tag = "jq · rg · fd · zip",
     )
+    DevStack.DENO -> DevStackVisuals(
+        icon = Icons.Default.Code,
+        accentColor = Color(0xFF70FFAF),
+        tag = "deno · fmt · lint · test",
+    )
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -1600,6 +1605,10 @@ private fun setupTimeEstimate(selected: Set<DevStack>): String {
         minimumMinutes += 1
         maximumMinutes += 2
     }
+    if (DevStack.DENO in selected) {
+        minimumMinutes += 1
+        maximumMinutes += 2
+    }
     return stringResource(R.string.setup_time_minutes, minimumMinutes, maximumMinutes)
 }
 
@@ -1610,6 +1619,7 @@ private fun stackDownloadLabel(stack: DevStack): String = when {
     !BuildConfig.OFFLINE_RUNTIME_BUNDLES && stack == DevStack.PYTHON -> " · 55 MB"
     !BuildConfig.OFFLINE_RUNTIME_BUNDLES && stack == DevStack.ANDROID -> " · 570 MB"
     !BuildConfig.OFFLINE_RUNTIME_BUNDLES && stack == DevStack.UTILITIES -> " · 5 MB"
+    !BuildConfig.OFFLINE_RUNTIME_BUNDLES && stack == DevStack.DENO -> " · 40 MB"
     else -> ""
 }
 
@@ -1625,7 +1635,7 @@ private fun toolchainDownloadSummary(selected: Set<DevStack>, agent: AgentKind):
         } +
         (if (DevStack.PYTHON in selected) PYTHON_RUNTIME_DOWNLOAD_MB else 0) +
         (if (DevStack.ANDROID in selected) ANDROID_RUNTIME_DOWNLOAD_MB else 0)
-    val laterPackages = selected.intersect(setOf(DevStack.CPP, DevStack.PHP, DevStack.UTILITIES))
+    val laterPackages = selected.intersect(setOf(DevStack.CPP, DevStack.PHP, DevStack.UTILITIES, DevStack.DENO))
     val downloadText = stringResource(R.string.ws_download_total_mb, total)
     val laterText = stringResource(R.string.ws_download_c_php_later)
     val wifiText = stringResource(R.string.ws_download_wifi_recommended)
@@ -1651,6 +1661,7 @@ private fun DevStackChoiceRow(
         DevStack.CPP -> stringResource(R.string.ws_stack_desc_cpp)
         DevStack.PHP -> stringResource(R.string.ws_stack_desc_php)
         DevStack.UTILITIES -> stringResource(R.string.ws_stack_desc_utilities)
+        DevStack.DENO -> stringResource(R.string.ws_stack_desc_deno)
     }
 
     Row(
@@ -2673,6 +2684,9 @@ private fun RootScreenHost(
                     onRemoveApiKey = viewModel::removeApiKey,
                     onInstallDevStack = viewModel::installDevStack,
                     onRemoveDevStack = viewModel::removeDevStack,
+                    onEnableDeno = viewModel::enableDeno,
+                    onDisableDeno = viewModel::disableDeno,
+                    onClearDenoCache = viewModel::clearDenoCache,
                     onInstallAgent = viewModel::installAgent,
                     onCheckAgentUpdates = viewModel::checkAgentUpdates,
                     onUpdateAgent = viewModel::updateAgent,

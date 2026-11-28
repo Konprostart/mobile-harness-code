@@ -24,6 +24,7 @@
     <string name="ws_stack_desc_cpp">Native apps and command-line tools</string>
     <string name="ws_stack_desc_php">PHP sites and Laravel projects</string>
     <string name="ws_stack_desc_utilities">JSON, search, and archive helpers</string>
+    <string name="ws_stack_desc_deno">Secure TypeScript and JavaScript runtime</string>
     <string name="ws_terminal_linux_title">Linux Terminal</string>
     <string name="ws_terminal_linux_subtitle">Ubuntu 20.04 · PRoot Sandbox</string>
     <string name="ws_terminal_clear_output">Clear output</string>

@@ -19,6 +19,9 @@
     <string name="md_stack_utilities_label">Утилиты</string>
     <string name="md_stack_utilities_description">Повседневные утилиты командной строки для JSON, поиска и архивов.</string>
     <string name="md_stack_utilities_installs">jq, ripgrep, fd, zip и unzip</string>
+    <string name="md_stack_deno_label">Deno</string>
+    <string name="md_stack_deno_description">Безопасная среда TypeScript и JavaScript со встроенными форматтером, линтером и запуском тестов.</string>
+    <string name="md_stack_deno_installs">Среда Deno ARM64 (загружается по запросу)</string>
     <string name="md_time_just_now">Только что</string>
     <string name="md_time_minutes_ago">%1$d мин назад</string>
     <string name="md_time_hours_ago">%1$d ч назад</string>

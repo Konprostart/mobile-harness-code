@@ -20,6 +20,13 @@
     <string name="action_delete">Διαγραφή</string>
     <string name="action_remove">Κατάργηση</string>
     <string name="action_add">Προσθήκη</string>
+    <string name="action_enable">Ενεργοποίηση</string>
+    <string name="action_disable">Απενεργοποίηση</string>
+    <string name="tools_enabled">Ενεργό</string>
+    <string name="tools_disabled">Ανενεργό</string>
+    <string name="deno_clear_cache">Εκκαθάριση cache</string>
+    <string name="deno_clear_cache_title">Εκκαθάριση της cache του Deno;</string>
+    <string name="deno_clear_cache_desc">Αυτό αφαιρεί τη μνήμη ληφθέντων modules του Deno. Τα έργα σας δεν επηρεάζονται.</string>
     <string name="action_edit">Επεξεργασία</string>
     <string name="action_close">Κλείσιμο</string>
     <string name="action_back">Πίσω</string>

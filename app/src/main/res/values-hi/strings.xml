@@ -20,6 +20,13 @@
     <string name="action_delete">हटाएं</string>
     <string name="action_remove">निकालें</string>
     <string name="action_add">जोड़ें</string>
+    <string name="action_enable">सक्षम करें</string>
+    <string name="action_disable">अक्षम करें</string>
+    <string name="tools_enabled">सक्षम</string>
+    <string name="tools_disabled">अक्षम</string>
+    <string name="deno_clear_cache">कैश साफ़ करें</string>
+    <string name="deno_clear_cache_title">Deno कैश साफ़ करें?</string>
+    <string name="deno_clear_cache_desc">इससे Deno के डाउनलोड किए गए मॉड्यूल कैश हट जाएँगे। आपके प्रोजेक्ट प्रभावित नहीं होंगे।</string>
     <string name="action_edit">संपादित करें</string>
     <string name="action_close">बंद करें</string>
     <string name="action_back">पीछे</string>

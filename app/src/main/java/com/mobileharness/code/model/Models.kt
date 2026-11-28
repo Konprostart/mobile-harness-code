@@ -354,6 +354,11 @@ enum class DevStack(
         "Everyday command-line helpers for JSON, search, and archives.",
         "jq, ripgrep, fd, zip, and unzip",
     ),
+    DENO(
+        "Deno",
+        "Secure TypeScript and JavaScript runtime with a built-in formatter, linter, and test runner.",
+        "Deno ARM64 runtime (downloaded on demand)",
+    ),
 }
 
 data class ToolRequest(

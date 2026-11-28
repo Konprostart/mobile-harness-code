@@ -57,6 +57,12 @@
     <string name="vm_removing_named">Αφαίρεση %1$s…</string>
     <string name="vm_removed_named">Αφαιρέθηκε: %1$s</string>
     <string name="vm_remove_failed_named">Δεν ήταν δυνατή η αφαίρεση του %1$s</string>
+    <string name="vm_deno_enabled">Το Deno ενεργοποιήθηκε για νέες συνεδρίες</string>
+    <string name="vm_deno_disabled">Το Deno απενεργοποιήθηκε για νέες συνεδρίες</string>
+    <string name="vm_deno_enable_failed">Δεν ήταν δυνατή η ενεργοποίηση του Deno</string>
+    <string name="vm_deno_disable_failed">Δεν ήταν δυνατή η απενεργοποίηση του Deno</string>
+    <string name="vm_deno_cache_cleared">Η προσωρινή μνήμη του Deno εκκαθαρίστηκε</string>
+    <string name="vm_deno_cache_clear_failed">Δεν ήταν δυνατή η εκκαθάριση της προσωρινής μνήμης του Deno</string>
     <string name="vm_ping_sending">Αποστολή ελάχιστου δοκιμαστικού αιτήματος…</string>
     <string name="vm_ping_success">Το API απάντησε με επιτυχία</string>
     <string name="vm_antigravity_needs_signin">Το Antigravity απαιτεί σύνδεση με Google</string>

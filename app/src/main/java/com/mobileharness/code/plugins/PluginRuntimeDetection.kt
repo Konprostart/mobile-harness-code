@@ -14,11 +14,12 @@ object PluginRuntimeDetection {
 
     private val byCommand = mapOf(
         "node" to listOf("nodejs"), "npx" to listOf("nodejs", "npm"), "npm" to listOf("nodejs", "npm"),
-        "pnpm" to listOf("nodejs", "npm"), "yarn" to listOf("nodejs", "npm"), "bun" to listOf("nodejs", "npm"),
-        "bunx" to listOf("nodejs", "npm"), "tsx" to listOf("nodejs", "npm"),
+        "pnpm" to listOf("nodejs", "npm"), "yarn" to listOf("nodejs", "npm"), "tsx" to listOf("nodejs", "npm"),
         "python" to listOf("python"), "python3" to listOf("python"),
         "pip" to listOf("python", "python-pip"), "pip3" to listOf("python", "python-pip"),
         "pipx" to listOf("python", "python-pip"), "uv" to listOf("python", "uv"), "uvx" to listOf("python", "uv"),
+        // Deno is an optional direct-download runtime (not an apt package); it is
+        // reported by its own name so the UI can show it as the required runtime.
         "deno" to listOf("deno"), "ruby" to listOf("ruby"), "go" to listOf("golang"),
         "java" to listOf("openjdk-17"), "php" to listOf("php"), "perl" to listOf("perl"),
         "git" to listOf("git"), "jq" to listOf("jq"), "curl" to listOf("curl"),

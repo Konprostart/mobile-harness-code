@@ -165,6 +165,9 @@ fun SettingsScreen(
     onRemoveApiKey: (String, String) -> List<ApiKeyInfo>,
     onInstallDevStack: (DevStack) -> Unit = {},
     onRemoveDevStack: (DevStack) -> Unit = {},
+    onEnableDeno: () -> Unit = {},
+    onDisableDeno: () -> Unit = {},
+    onClearDenoCache: () -> Unit = {},
     onInstallAgent: (AgentKind) -> Unit = {},
     onCheckAgentUpdates: () -> Unit = {},
     onUpdateAgent: (AgentKind) -> Unit = {},
@@ -270,6 +273,7 @@ fun SettingsScreen(
     var terminalCleared by remember { mutableStateOf(false) }
     var showReliabilityHelp by rememberSaveable { mutableStateOf(false) }
     var stackPendingRemoval by remember { mutableStateOf<DevStack?>(null) }
+    var denoCachePendingClear by remember { mutableStateOf(false) }
     var showSidekick by rememberSaveable { mutableStateOf(false) }
 
     if (showSidekick) {
@@ -299,6 +303,25 @@ fun SettingsScreen(
                 ) { Text(stringResource(R.string.action_remove), color = MaterialTheme.colorScheme.error) }
             },
             dismissButton = { TextButton(onClick = { stackPendingRemoval = null }) { Text(stringResource(R.string.action_cancel)) } },
+        )
+    }
+
+    if (denoCachePendingClear) {
+        AlertDialog(
+            onDismissRequest = { denoCachePendingClear = false },
+            title = { Text(stringResource(R.string.deno_clear_cache_title)) },
+            text = {
+                Text(stringResource(R.string.deno_clear_cache_desc))
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        denoCachePendingClear = false
+                        onClearDenoCache()
+                    },
+                ) { Text(stringResource(R.string.deno_clear_cache), color = MaterialTheme.colorScheme.error) }
+            },
+            dismissButton = { TextButton(onClick = { denoCachePendingClear = false }) { Text(stringResource(R.string.action_cancel)) } },
         )
     }
 
@@ -1147,12 +1170,43 @@ fun SettingsScreen(
                         Row(Modifier.fillMaxWidth().padding(vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
                             Column(Modifier.weight(1f)) {
                                 Text(stack.localizedLabel(), fontWeight = FontWeight.SemiBold)
-                                Text(stack.localizedInstallsSummary(), fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                Text(
+                                    when {
+                                        installed && stack == DevStack.DENO && state.denoEnabled ->
+                                            "${state.denoVersion.orEmpty()} · ${stringResource(R.string.tools_enabled)}"
+                                        installed && stack == DevStack.DENO ->
+                                            "${state.denoVersion.orEmpty()} · ${stringResource(R.string.tools_disabled)}"
+                                        else -> stack.localizedInstallsSummary()
+                                    },
+                                    fontSize = 12.sp,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                )
                             }
                             when {
                                 removing -> Text(stringResource(R.string.tools_removing), color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.Bold, fontSize = 12.sp)
                                 installing -> Text("${(state.devStackProgress * 100).toInt()}%", color = PocketOrange, fontWeight = FontWeight.Bold)
                                 installed && stack == DevStack.WEB -> Text(stringResource(R.string.tools_included), fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                installed && stack == DevStack.DENO -> Row(verticalAlignment = Alignment.CenterVertically) {
+                                    if (state.denoEnabled) {
+                                        TextButton(onClick = onDisableDeno, enabled = state.devStackInstalling == null) {
+                                            Text(stringResource(R.string.action_disable))
+                                        }
+                                    } else {
+                                        OutlinedButton(onClick = onEnableDeno, enabled = state.devStackInstalling == null) {
+                                            Text(stringResource(R.string.action_enable))
+                                        }
+                                    }
+                                    TextButton(
+                                        onClick = { stackPendingRemoval = stack },
+                                        enabled = state.devStackInstalling == null,
+                                    ) { Text(stringResource(R.string.action_remove), color = MaterialTheme.colorScheme.error) }
+                                    TextButton(
+                                        onClick = { denoCachePendingClear = true },
+                                        enabled = state.devStackInstalling == null,
+                                    ) { Text(stringResource(R.string.deno_clear_cache), fontSize = 12.sp) }
+                                }
                                 installed -> TextButton(
                                     onClick = { stackPendingRemoval = stack },
                                     enabled = state.devStackInstalling == null,

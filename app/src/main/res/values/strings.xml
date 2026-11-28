@@ -20,6 +20,13 @@
     <string name="action_delete">Delete</string>
     <string name="action_remove">Remove</string>
     <string name="action_add">Add</string>
+    <string name="action_enable">Enable</string>
+    <string name="action_disable">Disable</string>
+    <string name="tools_enabled">Enabled</string>
+    <string name="tools_disabled">Disabled</string>
+    <string name="deno_clear_cache">Clear cache</string>
+    <string name="deno_clear_cache_title">Clear Deno cache?</string>
+    <string name="deno_clear_cache_desc">This removes Deno\'s downloaded module cache. Your projects are not affected.</string>
     <string name="action_edit">Edit</string>
     <string name="action_close">Close</string>
     <string name="action_back">Back</string>

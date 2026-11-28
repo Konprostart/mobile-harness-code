@@ -78,6 +78,7 @@ class RuntimeInstaller(private val context: Context) {
     private val agyMarker = File(rootfs, ".pocket-agy-version")
     private val gooseMarker = File(rootfs, ".pocket-goose-version")
     private val githubCliMarker = File(rootfs, ".pocket-github-cli-version")
+    private val denoMarker = File(rootfs, ".pocket-deno-version")
     private val dshAndroidCompatibilityMarker = File(rootfs, ".pocket-dsh-android-compat-version")
     private val macosMetadataRepairMarker = File(rootfs, ".pocket-macos-metadata-repair")
 
@@ -886,6 +887,7 @@ class RuntimeInstaller(private val context: Context) {
                     onProgress,
                 )
             }
+            DevStack.DENO -> removeDenoRuntime()
         }
 
         writeDevStackState(readDevStackState().apply { put(stack.name, false) })
@@ -973,6 +975,108 @@ class RuntimeInstaller(private val context: Context) {
         }
     }
 
+    private fun denoBinary(): File = File(rootfs, DENO_GUEST_PATH.removePrefix("/"))
+    private fun denoSymlink(): File = File(rootfs, DENO_SYMLINK_PATH.removePrefix("/"))
+    private fun denoCacheDir(): File = File(rootfs, DENO_DIR_GUEST_PATH.removePrefix("/"))
+
+    /**
+     * Whether the `deno` command is currently reachable from the guest PATH. The
+     * symlink in `/usr/local/bin/deno` is the single source of truth: Deno is
+     * "enabled" exactly when that link exists, and disabling simply removes the
+     * link while the installed binary (and any cached modules) stay on disk.
+     */
+    fun isDenoEnabled(): Boolean = java.nio.file.Files.isSymbolicLink(denoSymlink().toPath())
+
+    /** The pinned Deno version currently installed, or null when not installed. */
+    fun denoInstalledVersion(): String? = denoMarker.readTextOrNull()
+
+    /**
+     * Installs Deno on demand from the official ARM64 release, verified by SHA-256.
+     * The binary is placed outside the guest PATH (`/opt/deno/deno`); it stays
+     * disabled until the user explicitly enables it.
+     */
+    private suspend fun installDenoRuntime(
+        proot: File,
+        from: Float,
+        to: Float,
+        onProgress: suspend (RuntimeInstallProgress) -> Unit,
+    ) {
+        if (isStackInstalled(DevStack.DENO)) return
+        check(!BuildConfig.OFFLINE_RUNTIME_BUNDLES) { str(R.string.rt_install_deno_needs_online) }
+        downloads.mkdirs()
+        val archive = File(downloads, "deno-$DENO_VERSION-aarch64-unknown-linux-gnu.zip")
+        val downloading = str(R.string.rt_install_downloading_version, "Deno", DENO_VERSION)
+        onProgress(RuntimeInstallProgress(downloading, from))
+        downloadVerified(DENO_RELEASE_URL, archive, DENO_RELEASE_SHA256) { downloaded, total ->
+            val ratio = if (total > 0L) downloaded.toFloat() / total else 0f
+            onProgress(
+                RuntimeInstallProgress(
+                    message = downloading,
+                    fraction = from + ratio * (to - from) * 0.75f,
+                    downloadedBytes = downloaded,
+                    totalBytes = total.takeIf { it > 0L },
+                    event = RuntimeInstallEvent.DOWNLOAD,
+                ),
+            )
+        }
+        onProgress(RuntimeInstallProgress(str(R.string.rt_install_installing_version, "Deno", DENO_VERSION), to, indeterminate = true))
+        val destination = denoBinary()
+        destination.parentFile?.mkdirs()
+        var found = false
+        ZipInputStream(BufferedInputStream(archive.inputStream())).use { zip ->
+            var entry = zip.nextEntry
+            while (entry != null) {
+                if (!entry.isDirectory && entry.name.removePrefix("./").trimStart('/') == "deno") {
+                    val staged = File(destination.parentFile, ".deno-$DENO_VERSION.installing")
+                    FileOutputStream(staged).use { zip.copyTo(it) }
+                    Os.chmod(staged.absolutePath, 0b111101101)
+                    Os.rename(staged.absolutePath, destination.absolutePath)
+                    found = true
+                    break
+                }
+                zip.closeEntry()
+                entry = zip.nextEntry
+            }
+        }
+        archive.delete()
+        check(found) { "Official Deno archive did not contain the expected binary" }
+        verifyGuest(proot, "$DENO_GUEST_PATH --version", str(R.string.rt_install_verify_failed, "Deno"))
+        denoMarker.writeText(DENO_VERSION)
+        check(denoBinary().canExecute() && denoMarker.readTextOrNull() == DENO_VERSION) { "Deno installation is incomplete" }
+        onProgress(RuntimeInstallProgress(str(R.string.rt_install_ready, "Deno"), to))
+    }
+
+    /** Exposes Deno to new terminal/agent sessions by linking it into `/usr/local/bin`. */
+    fun enableDeno() {
+        check(denoBinary().canExecute()) { str(R.string.rt_install_verify_failed, "Deno") }
+        val link = denoSymlink()
+        val path = link.toPath()
+        if (java.nio.file.Files.isSymbolicLink(path)) return
+        link.parentFile?.mkdirs()
+        Os.symlink(DENO_SYMLINK_TARGET, link.absolutePath)
+    }
+
+    /** Removes only the PATH symlink; the binary and its module cache remain on disk. */
+    fun disableDeno() {
+        val link = denoSymlink()
+        if (java.nio.file.Files.isSymbolicLink(link.toPath()) || link.exists()) {
+            check(link.delete()) { "Could not remove ${link.name}" }
+        }
+    }
+
+    /** Fully removes the Deno binary, symlink and install marker (not the module cache). */
+    private fun removeDenoRuntime() {
+        disableDeno()
+        removePath(denoBinary())
+        removePath(File(rootfs, "opt/deno"))
+        removePath(denoMarker)
+    }
+
+    /** Removes the Deno module cache. Kept separate so Disable never deletes it. */
+    fun clearDenoCache() {
+        removePath(denoCacheDir())
+    }
+
     private suspend fun applyStack(
         proot: File,
         stack: DevStack,
@@ -1045,6 +1149,7 @@ class RuntimeInstaller(private val context: Context) {
                     str(R.string.rt_install_verify_failed, "Utility tools"),
                 )
             }
+            DevStack.DENO -> installDenoRuntime(proot, from, to, onProgress)
         }
         if (!verified) return
         writeDevStackState(readDevStackState().apply { put(stack.name, true) })
@@ -1364,6 +1469,7 @@ class RuntimeInstaller(private val context: Context) {
         // Older C/C++ installs lack GCC 10 and Python, which native npm packages need.
         if (stack == DevStack.CPP) return hasNativeAddonToolchain(rootfs)
         if (stack == DevStack.UTILITIES) return hasUtilityTools(rootfs)
+        if (stack == DevStack.DENO) return denoBinary().canExecute() && denoMarker.readTextOrNull() == DENO_VERSION
         if (stack != DevStack.ANDROID) return true
         return File(rootfs, "root/.pocket-android-tools-version").readTextOrNull() == ANDROID_TOOLS_VERSION &&
             File(rootfs, "root/android-sdk/platforms/android-36/android.jar").isFile &&
@@ -2163,6 +2269,20 @@ fi
         internal const val UTILITY_TOOL_VERIFY_COMMAND =
             "jq --version && rg --version && fdfind --version && command -v zip && command -v unzip"
         private const val FD_FIND_SYMLINK_TARGET = "../../bin/fdfind"
+        /**
+         * Pinned Deno release (denoland/deno, MIT). The `aarch64-unknown-linux-gnu`
+         * build is a single 64-bit ARM64 ELF (verified via the release's published
+         * SHA-256 and the official `.sha256sum` asset). It targets glibc ≥2.28, so it
+         * runs inside the Ubuntu 20.04 rootfs (glibc 2.31). Bun is deliberately NOT
+         * added because its binary statically links LGPL-2.0/2.1 code.
+         */
+        const val DENO_VERSION = "2.9.8"
+        internal const val DENO_RELEASE_URL = "https://github.com/denoland/deno/releases/download/v2.9.8/deno-aarch64-unknown-linux-gnu.zip"
+        internal const val DENO_RELEASE_SHA256 = "d49596c20b9788cf8f5d8ddf644103d4bde56ed239753f0bdb92ba9361d51905"
+        internal const val DENO_GUEST_PATH = "/opt/deno/deno"
+        internal const val DENO_SYMLINK_PATH = "/usr/local/bin/deno"
+        internal const val DENO_SYMLINK_TARGET = "../../../opt/deno/deno"
+        internal const val DENO_DIR_GUEST_PATH = "/root/.cache/deno"
         /**
          * Pinned Goose release (aaif-goose/goose, Apache-2.0). The musl build is a fully static
          * ARM64 ELF, which runs under the Ubuntu rootfs inside PRoot without shared-library

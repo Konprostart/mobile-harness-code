@@ -12,6 +12,7 @@
     <string name="rt_install_version_ready">%1$s %2$s está listo</string>
     <string name="rt_install_github_needs_online">El inicio de sesión de GitHub requiere el APK en línea de PocketDev.</string>
     <string name="rt_install_goose_needs_online">Goose requiere el APK en línea de PocketDev.</string>
+    <string name="rt_install_deno_needs_online">Deno requiere el APK en línea de PocketDev.</string>
     <string name="rt_install_downloading_github_cli">Descargando la CLI oficial de GitHub</string>
     <string name="rt_install_downloading_version">Descargando %1$s %2$s</string>
     <string name="rt_install_installing_version">Instalando %1$s %2$s</string>

@@ -20,6 +20,13 @@
     <string name="action_delete">删除</string>
     <string name="action_remove">移除</string>
     <string name="action_add">添加</string>
+    <string name="action_enable">启用</string>
+    <string name="action_disable">停用</string>
+    <string name="tools_enabled">已启用</string>
+    <string name="tools_disabled">已停用</string>
+    <string name="deno_clear_cache">清除缓存</string>
+    <string name="deno_clear_cache_title">清除 Deno 缓存？</string>
+    <string name="deno_clear_cache_desc">这将删除 Deno 已下载的模块缓存。您的项目不受影响。</string>
     <string name="action_edit">编辑</string>
     <string name="action_close">关闭</string>
     <string name="action_back">返回</string>

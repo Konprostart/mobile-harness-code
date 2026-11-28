@@ -809,6 +809,8 @@ data class AppUiState(
     val devStackProgress: Float = 0f,
     val devStackBytes: Pair<Long, Long>? = null,
     val devStackBytesPerSecond: Long? = null,
+    val denoEnabled: Boolean = false,
+    val denoVersion: String? = null,
     val agentKind: AgentKind = AgentKind.CLAUDE_CODE,
     val primaryAgentKind: AgentKind = AgentKind.CLAUDE_CODE,
     val installedAgentVersions: Map<AgentKind, String> = emptyMap(),
@@ -969,6 +971,13 @@ data class DeviceControlUiState(
 
 /** A first-use server fingerprint awaiting explicit user confirmation (TOFU). */
 data class SshTofuPrompt(val profileId: String, val profileName: String, val fingerprint: String)
+
+private data class RuntimeToolsSnapshot(
+    val installedStacks: Set<DevStack>,
+    val installedAgents: Map<AgentKind, String>,
+    val denoEnabled: Boolean,
+    val denoVersion: String?,
+)
 
 /** Result of a quick remote command, shown in the SSH settings section. */
 data class SshCommandResult(
@@ -5885,6 +5894,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             current.copy(
                 installedDevStacks = if (installed) installer.installedStacks() else current.installedDevStacks,
                 installedAgentVersions = if (installed) installer.installedAgentVersions() else emptyMap(),
+                denoEnabled = if (installed) installer.isDenoEnabled() else current.denoEnabled,
+                denoVersion = if (installed) installer.denoInstalledVersion() else current.denoVersion,
             )
         }
         when {
@@ -5954,13 +5965,20 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 setupCompletionHandled = true
                 preferences.runtimeSetupComplete = true
                 viewModelScope.launch {
-                    val (installedStacks, installedAgents) = withContext(Dispatchers.IO) {
-                        installer.installedStacks() to installer.installedAgentVersions()
+                    val snapshot = withContext(Dispatchers.IO) {
+                        RuntimeToolsSnapshot(
+                            installedStacks = installer.installedStacks(),
+                            installedAgents = installer.installedAgentVersions(),
+                            denoEnabled = installer.isDenoEnabled(),
+                            denoVersion = installer.denoInstalledVersion(),
+                        )
                     }
                     _state.update {
                         it.copy(
-                            installedDevStacks = installedStacks,
-                            installedAgentVersions = installedAgents,
+                            installedDevStacks = snapshot.installedStacks,
+                            installedAgentVersions = snapshot.installedAgents,
+                            denoEnabled = snapshot.denoEnabled,
+                            denoVersion = snapshot.denoVersion,
                         )
                     }
                     if (preferences.onboardingComplete) {
@@ -6040,6 +6058,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     startupProgress = 1f,
                     installedDevStacks = installer.installedStacks(),
                     installedAgentVersions = installer.installedAgentVersions(),
+                    denoEnabled = installer.isDenoEnabled(),
+                    denoVersion = installer.denoInstalledVersion(),
                 )
             }
             restoreLastSession()
@@ -6566,6 +6586,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                         onSuccess = { str(R.string.vm_stack_tools_ready, stack.localizedLabel(getApplication())) },
                         onFailure = { _ -> result.exceptionOrNull()?.message?.take(200) ?: str(R.string.vm_install_failed_named, stack.localizedLabel(getApplication())) },
                     ),
+                    denoEnabled = installer.isDenoEnabled(),
+                    denoVersion = installer.denoInstalledVersion(),
                     androidHealthRunning = if (refreshAndroidHealthAfter) false else current.androidHealthRunning,
                 )
             }
@@ -6618,9 +6640,60 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                         onSuccess = { str(R.string.vm_removed_named, stack.localizedLabel(getApplication())) },
                         onFailure = { result.exceptionOrNull()?.message?.take(200) ?: str(R.string.vm_remove_failed_named, stack.localizedLabel(getApplication())) },
                     ),
+                    denoEnabled = installer.isDenoEnabled(),
+                    denoVersion = installer.denoInstalledVersion(),
                     toastMessage = result.fold(
                         onSuccess = { str(R.string.vm_removed_named, stack.localizedLabel(getApplication())) },
                         onFailure = { str(R.string.vm_remove_failed_named, stack.localizedLabel(getApplication())) },
+                    ),
+                )
+            }
+        }
+    }
+
+    /** Enables Deno for new terminal/agent sessions by creating the PATH symlink. */
+    fun enableDeno() {
+        if (_state.value.devStackInstalling != null) return
+        viewModelScope.launch {
+            val result = runCatching { withContext(Dispatchers.IO) { installer.enableDeno() } }
+            _state.update { current ->
+                current.copy(
+                    denoEnabled = installer.isDenoEnabled(),
+                    toastMessage = result.fold(
+                        onSuccess = { str(R.string.vm_deno_enabled) },
+                        onFailure = { result.exceptionOrNull()?.message?.take(200) ?: str(R.string.vm_deno_enable_failed) },
+                    ),
+                )
+            }
+        }
+    }
+
+    /** Disables Deno (removes only the PATH symlink, keeps the binary and cache). */
+    fun disableDeno() {
+        if (_state.value.devStackInstalling != null) return
+        viewModelScope.launch {
+            val result = runCatching { withContext(Dispatchers.IO) { installer.disableDeno() } }
+            _state.update { current ->
+                current.copy(
+                    denoEnabled = installer.isDenoEnabled(),
+                    toastMessage = result.fold(
+                        onSuccess = { str(R.string.vm_deno_disabled) },
+                        onFailure = { result.exceptionOrNull()?.message?.take(200) ?: str(R.string.vm_deno_disable_failed) },
+                    ),
+                )
+            }
+        }
+    }
+
+    /** Removes the Deno module cache (never invoked automatically on Disable). */
+    fun clearDenoCache() {
+        viewModelScope.launch {
+            val result = runCatching { withContext(Dispatchers.IO) { installer.clearDenoCache() } }
+            _state.update { current ->
+                current.copy(
+                    toastMessage = result.fold(
+                        onSuccess = { str(R.string.vm_deno_cache_cleared) },
+                        onFailure = { result.exceptionOrNull()?.message?.take(200) ?: str(R.string.vm_deno_cache_clear_failed) },
                     ),
                 )
             }

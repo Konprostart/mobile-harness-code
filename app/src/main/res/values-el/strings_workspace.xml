@@ -24,6 +24,7 @@
     <string name="ws_stack_desc_cpp">Εγγενείς εφαρμογές και εργαλεία γραμμής εντολών</string>
     <string name="ws_stack_desc_php">Ιστότοποι PHP και έργα Laravel</string>
     <string name="ws_stack_desc_utilities">Βοηθήματα JSON, αναζήτησης και αρχείων</string>
+    <string name="ws_stack_desc_deno">Ασφαλές runtime TypeScript και JavaScript</string>
     <string name="ws_terminal_linux_title">Τερματικό Linux</string>
     <string name="ws_terminal_linux_subtitle">Ubuntu 20.04 · PRoot Sandbox</string>
     <string name="ws_terminal_clear_output">Εκκαθάριση εξόδου</string>

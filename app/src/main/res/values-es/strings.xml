@@ -20,6 +20,13 @@
     <string name="action_delete">Eliminar</string>
     <string name="action_remove">Quitar</string>
     <string name="action_add">Añadir</string>
+    <string name="action_enable">Habilitar</string>
+    <string name="action_disable">Deshabilitar</string>
+    <string name="tools_enabled">Habilitado</string>
+    <string name="tools_disabled">Deshabilitado</string>
+    <string name="deno_clear_cache">Borrar caché</string>
+    <string name="deno_clear_cache_title">¿Borrar la caché de Deno?</string>
+    <string name="deno_clear_cache_desc">Esto elimina la caché de módulos descargados de Deno. Tus proyectos no se ven afectados.</string>
     <string name="action_edit">Editar</string>
     <string name="action_close">Cerrar</string>
     <string name="action_back">Atrás</string>

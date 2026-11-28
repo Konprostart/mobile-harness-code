@@ -12,6 +12,7 @@
     <string name="rt_install_version_ready">Το %1$s %2$s είναι έτοιμο</string>
     <string name="rt_install_github_needs_online">Η σύνδεση στο GitHub απαιτεί το online APK του PocketDev.</string>
     <string name="rt_install_goose_needs_online">Το Goose απαιτεί το online APK του PocketDev.</string>
+    <string name="rt_install_deno_needs_online">Το Deno απαιτεί το online APK του PocketDev.</string>
     <string name="rt_install_downloading_github_cli">Λήψη του επίσημου GitHub CLI</string>
     <string name="rt_install_downloading_version">Λήψη %1$s %2$s</string>
     <string name="rt_install_installing_version">Εγκατάσταση %1$s %2$s</string>

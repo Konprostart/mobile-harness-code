@@ -12,6 +12,7 @@
     <string name="rt_install_version_ready">%1$s %2$s तैयार है</string>
     <string name="rt_install_github_needs_online">GitHub साइन-इन के लिए PocketDev का ऑनलाइन APK आवश्यक है।</string>
     <string name="rt_install_goose_needs_online">Goose के लिए PocketDev का ऑनलाइन APK आवश्यक है।</string>
+    <string name="rt_install_deno_needs_online">Deno के लिए PocketDev का ऑनलाइन APK आवश्यक है।</string>
     <string name="rt_install_downloading_github_cli">आधिकारिक GitHub CLI डाउनलोड हो रहा है</string>
     <string name="rt_install_downloading_version">%1$s %2$s डाउनलोड हो रहा है</string>
     <string name="rt_install_installing_version">%1$s %2$s इंस्टॉल हो रहा है</string>

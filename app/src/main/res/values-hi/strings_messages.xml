@@ -57,6 +57,12 @@
     <string name="vm_removing_named">%1$s हटाया जा रहा है…</string>
     <string name="vm_removed_named">%1$s हटाया गया</string>
     <string name="vm_remove_failed_named">%1$s हटाया नहीं जा सका</string>
+    <string name="vm_deno_enabled">Deno अब नए सत्रों के लिए सक्षम है</string>
+    <string name="vm_deno_disabled">Deno अब नए सत्रों के लिए अक्षम है</string>
+    <string name="vm_deno_enable_failed">Deno सक्षम नहीं किया जा सका</string>
+    <string name="vm_deno_disable_failed">Deno अक्षम नहीं किया जा सका</string>
+    <string name="vm_deno_cache_cleared">Deno कैश साफ़ हो गया</string>
+    <string name="vm_deno_cache_clear_failed">Deno कैश साफ़ नहीं किया जा सका</string>
     <string name="vm_ping_sending">एक छोटा टेस्ट अनुरोध भेजा जा रहा है…</string>
     <string name="vm_ping_success">API ने सफलतापूर्वक जवाब दिया</string>
     <string name="vm_antigravity_needs_signin">Antigravity को Google साइन-इन चाहिए</string>

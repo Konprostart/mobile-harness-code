@@ -57,6 +57,12 @@
     <string name="vm_removing_named">Удаление %1$s…</string>
     <string name="vm_removed_named">%1$s удалён</string>
     <string name="vm_remove_failed_named">Не удалось удалить %1$s</string>
+    <string name="vm_deno_enabled">Deno включён для новых сеансов</string>
+    <string name="vm_deno_disabled">Deno отключён для новых сеансов</string>
+    <string name="vm_deno_enable_failed">Не удалось включить Deno</string>
+    <string name="vm_deno_disable_failed">Не удалось отключить Deno</string>
+    <string name="vm_deno_cache_cleared">Кэш Deno очищен</string>
+    <string name="vm_deno_cache_clear_failed">Не удалось очистить кэш Deno</string>
     <string name="vm_ping_sending">Отправка минимального тестового запроса…</string>
     <string name="vm_ping_success">API успешно ответил</string>
     <string name="vm_antigravity_needs_signin">Antigravity требует входа через Google</string>

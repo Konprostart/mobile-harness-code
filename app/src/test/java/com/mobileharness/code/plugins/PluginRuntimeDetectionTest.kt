@@ -34,6 +34,21 @@ class PluginRuntimeDetectionTest {
     }
 
     @Test
+    fun mapsDenoToItsOwnRuntime() {
+        assertEquals(listOf("deno"), PluginRuntimeDetection.forCommand("deno --version"))
+        assertEquals(listOf("deno"), PluginRuntimeDetection.forCommand("deno task start"))
+        assertEquals(listOf("deno"), PluginRuntimeDetection.forCommand("deno eval '1+1'"))
+    }
+
+    @Test
+    fun doesNotMapBunToNode() {
+        // Bun is deliberately not a supported runtime; it must not be reported as
+        // needing Node.js/npm (its binary statically links LGPL code).
+        assertEquals(emptyList<String>(), PluginRuntimeDetection.forCommand("bun install"))
+        assertEquals(emptyList<String>(), PluginRuntimeDetection.forCommand("bunx create-app"))
+    }
+
+    @Test
     fun forManifestAggregatesEntryAndTools() {
         val manifest = PluginManifest(
             id = "x", name = "x", version = "1",

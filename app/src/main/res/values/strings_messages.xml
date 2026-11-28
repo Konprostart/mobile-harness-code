@@ -57,6 +57,12 @@
     <string name="vm_removing_named">Removing %1$s…</string>
     <string name="vm_removed_named">%1$s removed</string>
     <string name="vm_remove_failed_named">Could not remove %1$s</string>
+    <string name="vm_deno_enabled">Deno is now enabled for new sessions</string>
+    <string name="vm_deno_disabled">Deno is now disabled for new sessions</string>
+    <string name="vm_deno_enable_failed">Could not enable Deno</string>
+    <string name="vm_deno_disable_failed">Could not disable Deno</string>
+    <string name="vm_deno_cache_cleared">Deno cache cleared</string>
+    <string name="vm_deno_cache_clear_failed">Could not clear the Deno cache</string>
     <string name="vm_ping_sending">Sending a minimal test request…</string>
     <string name="vm_ping_success">API responded successfully</string>
     <string name="vm_antigravity_needs_signin">Antigravity needs Google sign-in</string>

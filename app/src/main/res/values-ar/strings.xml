@@ -20,6 +20,13 @@
     <string name="action_delete">حذف</string>
     <string name="action_remove">إزالة</string>
     <string name="action_add">إضافة</string>
+    <string name="action_enable">تفعيل</string>
+    <string name="action_disable">إيقاف</string>
+    <string name="tools_enabled">مُفعَّل</string>
+    <string name="tools_disabled">غير مُفعَّل</string>
+    <string name="deno_clear_cache">مسح الذاكرة المؤقتة</string>
+    <string name="deno_clear_cache_title">مسح ذاكرة Deno المؤقتة؟</string>
+    <string name="deno_clear_cache_desc">سيؤدي هذا إلى إزالة ذاكرة الوحدات التي نزّلها Deno. لن تتأثر مشاريعك.</string>
     <string name="action_edit">تعديل</string>
     <string name="action_close">إغلاق</string>
     <string name="action_back">رجوع</string>

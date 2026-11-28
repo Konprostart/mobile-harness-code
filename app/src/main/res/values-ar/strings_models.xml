@@ -19,6 +19,9 @@
     <string name="md_stack_utilities_label">أدوات مساعدة</string>
     <string name="md_stack_utilities_description">أدوات سطر أوامر يومية لمعالجة JSON والبحث والأرشفة.</string>
     <string name="md_stack_utilities_installs">jq وripgrep وfd وzip وunzip</string>
+    <string name="md_stack_deno_label">Deno</string>
+    <string name="md_stack_deno_description">بيئة تشغيل آمنة لـ TypeScript و JavaScript مع منسّق ومدقق ومشغّل اختبارات مدمجين.</string>
+    <string name="md_stack_deno_installs">بيئة تشغيل Deno لـ ARM64 (تُنزَّل عند الطلب)</string>
     <string name="md_time_just_now">الآن</string>
     <string name="md_time_minutes_ago">منذ %1$d د</string>
     <string name="md_time_hours_ago">منذ %1$d س</string>

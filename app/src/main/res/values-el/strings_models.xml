@@ -19,6 +19,9 @@
     <string name="md_stack_utilities_label">Εργαλεία χρησιμότητας</string>
     <string name="md_stack_utilities_description">Καθημερινά εργαλεία γραμμής εντολών για JSON, αναζήτηση και αρχεία.</string>
     <string name="md_stack_utilities_installs">jq, ripgrep, fd, zip και unzip</string>
+    <string name="md_stack_deno_label">Deno</string>
+    <string name="md_stack_deno_description">Ασφαλές runtime TypeScript και JavaScript με ενσωματωμένο formatter, linter και test runner.</string>
+    <string name="md_stack_deno_installs">Deno ARM64 runtime (λήψη κατ\' απαίτηση)</string>
     <string name="md_time_just_now">Μόλις τώρα</string>
     <string name="md_time_minutes_ago">Πριν από %1$d λ.</string>
     <string name="md_time_hours_ago">Πριν από %1$d ώ.</string>

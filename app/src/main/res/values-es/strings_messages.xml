@@ -57,6 +57,12 @@
     <string name="vm_removing_named">Quitando %1$s…</string>
     <string name="vm_removed_named">%1$s eliminado</string>
     <string name="vm_remove_failed_named">No se pudo quitar %1$s</string>
+    <string name="vm_deno_enabled">Deno ya está habilitado para sesiones nuevas</string>
+    <string name="vm_deno_disabled">Deno ya está deshabilitado para sesiones nuevas</string>
+    <string name="vm_deno_enable_failed">No se pudo habilitar Deno</string>
+    <string name="vm_deno_disable_failed">No se pudo deshabilitar Deno</string>
+    <string name="vm_deno_cache_cleared">Caché de Deno borrada</string>
+    <string name="vm_deno_cache_clear_failed">No se pudo borrar la caché de Deno</string>
     <string name="vm_ping_sending">Enviando una solicitud de prueba mínima…</string>
     <string name="vm_ping_success">La API respondió correctamente</string>
     <string name="vm_antigravity_needs_signin">Antigravity necesita iniciar sesión con Google</string>

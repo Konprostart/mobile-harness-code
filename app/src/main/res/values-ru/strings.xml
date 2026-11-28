@@ -20,6 +20,13 @@
     <string name="action_delete">Удалить</string>
     <string name="action_remove">Убрать</string>
     <string name="action_add">Добавить</string>
+    <string name="action_enable">Включить</string>
+    <string name="action_disable">Отключить</string>
+    <string name="tools_enabled">Включено</string>
+    <string name="tools_disabled">Отключено</string>
+    <string name="deno_clear_cache">Очистить кэш</string>
+    <string name="deno_clear_cache_title">Очистить кэш Deno?</string>
+    <string name="deno_clear_cache_desc">Будут удалены загруженные модули Deno. Ваши проекты не затрагиваются.</string>
     <string name="action_edit">Редактировать</string>
     <string name="action_close">Закрыть</string>
     <string name="action_back">Назад</string>

@@ -57,6 +57,12 @@
     <string name="vm_removing_named">جارٍ إزالة %1$s…</string>
     <string name="vm_removed_named">تمت إزالة %1$s</string>
     <string name="vm_remove_failed_named">تعذّرت إزالة %1$s</string>
+    <string name="vm_deno_enabled">تم تفعيل Deno للجلسات الجديدة</string>
+    <string name="vm_deno_disabled">تم إيقاف Deno للجلسات الجديدة</string>
+    <string name="vm_deno_enable_failed">تعذّر تفعيل Deno</string>
+    <string name="vm_deno_disable_failed">تعذّر إيقاف Deno</string>
+    <string name="vm_deno_cache_cleared">تم مسح ذاكرة Deno المؤقتة</string>
+    <string name="vm_deno_cache_clear_failed">تعذّر مسح ذاكرة Deno المؤقتة</string>
     <string name="vm_ping_sending">جارٍ إرسال طلب اختبار بسيط…</string>
     <string name="vm_ping_success">استجابت واجهة API بنجاح</string>
     <string name="vm_antigravity_needs_signin">يحتاج Antigravity إلى تسجيل الدخول عبر Google</string>

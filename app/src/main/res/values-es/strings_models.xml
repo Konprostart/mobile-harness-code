@@ -19,6 +19,9 @@
     <string name="md_stack_utilities_label">Herramientas útiles</string>
     <string name="md_stack_utilities_description">Ayudantes de línea de comandos para JSON, búsqueda y archivos.</string>
     <string name="md_stack_utilities_installs">jq, ripgrep, fd, zip y unzip</string>
+    <string name="md_stack_deno_label">Deno</string>
+    <string name="md_stack_deno_description">Runtime seguro de TypeScript y JavaScript con formateador, linter y ejecutor de pruebas integrados.</string>
+    <string name="md_stack_deno_installs">Runtime Deno ARM64 (se descarga bajo demanda)</string>
     <string name="md_time_just_now">Ahora mismo</string>
     <string name="md_time_minutes_ago">hace %1$d min</string>
     <string name="md_time_hours_ago">hace %1$d h</string>

@@ -57,6 +57,12 @@
     <string name="vm_removing_named">正在移除 %1$s…</string>
     <string name="vm_removed_named">已移除 %1$s</string>
     <string name="vm_remove_failed_named">无法移除 %1$s</string>
+    <string name="vm_deno_enabled">Deno 已针对新会话启用</string>
+    <string name="vm_deno_disabled">Deno 已针对新会话停用</string>
+    <string name="vm_deno_enable_failed">无法启用 Deno</string>
+    <string name="vm_deno_disable_failed">无法停用 Deno</string>
+    <string name="vm_deno_cache_cleared">Deno 缓存已清除</string>
+    <string name="vm_deno_cache_clear_failed">无法清除 Deno 缓存</string>
     <string name="vm_ping_sending">正在发送最小测试请求…</string>
     <string name="vm_ping_success">API 响应成功</string>
     <string name="vm_antigravity_needs_signin">Antigravity 需要登录 Google</string>

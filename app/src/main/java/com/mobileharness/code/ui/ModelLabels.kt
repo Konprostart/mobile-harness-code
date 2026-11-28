@@ -66,6 +66,7 @@ fun DevStack.labelRes(): Int = when (this) {
     DevStack.CPP -> R.string.md_stack_cpp_label
     DevStack.PHP -> R.string.md_stack_php_label
     DevStack.UTILITIES -> R.string.md_stack_utilities_label
+    DevStack.DENO -> R.string.md_stack_deno_label
 }
 
 @StringRes
@@ -76,6 +77,7 @@ fun DevStack.descriptionRes(): Int = when (this) {
     DevStack.CPP -> R.string.md_stack_cpp_description
     DevStack.PHP -> R.string.md_stack_php_description
     DevStack.UTILITIES -> R.string.md_stack_utilities_description
+    DevStack.DENO -> R.string.md_stack_deno_description
 }
 
 @StringRes
@@ -86,6 +88,7 @@ fun DevStack.installsSummaryRes(): Int = when (this) {
     DevStack.CPP -> R.string.md_stack_cpp_installs
     DevStack.PHP -> R.string.md_stack_php_installs
     DevStack.UTILITIES -> R.string.md_stack_utilities_installs
+    DevStack.DENO -> R.string.md_stack_deno_installs
 }
 
 // Composable variants (LocalContext is already localized).
