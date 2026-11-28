@@ -1,12 +1,12 @@
 {
-  "versionCode": 55,
-  "versionName": "1.21.0",
-  "notes": "Mobile Harness Code v1.21.0 — Goose, the fourth coding/tool agent. Goose (aaif-goose/goose, Apache-2.0) is integrated through its native Agent Client Protocol (goose acp) subprocess, so responses stream as structured events. Every Goose tool call is gated by the app's unified approval system (fail-closed, GOOSE_MODE=approve — no allow-all), and Goose is registered as a coordinator-capable agent in the multi-agent orchestrator. Goose supports the key-based providers already managed by the app (Anthropic, OpenRouter, DeepSeek, Kimi, NVIDIA NIM and custom OpenAI-compatible endpoints) with credentials injected from the device-bound vault — never written to a plaintext config file. Installs on demand as the official pinned ARM64 musl binary (SHA-256 verified) with update check and background-mode support. Signed (V2) with the unchanged production certificate.",
+  "versionCode": 56,
+  "versionName": "1.22.0",
+  "notes": "Mobile Harness Code v1.22.0 — Utility Tools, a new optional developer stack. Adds five everyday command-line helpers on demand (jq, ripgrep, fd, zip, unzip) installed through the existing DevStack installer inside the Ubuntu 20.04 runtime, available to the terminal and all four coding agents. fd is exposed via the conventional fd symlink. tree is omitted because it is GPL-2.0 (outside the MIT/Apache-2.0/BSD license policy). No new Gradle dependencies. Signed (V2) with the unchanged production certificate.",
   "artifacts": {
     "online": {
-      "url": "https://github.com/Konprostart/mobile-harness-code/releases/download/v1.21.0/mobile-harness-online.apk",
-      "sha256": "61519bff437af4cbe6a99cf8067afed5460deb256db65d66a4a3979d55492447",
-      "sizeBytes": 111034713
+      "url": "https://github.com/Konprostart/mobile-harness-code/releases/download/v1.22.0/mobile-harness-online.apk",
+      "sha256": "40b0645f7d7069ef3c7b038b5fc14c3e8a7484b30a5e6f8b8184284a149cfc18",
+      "sizeBytes": 111042905
     }
   }
 }
