@@ -1151,6 +1151,11 @@ private fun getDevStackVisuals(stack: DevStack): DevStackVisuals = when (stack) 
         accentColor = Color(0xFF818CF8),
         tag = "php-cli + Composer",
     )
+    DevStack.UTILITIES -> DevStackVisuals(
+        icon = Icons.Default.Build,
+        accentColor = Color(0xFFF472B6),
+        tag = "jq · rg · fd · zip",
+    )
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -1591,6 +1596,10 @@ private fun setupTimeEstimate(selected: Set<DevStack>): String {
         minimumMinutes += 2
         maximumMinutes += 4
     }
+    if (DevStack.UTILITIES in selected) {
+        minimumMinutes += 1
+        maximumMinutes += 2
+    }
     return stringResource(R.string.setup_time_minutes, minimumMinutes, maximumMinutes)
 }
 
@@ -1600,6 +1609,7 @@ private fun stackDownloadLabel(stack: DevStack): String = when {
     BuildConfig.OFFLINE_RUNTIME_BUNDLES && stack in setOf(DevStack.PYTHON, DevStack.ANDROID) -> " · " + stringResource(R.string.ws_stack_included)
     !BuildConfig.OFFLINE_RUNTIME_BUNDLES && stack == DevStack.PYTHON -> " · 55 MB"
     !BuildConfig.OFFLINE_RUNTIME_BUNDLES && stack == DevStack.ANDROID -> " · 570 MB"
+    !BuildConfig.OFFLINE_RUNTIME_BUNDLES && stack == DevStack.UTILITIES -> " · 5 MB"
     else -> ""
 }
 
@@ -1615,7 +1625,7 @@ private fun toolchainDownloadSummary(selected: Set<DevStack>, agent: AgentKind):
         } +
         (if (DevStack.PYTHON in selected) PYTHON_RUNTIME_DOWNLOAD_MB else 0) +
         (if (DevStack.ANDROID in selected) ANDROID_RUNTIME_DOWNLOAD_MB else 0)
-    val laterPackages = selected.intersect(setOf(DevStack.CPP, DevStack.PHP))
+    val laterPackages = selected.intersect(setOf(DevStack.CPP, DevStack.PHP, DevStack.UTILITIES))
     val downloadText = stringResource(R.string.ws_download_total_mb, total)
     val laterText = stringResource(R.string.ws_download_c_php_later)
     val wifiText = stringResource(R.string.ws_download_wifi_recommended)
@@ -1640,6 +1650,7 @@ private fun DevStackChoiceRow(
         DevStack.ANDROID -> stringResource(R.string.ws_stack_desc_android)
         DevStack.CPP -> stringResource(R.string.ws_stack_desc_cpp)
         DevStack.PHP -> stringResource(R.string.ws_stack_desc_php)
+        DevStack.UTILITIES -> stringResource(R.string.ws_stack_desc_utilities)
     }
 
     Row(

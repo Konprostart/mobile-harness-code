@@ -18,6 +18,16 @@ class PluginRuntimeDetectionTest {
     }
 
     @Test
+    fun mapsUtilityToolCommandsToPackages() {
+        assertEquals(listOf("jq"), PluginRuntimeDetection.forCommand("jq -r .name data.json"))
+        assertEquals(listOf("ripgrep"), PluginRuntimeDetection.forCommand("rg -n 'TODO' src"))
+        assertEquals(listOf("fd-find"), PluginRuntimeDetection.forCommand("fd --type f main.kt"))
+        assertEquals(listOf("fd-find"), PluginRuntimeDetection.forCommand("fdfind 'test' ."))
+        assertEquals(listOf("zip"), PluginRuntimeDetection.forCommand("zip -r out.zip dir"))
+        assertEquals(listOf("unzip"), PluginRuntimeDetection.forCommand("unzip archive.zip"))
+    }
+
+    @Test
     fun mapsScriptExtensions() {
         assertEquals(listOf("python"), PluginRuntimeDetection.forCommand("run script.py"))
         assertEquals(listOf("nodejs"), PluginRuntimeDetection.forCommand("run script.js"))

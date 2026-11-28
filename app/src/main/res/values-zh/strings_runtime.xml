@@ -28,6 +28,7 @@
     <string name="rt_install_python_verify_failed">Python 验证失败（下次启动时将重试）：%1$s</string>
     <string name="rt_install_cpp">正在安装 C/C++ 编译器和构建工具</string>
     <string name="rt_install_php">正在安装 PHP 及常用扩展</string>
+    <string name="rt_install_utilities">正在安装实用工具（jq、ripgrep、fd、zip、unzip）</string>
     <string name="rt_install_stack_installed">%1$s 已安装</string>
     <string name="rt_install_android_tools">正在安装 Android 开发工具</string>
     <string name="rt_install_bundle_tools_installed">%1$s 工具已安装</string>

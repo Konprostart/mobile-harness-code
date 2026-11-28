@@ -349,6 +349,11 @@ enum class DevStack(
         "Websites and apps with PHP — classic sites and Laravel projects.",
         "php-cli, common extensions, and Composer",
     ),
+    UTILITIES(
+        "Utility Tools",
+        "Everyday command-line helpers for JSON, search, and archives.",
+        "jq, ripgrep, fd, zip, and unzip",
+    ),
 }
 
 data class ToolRequest(

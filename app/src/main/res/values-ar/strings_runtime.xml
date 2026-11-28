@@ -28,6 +28,7 @@
     <string name="rt_install_python_verify_failed">فشل التحقق من Python (ستتم إعادة المحاولة عند التشغيل التالي): %1$s</string>
     <string name="rt_install_cpp">جارٍ تثبيت مترجمات C/C++ وأدوات البناء</string>
     <string name="rt_install_php">جارٍ تثبيت PHP والإضافات الشائعة</string>
+    <string name="rt_install_utilities">جارٍ تثبيت الأدوات المساعدة (jq وripgrep وfd وzip وunzip)</string>
     <string name="rt_install_stack_installed">تم تثبيت %1$s</string>
     <string name="rt_install_android_tools">جارٍ تثبيت أدوات تطوير Android</string>
     <string name="rt_install_bundle_tools_installed">تم تثبيت أدوات %1$s</string>

@@ -28,6 +28,7 @@
     <string name="rt_install_python_verify_failed">Python सत्यापन विफल (अगली बार खोलने पर फिर कोशिश होगी): %1$s</string>
     <string name="rt_install_cpp">C/C++ कंपाइलर और बिल्ड टूल इंस्टॉल हो रहे हैं</string>
     <string name="rt_install_php">PHP और सामान्य एक्सटेंशन इंस्टॉल हो रहे हैं</string>
+    <string name="rt_install_utilities">उपयोगिता उपकरण इंस्टॉल किए जा रहे हैं (jq, ripgrep, fd, zip, unzip)</string>
     <string name="rt_install_stack_installed">%1$s इंस्टॉल हो गया</string>
     <string name="rt_install_android_tools">Android डेवलपमेंट टूल इंस्टॉल हो रहे हैं</string>
     <string name="rt_install_bundle_tools_installed">%1$s टूल इंस्टॉल हो गए</string>

@@ -16,6 +16,9 @@
     <string name="md_stack_android_installs">JDK 17 وAndroid SDK 36 لمعمارية ARM64 وBuild Tools 35 وGradle 8.14.3 وذاكرة Maven مؤقتة دون اتصال</string>
     <string name="md_stack_cpp_installs">gcc، g++، make، cmake، gdb</string>
     <string name="md_stack_php_installs">php-cli والإضافات الشائعة وComposer</string>
+    <string name="md_stack_utilities_label">أدوات مساعدة</string>
+    <string name="md_stack_utilities_description">أدوات سطر أوامر يومية لمعالجة JSON والبحث والأرشفة.</string>
+    <string name="md_stack_utilities_installs">jq وripgrep وfd وzip وunzip</string>
     <string name="md_time_just_now">الآن</string>
     <string name="md_time_minutes_ago">منذ %1$d د</string>
     <string name="md_time_hours_ago">منذ %1$d س</string>

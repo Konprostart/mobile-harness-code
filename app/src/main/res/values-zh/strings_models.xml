@@ -16,6 +16,9 @@
     <string name="md_stack_android_installs">JDK 17、ARM64 Android SDK 36、Build Tools 35、Gradle 8.14.3 和离线 Maven 缓存</string>
     <string name="md_stack_cpp_installs">gcc、g++、make、cmake、gdb</string>
     <string name="md_stack_php_installs">php-cli、常用扩展和 Composer</string>
+    <string name="md_stack_utilities_label">实用工具</string>
+    <string name="md_stack_utilities_description">用于 JSON、搜索和归档的日常命令行工具。</string>
+    <string name="md_stack_utilities_installs">jq、ripgrep、fd、zip 和 unzip</string>
     <string name="md_time_just_now">刚刚</string>
     <string name="md_time_minutes_ago">%1$d 分钟前</string>
     <string name="md_time_hours_ago">%1$d 小时前</string>

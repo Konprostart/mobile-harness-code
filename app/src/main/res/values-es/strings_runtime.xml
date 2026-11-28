@@ -28,6 +28,7 @@
     <string name="rt_install_python_verify_failed">Falló la verificación de Python (se reintentará en el próximo inicio): %1$s</string>
     <string name="rt_install_cpp">Instalando compiladores de C/C++ y herramientas de compilación</string>
     <string name="rt_install_php">Instalando PHP y extensiones comunes</string>
+    <string name="rt_install_utilities">Instalando herramientas útiles (jq, ripgrep, fd, zip, unzip)</string>
     <string name="rt_install_stack_installed">%1$s instalado</string>
     <string name="rt_install_android_tools">Instalando las herramientas de desarrollo de Android</string>
     <string name="rt_install_bundle_tools_installed">Herramientas de %1$s instaladas</string>

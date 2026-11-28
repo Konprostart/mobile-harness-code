@@ -877,6 +877,15 @@ class RuntimeInstaller(private val context: Context) {
                 removePath(File(rootfs, "root/.cache/composer"))
                 removePath(File(rootfs, "root/.composer"))
             }
+            DevStack.UTILITIES -> {
+                removeFdSymlink()
+                aptRemove(
+                    runtime.proot,
+                    UTILITY_TOOL_PACKAGES,
+                    0.45f,
+                    onProgress,
+                )
+            }
         }
 
         writeDevStackState(readDevStackState().apply { put(stack.name, false) })
@@ -943,6 +952,27 @@ class RuntimeInstaller(private val context: Context) {
         }
     }
 
+    /**
+     * Ubuntu's `fd-find` package installs its binary as `/usr/bin/fdfind` to avoid
+     * colliding with the unrelated `fd` package. Agents and scripts expect the
+     * conventional `fd` name, so we expose it as a relative symlink (relative links
+     * resolve both inside PRoot and against the Android host filesystem).
+     */
+    private fun installFdSymlink() {
+        val link = File(rootfs, "usr/local/bin/fd")
+        val path = link.toPath()
+        if (java.nio.file.Files.isSymbolicLink(path) || link.exists()) return
+        link.parentFile?.mkdirs()
+        Os.symlink(FD_FIND_SYMLINK_TARGET, link.absolutePath)
+    }
+
+    private fun removeFdSymlink() {
+        val link = File(rootfs, "usr/local/bin/fd")
+        if (java.nio.file.Files.isSymbolicLink(link.toPath()) || link.exists()) {
+            check(link.delete()) { "Could not remove ${link.name}" }
+        }
+    }
+
     private suspend fun applyStack(
         proot: File,
         stack: DevStack,
@@ -999,6 +1029,21 @@ class RuntimeInstaller(private val context: Context) {
                 )
                 installComposer(proot, from, onProgress)
                 verifyGuest(proot, "php --version && composer --version", str(R.string.rt_install_verify_failed, "PHP"))
+            }
+            DevStack.UTILITIES -> {
+                aptInstall(
+                    proot,
+                    UTILITY_TOOL_PACKAGES,
+                    str(R.string.rt_install_utilities),
+                    from,
+                    onProgress,
+                )
+                installFdSymlink()
+                verifyGuest(
+                    proot,
+                    UTILITY_TOOL_VERIFY_COMMAND,
+                    str(R.string.rt_install_verify_failed, "Utility tools"),
+                )
             }
         }
         if (!verified) return
@@ -1318,6 +1363,7 @@ class RuntimeInstaller(private val context: Context) {
         if (readDevStackState()[stack.name] != true) return false
         // Older C/C++ installs lack GCC 10 and Python, which native npm packages need.
         if (stack == DevStack.CPP) return hasNativeAddonToolchain(rootfs)
+        if (stack == DevStack.UTILITIES) return hasUtilityTools(rootfs)
         if (stack != DevStack.ANDROID) return true
         return File(rootfs, "root/.pocket-android-tools-version").readTextOrNull() == ANDROID_TOOLS_VERSION &&
             File(rootfs, "root/android-sdk/platforms/android-36/android.jar").isFile &&
@@ -1331,6 +1377,9 @@ class RuntimeInstaller(private val context: Context) {
         File(targetRootfs, "usr/bin/gcc-10").canExecute() &&
             File(targetRootfs, "usr/bin/g++-10").canExecute() &&
             File(targetRootfs, "usr/bin/python3").canExecute()
+
+    private fun hasUtilityTools(targetRootfs: File): Boolean =
+        UTILITY_TOOL_BINARIES.all { File(targetRootfs, it).canExecute() }
 
     private fun readDevStackState(): MutableMap<String, Boolean> {
         if (!devStacksFile.isFile) return mutableMapOf()
@@ -2096,6 +2145,24 @@ fi
         private const val GITHUB_CLI_VERSION = "2.100.0"
         private const val GITHUB_CLI_RELEASE_URL = "https://github.com/cli/cli/releases/download/v2.100.0/gh_2.100.0_linux_arm64.tar.gz"
         private const val GITHUB_CLI_RELEASE_SHA256 = "ea4e7a581a32ccad6cc7923cb1576ac5859ba4b9a16ab22eb8f8a96e78e2e961"
+        /**
+         * Optional "Utility Tools" developer stack, installed through apt inside the
+         * Ubuntu 20.04 rootfs (all permissively licensed: jq = MIT, ripgrep = MIT/Unlicense,
+         * fd = MIT/Apache-2.0, zip/unzip = Info-ZIP permissive license). `tree` is
+         * deliberately omitted because it is GPL-2.0.
+         */
+        internal val UTILITY_TOOL_PACKAGES = listOf("jq", "ripgrep", "fd-find", "zip", "unzip")
+        /** Host-relative guest binaries used to detect an installed Utility Tools stack. */
+        internal val UTILITY_TOOL_BINARIES = listOf(
+            "usr/bin/jq",
+            "usr/bin/rg",
+            "usr/bin/fdfind",
+            "usr/bin/zip",
+            "usr/bin/unzip",
+        )
+        internal const val UTILITY_TOOL_VERIFY_COMMAND =
+            "jq --version && rg --version && fdfind --version && command -v zip && command -v unzip"
+        private const val FD_FIND_SYMLINK_TARGET = "../../bin/fdfind"
         /**
          * Pinned Goose release (aaif-goose/goose, Apache-2.0). The musl build is a fully static
          * ARM64 ELF, which runs under the Ubuntu rootfs inside PRoot without shared-library

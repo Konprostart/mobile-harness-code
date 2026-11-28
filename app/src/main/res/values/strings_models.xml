@@ -16,6 +16,9 @@
     <string name="md_stack_android_installs">JDK 17, ARM64 Android SDK 36, Build Tools 35, Gradle 8.14.3, and an offline Maven cache</string>
     <string name="md_stack_cpp_installs">gcc, g++, make, cmake, gdb</string>
     <string name="md_stack_php_installs">php-cli, common extensions, and Composer</string>
+    <string name="md_stack_utilities_label">Utility Tools</string>
+    <string name="md_stack_utilities_description">Everyday command-line helpers for JSON, search, and archives.</string>
+    <string name="md_stack_utilities_installs">jq, ripgrep, fd, zip, and unzip</string>
     <string name="md_time_just_now">Just now</string>
     <string name="md_time_minutes_ago">%1$dm ago</string>
     <string name="md_time_hours_ago">%1$dh ago</string>

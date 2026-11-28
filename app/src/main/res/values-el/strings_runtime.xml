@@ -28,6 +28,7 @@
     <string name="rt_install_python_verify_failed">Η επαλήθευση της Python απέτυχε (νέα προσπάθεια στην επόμενη εκκίνηση): %1$s</string>
     <string name="rt_install_cpp">Εγκατάσταση μεταγλωττιστών C/C++ και εργαλείων build</string>
     <string name="rt_install_php">Εγκατάσταση PHP και κοινών επεκτάσεων</string>
+    <string name="rt_install_utilities">Εγκατάσταση εργαλείων χρησιμότητας (jq, ripgrep, fd, zip, unzip)</string>
     <string name="rt_install_stack_installed">Το %1$s εγκαταστάθηκε</string>
     <string name="rt_install_android_tools">Εγκατάσταση εργαλείων ανάπτυξης Android</string>
     <string name="rt_install_bundle_tools_installed">Τα εργαλεία %1$s εγκαταστάθηκαν</string>

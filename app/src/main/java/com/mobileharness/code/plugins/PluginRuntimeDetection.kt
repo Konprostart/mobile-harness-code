@@ -22,6 +22,8 @@ object PluginRuntimeDetection {
         "deno" to listOf("deno"), "ruby" to listOf("ruby"), "go" to listOf("golang"),
         "java" to listOf("openjdk-17"), "php" to listOf("php"), "perl" to listOf("perl"),
         "git" to listOf("git"), "jq" to listOf("jq"), "curl" to listOf("curl"),
+        "rg" to listOf("ripgrep"), "fd" to listOf("fd-find"), "fdfind" to listOf("fd-find"),
+        "zip" to listOf("zip"), "unzip" to listOf("unzip"),
     )
 
     private val byExtension = mapOf(

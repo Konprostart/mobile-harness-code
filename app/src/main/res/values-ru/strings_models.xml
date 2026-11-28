@@ -16,6 +16,9 @@
     <string name="md_stack_android_installs">JDK 17, Android SDK 36 для ARM64, Build Tools 35, Gradle 8.14.3 и офлайн-кэш Maven</string>
     <string name="md_stack_cpp_installs">gcc, g++, make, cmake, gdb</string>
     <string name="md_stack_php_installs">php-cli, распространённые расширения и Composer</string>
+    <string name="md_stack_utilities_label">Утилиты</string>
+    <string name="md_stack_utilities_description">Повседневные утилиты командной строки для JSON, поиска и архивов.</string>
+    <string name="md_stack_utilities_installs">jq, ripgrep, fd, zip и unzip</string>
     <string name="md_time_just_now">Только что</string>
     <string name="md_time_minutes_ago">%1$d мин назад</string>
     <string name="md_time_hours_ago">%1$d ч назад</string>
