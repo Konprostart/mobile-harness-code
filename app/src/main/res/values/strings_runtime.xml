@@ -11,6 +11,7 @@
     <string name="rt_install_ready">%1$s is ready</string>
     <string name="rt_install_version_ready">%1$s %2$s is ready</string>
     <string name="rt_install_github_needs_online">GitHub sign-in needs the PocketDev online APK.</string>
+    <string name="rt_install_goose_needs_online">Goose needs the PocketDev online APK.</string>
     <string name="rt_install_downloading_github_cli">Downloading official GitHub CLI</string>
     <string name="rt_install_downloading_version">Downloading %1$s %2$s</string>
     <string name="rt_install_installing_version">Installing %1$s %2$s</string>

@@ -269,6 +269,8 @@
     <string name="agent_subtitle_claude">Ο coding agent της Anthropic · ευρεία υποστήριξη παρόχων</string>
     <string name="agent_subtitle_deepseek">Επίσημος coding agent της DeepSeek · πάροχοι με κλειδί API</string>
     <string name="agent_subtitle_antigravity">Ο επίσημος coding agent της Google · λογαριασμός Google</string>
+    <string name="agent_title_goose">Goose</string>
+    <string name="agent_subtitle_goose">Εργαλείο MCP · 85+ πάροχοι · τοπικά μοντέλα</string>
     <string name="projects_hero_title">Αναπτύξτε από το τηλέφωνό σας</string>
     <string name="projects_hero_desc">Συνομιλήστε, ελέγξτε αλλαγές και δείτε προεπισκόπηση του έργου σας.</string>
     <string name="projects_quick_project">Γρήγορο έργο</string>

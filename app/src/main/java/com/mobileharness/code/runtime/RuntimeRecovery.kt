@@ -67,5 +67,12 @@ val ANTIGRAVITY_RECOVERY_PROFILE = RuntimeRecoveryProfile(
     supportsTurnCheckpoint = false,
 )
 
+val GOOSE_RECOVERY_PROFILE = RuntimeRecoveryProfile(
+    canResumePersisted = false,
+    reportsToolActivity = true,
+    reportsInterruptedToolOutcome = false,
+    supportsTurnCheckpoint = false,
+)
+
 const val DSH_CONTINUATION_INSTRUCTION =
     "The previous attempt was interrupted by a network error. Continue the same task from where it stopped. Do not repeat tool calls that already have results. Before retrying a side-effecting action whose result is missing, inspect the workspace and verify whether it already happened."

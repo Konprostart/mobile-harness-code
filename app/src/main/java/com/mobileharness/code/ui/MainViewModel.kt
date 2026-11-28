@@ -150,6 +150,7 @@ import com.mobileharness.code.network.ServerSyncConfig
 import com.mobileharness.code.network.ServerSyncMode
 import com.mobileharness.code.runtime.ClaudeRuntimeBridge
 import com.mobileharness.code.runtime.DshRuntimeBridge
+import com.mobileharness.code.runtime.GooseRuntimeBridge
 import com.mobileharness.code.runtime.DSH_CONTINUATION_INSTRUCTION
 import com.mobileharness.code.runtime.RecoveryAction
 import com.mobileharness.code.runtime.RuntimeRecoveryPolicy
@@ -996,6 +997,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val resumePolicy = SessionResumePolicy()
     private val claudeRuntime = ClaudeRuntimeBridge(application) { profile -> vault.get(profile.keyId) }
     private val dshRuntime = DshRuntimeBridge(application) { profile -> vault.get(profile.keyId) }
+    private val gooseRuntime = GooseRuntimeBridge(application) { profile -> vault.get(profile.keyId) }
     private val installer = RuntimeInstaller(application)
     private val gitProviderManager = GitProviderManager()
     private val templateStore = WebTemplateStore(application)
@@ -1027,7 +1029,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             _state.value.activeChatId?.let { preferences.saveAgentConversation(AgentKind.ANTIGRAVITY, projectId, it, id) }
         },
     )
-    private val agentRegistry = AgentRegistry.builtIns(claudeRuntime, dshRuntime, antigravityRuntime)
+    private val agentRegistry = AgentRegistry.builtIns(claudeRuntime, dshRuntime, antigravityRuntime, gooseRuntime)
     private fun activeRuntime(): com.mobileharness.code.runtime.RuntimeBridge = agentRegistry.require(_state.value.agentKind).runtime
     private val providerApi = ProviderApiClient(application)
     private val aiCatalogStore = AiCatalogStore(File(getApplication<Application>().filesDir, "ai-catalog"))
@@ -2381,6 +2383,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             },
             AgentIds.ANTIGRAVITY to RuntimeBridgeExecutor(AgentIds.ANTIGRAVITY) { prompt ->
                 runRuntimeSession(AgentIds.ANTIGRAVITY, antigravityRuntime, project, provider, prompt)
+            },
+            AgentIds.GOOSE to RuntimeBridgeExecutor(AgentIds.GOOSE) { prompt ->
+                runRuntimeSession(AgentIds.GOOSE, gooseRuntime, project, provider, prompt)
             },
         )
     }

@@ -83,6 +83,12 @@ enum class AgentKind(
         "Google's official coding agent · Google account",
         "39.9 MB",
     ),
+    GOOSE(
+        "goose",
+        "Goose",
+        "MCP tool agent · 85+ providers · local models",
+        "48 MB",
+    ),
     ;
 
     companion object {
@@ -100,6 +106,21 @@ val DEEPSEEK_HARNESS_PROVIDERS: Set<ProviderKind> = setOf(
     ProviderKind.KIMI,
     ProviderKind.NVIDIA_NIM,
     ProviderKind.FREE_LLM_API,
+    ProviderKind.CUSTOM,
+)
+
+/**
+ * Provider kinds offered for [AgentKind.GOOSE]. Goose speaks to providers directly through its own
+ * provider registry (no local format gateway), so the Claude-subscription login and the local
+ * free-provider gateway are intentionally excluded — Goose cannot use an OAuth token and does not
+ * route through the app's local shims.
+ */
+val GOOSE_PROVIDERS: Set<ProviderKind> = setOf(
+    ProviderKind.ANTHROPIC,
+    ProviderKind.LLM_ROUTER,
+    ProviderKind.DEEPSEEK,
+    ProviderKind.KIMI,
+    ProviderKind.NVIDIA_NIM,
     ProviderKind.CUSTOM,
 )
 
@@ -168,6 +189,7 @@ fun protocolFromDshApi(dshApi: String, claudeCode: Boolean): ProviderProtocol = 
 fun providersForAgent(agent: AgentKind): List<ProviderKind> = when (agent) {
     AgentKind.DEEPSEEK_HARNESS -> ProviderKind.entries.filter { it in DEEPSEEK_HARNESS_PROVIDERS }
     AgentKind.CLAUDE_CODE -> ProviderKind.entries.filterNot { it == ProviderKind.OPENCODE_ZEN }
+    AgentKind.GOOSE -> ProviderKind.entries.filter { it in GOOSE_PROVIDERS }
     AgentKind.ANTIGRAVITY -> emptyList()
 }
 

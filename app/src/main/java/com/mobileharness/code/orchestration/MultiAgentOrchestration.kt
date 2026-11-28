@@ -21,8 +21,9 @@ object AgentIds {
     const val CLAUDE_CODE = "claude-code"
     const val DEEPSEEK_HARNESS = "deepseek-harness"
     const val ANTIGRAVITY = "antigravity"
+    const val GOOSE = "goose"
     const val SIDEKICK = "sidekick"
-    val ALL = setOf(CLAUDE_CODE, DEEPSEEK_HARNESS, ANTIGRAVITY, SIDEKICK)
+    val ALL = setOf(CLAUDE_CODE, DEEPSEEK_HARNESS, ANTIGRAVITY, GOOSE, SIDEKICK)
 }
 
 /** Coarse capabilities an agent may advertise; assignment is honest, never assumed. */
@@ -41,6 +42,7 @@ object DefaultAgentProfiles {
         AgentProfile(AgentIds.CLAUDE_CODE, setOf(AgentCapability.CODE, AgentCapability.REVIEW, AgentCapability.TEST, AgentCapability.RESEARCH, AgentCapability.TERMINAL, AgentCapability.PLAN)),
         AgentProfile(AgentIds.DEEPSEEK_HARNESS, setOf(AgentCapability.CODE, AgentCapability.REVIEW, AgentCapability.TEST, AgentCapability.RESEARCH, AgentCapability.TERMINAL, AgentCapability.PLAN)),
         AgentProfile(AgentIds.ANTIGRAVITY, setOf(AgentCapability.CODE, AgentCapability.REVIEW, AgentCapability.RESEARCH, AgentCapability.BROWSER, AgentCapability.PLAN)),
+        AgentProfile(AgentIds.GOOSE, setOf(AgentCapability.CODE, AgentCapability.REVIEW, AgentCapability.TEST, AgentCapability.RESEARCH, AgentCapability.TERMINAL, AgentCapability.PLAN, AgentCapability.COORDINATE)),
         AgentProfile(AgentIds.SIDEKICK, setOf(AgentCapability.RESEARCH, AgentCapability.COORDINATE, AgentCapability.BROWSER, AgentCapability.PLAN)),
     )
     fun forId(agentId: String): AgentProfile? = PROFILES.firstOrNull { it.agentId == agentId }

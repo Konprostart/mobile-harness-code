@@ -76,6 +76,7 @@ class RuntimeInstaller(private val context: Context) {
     private val devStacksFile = File(rootfs, ".pocket-dev-stacks.json")
     private val dshMarker = File(rootfs, ".pocket-dsh-version")
     private val agyMarker = File(rootfs, ".pocket-agy-version")
+    private val gooseMarker = File(rootfs, ".pocket-goose-version")
     private val githubCliMarker = File(rootfs, ".pocket-github-cli-version")
     private val dshAndroidCompatibilityMarker = File(rootfs, ".pocket-dsh-android-compat-version")
     private val macosMetadataRepairMarker = File(rootfs, ".pocket-macos-metadata-repair")
@@ -238,6 +239,7 @@ class RuntimeInstaller(private val context: Context) {
             com.mobileharness.code.model.AgentKind.CLAUDE_CODE -> ensureClaudeInstalled(proot, 0.985f, onProgress)
             com.mobileharness.code.model.AgentKind.DEEPSEEK_HARNESS -> ensureDshInstalled(proot, 0.985f, onProgress)
             com.mobileharness.code.model.AgentKind.ANTIGRAVITY -> ensureAgyInstalled(proot, 0.985f, onProgress)
+            com.mobileharness.code.model.AgentKind.GOOSE -> ensureGooseInstalled(proot, 0.985f, onProgress)
         }
         onProgress(RuntimeInstallProgress(str(R.string.rt_install_setup_complete), 1f))
         return InstalledRuntime(proot, rootfs)
@@ -257,6 +259,7 @@ class RuntimeInstaller(private val context: Context) {
             com.mobileharness.code.model.AgentKind.CLAUDE_CODE -> ensureClaudeInstalled(runtime.proot, 0.05f, onProgress)
             com.mobileharness.code.model.AgentKind.DEEPSEEK_HARNESS -> ensureDshInstalled(runtime.proot, 0.05f, onProgress)
             com.mobileharness.code.model.AgentKind.ANTIGRAVITY -> ensureAgyInstalled(runtime.proot, 0.05f, onProgress)
+            com.mobileharness.code.model.AgentKind.GOOSE -> ensureGooseInstalled(runtime.proot, 0.05f, onProgress)
         }
         onProgress(RuntimeInstallProgress(str(R.string.rt_install_ready, agent.localizedTitle(context)), 1f))
     }
@@ -276,6 +279,9 @@ class RuntimeInstaller(private val context: Context) {
             com.mobileharness.code.model.AgentKind.ANTIGRAVITY -> isInstalled() &&
                 File(rootfs, AGY_GUEST_PATH.removePrefix("/")).canExecute() &&
                 !agyMarker.readTextOrNull().isNullOrBlank()
+            com.mobileharness.code.model.AgentKind.GOOSE -> isInstalled() &&
+                File(rootfs, GOOSE_GUEST_PATH.removePrefix("/")).canExecute() &&
+                !gooseMarker.readTextOrNull().isNullOrBlank()
         }
     }
 
@@ -287,6 +293,8 @@ class RuntimeInstaller(private val context: Context) {
     }
 
     val agyVersion: String get() = agyMarker.readTextOrNull().orEmpty()
+
+    val gooseVersion: String get() = gooseMarker.readTextOrNull().orEmpty()
 
     val githubCliVersion: String get() = githubCliMarker.readTextOrNull().orEmpty()
 
@@ -364,6 +372,11 @@ class RuntimeInstaller(private val context: Context) {
             ?.trim()
             ?.takeIf { it.isNotEmpty() && File(rootfs, AGY_GUEST_PATH.removePrefix("/")).canExecute() }
             ?.let { put(com.mobileharness.code.model.AgentKind.ANTIGRAVITY, it) }
+
+        gooseMarker.readTextOrNull()
+            ?.trim()
+            ?.takeIf { it.isNotEmpty() && File(rootfs, GOOSE_GUEST_PATH.removePrefix("/")).canExecute() }
+            ?.let { put(com.mobileharness.code.model.AgentKind.GOOSE, it) }
     }
 
     /** Checks each installed agent against its own authoritative release source. */
@@ -391,6 +404,12 @@ class RuntimeInstaller(private val context: Context) {
                         put(com.mobileharness.code.model.AgentKind.ANTIGRAVITY, AgentUpdateInfo(current, latest))
                     }
             }
+            installed[com.mobileharness.code.model.AgentKind.GOOSE]?.let { current ->
+                runCatching { fetchGooseManifest().getString("version") }.getOrNull()
+                    ?.takeIf { isVersionNewer(it, current) }?.let { latest ->
+                        put(com.mobileharness.code.model.AgentKind.GOOSE, AgentUpdateInfo(current, latest))
+                    }
+            }
         }
     }
 
@@ -404,6 +423,7 @@ class RuntimeInstaller(private val context: Context) {
             com.mobileharness.code.model.AgentKind.CLAUDE_CODE -> updateClaude(runtime, expectedVersion, onProgress)
             com.mobileharness.code.model.AgentKind.DEEPSEEK_HARNESS -> updateDsh(runtime, expectedVersion, onProgress)
             com.mobileharness.code.model.AgentKind.ANTIGRAVITY -> updateAgy(runtime, expectedVersion, onProgress)
+            com.mobileharness.code.model.AgentKind.GOOSE -> updateGoose(runtime, expectedVersion, onProgress)
         }
         onProgress(RuntimeInstallProgress(str(R.string.rt_install_version_ready, agent.localizedTitle(context), expectedVersion), 1f, event = RuntimeInstallEvent.COMPLETED))
     }
@@ -471,6 +491,42 @@ class RuntimeInstaller(private val context: Context) {
         agyMarker.writeText(latest)
     }
 
+    private suspend fun updateGoose(
+        runtime: InstalledRuntime,
+        expectedVersion: String,
+        onProgress: suspend (RuntimeInstallProgress) -> Unit,
+    ) {
+        val manifest = fetchGooseManifest()
+        val latest = manifest.getString("version")
+        check(latest == expectedVersion) { str(R.string.rt_install_newer_release, "Goose") }
+        val downloaded = File(downloads, "goose-$latest-linux-arm64.tar.gz")
+        val gooseDownloadLabel = str(R.string.rt_install_downloading_version, "Goose", latest)
+        downloadVerified(manifest.getString("url"), downloaded, manifest.getString("sha256")) { bytes, total ->
+            val ratio = if (total > 0L) bytes.toFloat() / total else 0f
+            onProgress(RuntimeInstallProgress(gooseDownloadLabel, ratio * 0.9f, bytes, total.takeIf { it > 0L }, event = RuntimeInstallEvent.DOWNLOAD))
+        }
+        val destination = File(rootfs, GOOSE_GUEST_PATH.removePrefix("/"))
+        var found = false
+        TarArchiveInputStream(GzipCompressorInputStream(BufferedInputStream(downloaded.inputStream()))).use { archive ->
+            var entry = archive.nextEntry
+            while (entry != null) {
+                if (entry.isFile && entry.name.removePrefix("./") == "goose") {
+                    val staged = File(destination.parentFile, ".goose-$latest.installing")
+                    FileOutputStream(staged).use { archive.copyTo(it) }
+                    Os.chmod(staged.absolutePath, 0b111101101)
+                    Os.rename(staged.absolutePath, destination.absolutePath)
+                    found = true
+                    break
+                }
+                entry = archive.nextEntry
+            }
+        }
+        downloaded.delete()
+        check(found) { "Goose update archive is incomplete" }
+        verifyGuest(runtime.proot, "$GOOSE_GUEST_PATH --version", str(R.string.rt_install_update_verify_failed, "Goose"))
+        gooseMarker.writeText(latest)
+    }
+
     private suspend fun updateDsh(
         runtime: InstalledRuntime,
         expectedVersion: String,
@@ -532,6 +588,24 @@ class RuntimeInstaller(private val context: Context) {
     private fun fetchAgyManifest(): JSONObject = JSONObject(
         fetchText("https://antigravity-cli-auto-updater-974169037036.us-central1.run.app/manifests/linux_arm64.json"),
     )
+
+    /** Latest Goose release (version + the musl arm64 asset's download URL and SHA-256 digest). */
+    private fun fetchGooseManifest(): JSONObject {
+        val release = JSONObject(fetchText("https://api.github.com/repos/aaif-goose/goose/releases/latest"))
+        val version = release.optString("tag_name").removePrefix("v").ifBlank { GOOSE_VERSION }
+        val assets = release.optJSONArray("assets") ?: org.json.JSONArray()
+        var url = GOOSE_RELEASE_URL
+        var sha256 = GOOSE_RELEASE_SHA256
+        for (index in 0 until assets.length()) {
+            val asset = assets.optJSONObject(index) ?: continue
+            if (asset.optString("name") == "goose-aarch64-unknown-linux-musl.tar.gz") {
+                url = asset.optString("browser_download_url").ifBlank { url }
+                sha256 = asset.optString("digest").removePrefix("sha256:").ifBlank { sha256 }
+                break
+            }
+        }
+        return JSONObject().put("version", version).put("url", url).put("sha256", sha256)
+    }
 
     private fun isVersionNewer(candidate: String, current: String): Boolean {
         fun parts(value: String) = Regex("\\d+").findAll(value).map { it.value.toIntOrNull() ?: 0 }.toList()
@@ -604,6 +678,60 @@ class RuntimeInstaller(private val context: Context) {
         require(isAgentInstalled(com.mobileharness.code.model.AgentKind.ANTIGRAVITY)) {
             "Antigravity CLI installation is incomplete"
         }
+    }
+
+    /**
+     * Installs Goose on demand by downloading the official static ARM64 binary and verifying its
+     * SHA-256. Goose is a direct-download agent (like GitHub CLI), so it needs the online APK; the
+     * offline APK bundles only the Core/stack overlays and cannot fetch it.
+     */
+    private suspend fun ensureGooseInstalled(
+        proot: File,
+        fraction: Float,
+        onProgress: suspend (RuntimeInstallProgress) -> Unit,
+    ) {
+        if (isAgentInstalled(com.mobileharness.code.model.AgentKind.GOOSE)) return
+        check(!BuildConfig.OFFLINE_RUNTIME_BUNDLES) { str(R.string.rt_install_goose_needs_online) }
+        writeResolver()
+        downloads.mkdirs()
+        val downloaded = File(downloads, "goose-$GOOSE_VERSION-linux-arm64.tar.gz")
+        onProgress(RuntimeInstallProgress(str(R.string.rt_install_downloading_version, "Goose", GOOSE_VERSION), fraction))
+        downloadVerified(GOOSE_RELEASE_URL, downloaded, GOOSE_RELEASE_SHA256) { bytes, total ->
+            val ratio = if (total > 0L) bytes.toFloat() / total else 0f
+            onProgress(
+                RuntimeInstallProgress(
+                    message = str(R.string.rt_install_downloading_version, "Goose", GOOSE_VERSION),
+                    fraction = fraction + ratio * 0.7f,
+                    downloadedBytes = bytes,
+                    totalBytes = total.takeIf { it > 0L },
+                    event = RuntimeInstallEvent.DOWNLOAD,
+                ),
+            )
+        }
+        onProgress(RuntimeInstallProgress(str(R.string.rt_install_installing_version, "Goose", GOOSE_VERSION), 0.9f, indeterminate = true))
+        val destination = File(rootfs, GOOSE_GUEST_PATH.removePrefix("/"))
+        destination.parentFile?.mkdirs()
+        var found = false
+        TarArchiveInputStream(GzipCompressorInputStream(BufferedInputStream(downloaded.inputStream()))).use { archive ->
+            var entry = archive.nextEntry
+            while (entry != null) {
+                if (entry.isFile && entry.name.removePrefix("./") == "goose") {
+                    val staged = File(destination.parentFile, ".goose-$GOOSE_VERSION.installing")
+                    FileOutputStream(staged).use { archive.copyTo(it) }
+                    Os.chmod(staged.absolutePath, 0b111101101)
+                    Os.rename(staged.absolutePath, destination.absolutePath)
+                    found = true
+                    break
+                }
+                entry = archive.nextEntry
+            }
+        }
+        downloaded.delete()
+        check(found) { "Official Goose archive did not contain the expected binary" }
+        verifyGuest(proot, "$GOOSE_GUEST_PATH --version", str(R.string.rt_install_verify_failed, "Goose"))
+        gooseMarker.writeText(GOOSE_VERSION)
+        check(isAgentInstalled(com.mobileharness.code.model.AgentKind.GOOSE)) { "Goose installation is incomplete" }
+        onProgress(RuntimeInstallProgress(str(R.string.rt_install_ready, "Goose"), 1f))
     }
 
     private suspend fun ensureDshInstalled(
@@ -1937,6 +2065,8 @@ fi
         connection.connectTimeout = 15_000
         connection.readTimeout = 30_000
         connection.setRequestProperty("Accept", "application/json")
+        // GitHub's REST API requires a User-Agent; harmless for npm/Google/other hosts.
+        connection.setRequestProperty("User-Agent", "PocketDev")
         check(connection.responseCode in 200..299) { "Request failed with HTTP ${connection.responseCode}" }
         return connection.inputStream.bufferedReader().use { it.readText() }.also { connection.disconnect() }
     }
@@ -1959,12 +2089,21 @@ fi
     companion object {
         const val AGY_GUEST_PATH = "/root/.local/bin/agy"
         const val GITHUB_CLI_GUEST_PATH = "/root/.local/bin/gh"
+        const val GOOSE_GUEST_PATH = "/root/.local/bin/goose"
         private const val AGY_VERSION = "1.1.27"
         private const val AGY_RELEASE_URL = "https://storage.googleapis.com/antigravity-public/antigravity-cli/1.1.27-5211191891591168/linux-arm/cli_linux_arm64.tar.gz"
         private const val AGY_RELEASE_SHA512 = "ed45f6930785aa4b42f14e07ace1c9d91a94fb76e760f54acbd7d3d3951e1f957fd456a0dae2a3124dd9a3b689bf7afb7c9303a3e4ba95037fc10063424d9bf9"
         private const val GITHUB_CLI_VERSION = "2.100.0"
         private const val GITHUB_CLI_RELEASE_URL = "https://github.com/cli/cli/releases/download/v2.100.0/gh_2.100.0_linux_arm64.tar.gz"
         private const val GITHUB_CLI_RELEASE_SHA256 = "ea4e7a581a32ccad6cc7923cb1576ac5859ba4b9a16ab22eb8f8a96e78e2e961"
+        /**
+         * Pinned Goose release (aaif-goose/goose, Apache-2.0). The musl build is a fully static
+         * ARM64 ELF, which runs under the Ubuntu rootfs inside PRoot without shared-library
+         * coupling. SHA-256 verified against the GitHub release asset.
+         */
+        private const val GOOSE_VERSION = "1.61.1"
+        private const val GOOSE_RELEASE_URL = "https://github.com/aaif-goose/goose/releases/download/v1.61.1/goose-aarch64-unknown-linux-musl.tar.gz"
+        private const val GOOSE_RELEASE_SHA256 = "fdfe76b53d8aae72753328fe83fef6431b7b1e5847f18e796c989758f7883355"
         private const val LEGACY_README = "# Pocket Dev project\n\nThis project is managed locally on Android.\n"
         private const val LEGACY_INDEX = "<!doctype html><title>Pocket Dev</title><h1>Hello from Android</h1>\n"
         private const val ROOTFS_VERSION = "ubuntu-20.04.5-arm64"
