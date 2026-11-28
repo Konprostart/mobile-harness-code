@@ -1,12 +1,12 @@
 {
-  "versionCode": 54,
-  "versionName": "1.20.0",
-  "notes": "Mobile Harness Code v1.20.0 — background execution reliability. Every DeepSeek Harness, Claude Code and Antigravity run is now journaled to a crash-surviving session record, so if Android kills the app process mid-task you get an 'interrupted' banner on the next launch instead of silently losing the run (resume stays manual and fail-closed — a possibly side-effecting task is never auto-repeated). The PARTIAL_WAKE_LOCK is now re-acquired before its 90-minute timeout so a single long agent turn or build keeps CPU wakefulness. Terminal commands (gradle/npm/python/…) now run under the same foreground service as the agents, so they survive leaving Appbuilder. Signed (V2) with the unchanged production certificate.",
+  "versionCode": 55,
+  "versionName": "1.21.0",
+  "notes": "Mobile Harness Code v1.21.0 — Goose, the fourth coding/tool agent. Goose (aaif-goose/goose, Apache-2.0) is integrated through its native Agent Client Protocol (goose acp) subprocess, so responses stream as structured events. Every Goose tool call is gated by the app's unified approval system (fail-closed, GOOSE_MODE=approve — no allow-all), and Goose is registered as a coordinator-capable agent in the multi-agent orchestrator. Goose supports the key-based providers already managed by the app (Anthropic, OpenRouter, DeepSeek, Kimi, NVIDIA NIM and custom OpenAI-compatible endpoints) with credentials injected from the device-bound vault — never written to a plaintext config file. Installs on demand as the official pinned ARM64 musl binary (SHA-256 verified) with update check and background-mode support. Signed (V2) with the unchanged production certificate.",
   "artifacts": {
     "online": {
-      "url": "https://github.com/Konprostart/mobile-harness-code/releases/download/v1.20.0/mobile-harness-online.apk",
-      "sha256": "8d9eb9c52a745cdfefb38054b25a0bc222a8e133cc1391210b381add8195708b",
-      "sizeBytes": 110948697
+      "url": "https://github.com/Konprostart/mobile-harness-code/releases/download/v1.21.0/mobile-harness-online.apk",
+      "sha256": "61519bff437af4cbe6a99cf8067afed5460deb256db65d66a4a3979d55492447",
+      "sizeBytes": 111034713
     }
   }
 }
