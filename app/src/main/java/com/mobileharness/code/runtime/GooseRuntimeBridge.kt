@@ -402,7 +402,7 @@ class GooseRuntimeBridge(
                 model = activeModel.orEmpty(),
                 usage = TokenUsage(inputTokens = input, outputTokens = output),
                 source = UsageSource.CLI,
-                projectId = "",
+                projectId = activeProjectSlug.orEmpty(),
                 task = "",
             ),
         )
